@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head><script>(function(){
+  function makeStore(){
+    var data = {};
+    var api = {
+      getItem: function(k){ return Object.prototype.hasOwnProperty.call(data, k) ? data[k] : null; },
+      setItem: function(k, v){ data[k] = String(v); },
+      removeItem: function(k){ delete data[k]; },
+      clear: function(){ data = {}; },
+      key: function(i){ return Object.keys(data)[i] || null; }
+    };
+    Object.defineProperty(api, 'length', { get: function(){ return Object.keys(data).length; } });
+    return api;
+  }
+  function tryShim(name){
+    var works = false;
+    try { works = !!window[name] && typeof window[name].getItem === 'function'; void window[name].length; }
+    catch (_) { works = false; }
+    if (works) return;
+    try { Object.defineProperty(window, name, { configurable: true, value: makeStore() }); }
+    catch (_) { try { window[name] = makeStore(); } catch (__) {} }
+  }
+  tryShim('localStorage');
+  tryShim('sessionStorage');
+})();</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About — Tsatsral Limo Co.</title>
+<style>
+  :root{
+    --bg:oklch(97% 0.012 80);--paper:oklch(99% 0.005 80);
+    --fg:oklch(20% 0.02 60);--ink-soft:oklch(28% 0.02 60);
+    --muted:oklch(48% 0.015 60);--rule:oklch(82% 0.012 80);
+    --accent:oklch(58% 0.16 35);--good:oklch(55% 0.13 145);
+    --font-display:'Iowan Old Style','Charter',Georgia,serif;
+    --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --font-mono:ui-monospace,'SF Mono','JetBrains Mono',Menlo,monospace;
+    --max:1280px;--pad:clamp(20px,4vw,56px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+  .wrap{max-width:var(--max);margin:0 auto;padding-inline:var(--pad)}
+  h1,h2,h3,h4{font-family:var(--font-display);font-weight:500;letter-spacing:-0.01em;margin:0}
+  h1{font-size:clamp(56px,9vw,128px);line-height:.95;letter-spacing:-0.03em}
+  h2{font-size:clamp(28px,3.4vw,44px);line-height:1.1;letter-spacing:-0.02em}
+  h3{font-size:clamp(20px,1.8vw,24px);line-height:1.25}
+  p{margin:0}
+  .kicker{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+  .kicker--accent{color:var(--accent)}
+  .lede{font-size:18px;line-height:1.5;color:var(--ink-soft);max-width:58ch;text-wrap:pretty}
+
+  .announce{background:var(--fg);color:var(--bg);font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;text-align:center;padding:9px var(--pad);display:flex;justify-content:center;gap:14px}
+  .announce em{color:var(--accent);font-style:normal}
+  .announce a{border-bottom:1px solid currentColor;padding-bottom:1px}
+  .topnav{border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:50;backdrop-filter:saturate(140%) blur(8px);background-color:color-mix(in oklch,var(--bg) 88%,transparent)}
+  .topnav__inner{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:32px;padding:18px var(--pad);max-width:var(--max);margin:0 auto}
+  .brand{font-family:var(--font-display);font-size:22px;letter-spacing:-0.02em;display:flex;align-items:baseline;gap:8px}
+  .brand::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);transform:translateY(-2px)}
+  .brand small{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+  .nav{display:flex;justify-content:center;gap:28px;font-size:14px;color:var(--ink-soft)}
+  .nav a{padding:6px 0}
+  .nav a:hover,.nav a.is-active{color:var(--fg)}
+  .nav a.is-active{border-bottom:1px solid var(--accent)}
+  .nav-cta{display:flex;align-items:center;gap:18px;font-size:14px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid var(--fg);color:var(--fg);font-size:14px;background:var(--paper);transition:transform .12s ease}
+  .btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--fg)}
+  .btn--filled{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+  .btn--filled:hover{box-shadow:3px 3px 0 var(--accent)}
+  .btn--ghost{border-color:transparent;background:transparent;padding:10px 0}
+
+  /* masthead */
+  .mast{padding:clamp(64px,10vw,160px) 0 clamp(56px,8vw,96px);border-bottom:1px solid var(--rule);position:relative}
+  .mast__top{display:flex;justify-content:space-between;align-items:baseline;gap:32px;border-bottom:1px solid var(--rule);padding-bottom:18px;margin-bottom:48px;font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .mast__top em{color:var(--accent);font-style:normal}
+  .mast h1{margin-bottom:48px;text-wrap:balance;max-width:14ch}
+  .mast h1 em{font-style:italic;color:var(--accent)}
+  .mast__deck{display:grid;grid-template-columns:1fr 1.2fr;gap:64px;padding-top:32px;border-top:1px solid var(--rule);align-items:start}
+  .mast__deck p{font-size:18px;line-height:1.5;color:var(--ink-soft);text-wrap:pretty}
+  .mast__deck p:first-of-type::first-letter{font-family:var(--font-display);font-size:84px;float:left;line-height:.85;padding-right:14px;padding-top:6px;color:var(--accent)}
+  .mast__byline{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .mast__byline b{display:block;color:var(--fg);font-family:var(--font-display);font-size:16px;letter-spacing:-0.01em;text-transform:none;margin-bottom:6px}
+
+  /* portrait */
+  .portrait{padding:clamp(64px,8vw,96px) 0;border-bottom:1px solid var(--rule);background:var(--paper)}
+  .portrait__grid{display:grid;grid-template-columns:1.1fr 1fr;gap:64px;align-items:center}
+  .portrait__art{aspect-ratio:4/5;background:var(--bg);border:1px solid var(--rule);position:relative;overflow:hidden}
+  .portrait__art::before{
+    content:"";position:absolute;inset:0;
+    background:
+      radial-gradient(120% 80% at 70% 35%,oklch(78% 0.04 60) 0%,oklch(28% 0.02 60) 70%,oklch(15% 0.02 60) 100%);
+  }
+  .portrait__art::after{
+    content:"";position:absolute;left:18%;top:20%;width:64%;height:70%;
+    background:
+      radial-gradient(60% 30% at 50% 28%,oklch(82% 0.025 60),oklch(52% 0.02 60) 70%,transparent 80%),
+      linear-gradient(180deg,oklch(20% 0.02 60),oklch(10% 0.02 60));
+    clip-path:ellipse(50% 50% at 50% 50%);
+    border-radius:50%;
+    transform:scale(0.85,1);
+  }
+  .portrait__caption{position:absolute;left:14px;bottom:14px;font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--bg);text-transform:uppercase;z-index:2}
+  .portrait__copy h2{margin-bottom:24px;text-wrap:balance}
+  .portrait__copy h2 em{font-style:italic;color:var(--accent)}
+  .portrait__copy p{font-size:17px;color:var(--ink-soft);line-height:1.6;margin-bottom:18px}
+  .portrait__copy p:last-child{margin-bottom:0}
+  .portrait__copy .sig{font-family:var(--font-display);font-size:22px;font-style:italic;color:var(--fg);letter-spacing:-0.01em;margin-top:24px;display:block}
+
+  /* values */
+  .values{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule)}
+  .values__head{display:grid;grid-template-columns:1fr 1.4fr;gap:64px;align-items:end;margin-bottom:64px}
+  .values__list{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--fg)}
+  .val{padding:32px 28px 32px 0;border-right:1px solid var(--rule);display:flex;flex-direction:column;gap:14px}
+  .val:last-child{border-right:0;padding-right:0}
+  .val:not(:first-child){padding-left:28px}
+  .val__num{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .val h3{font-size:22px;letter-spacing:-0.015em}
+  .val p{font-size:14px;color:var(--ink-soft);line-height:1.55}
+  .val em{font-style:italic;color:var(--fg);font-family:var(--font-display)}
+
+  /* timeline */
+  .tl{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule);background:var(--paper)}
+  .tl__head{margin-bottom:48px;max-width:60ch}
+  .tl__head h2{margin-top:14px;text-wrap:balance}
+  .tl__rows{border-top:1px solid var(--fg)}
+  .tl__row{display:grid;grid-template-columns:120px 1fr 1.2fr;gap:48px;padding:28px 0;border-bottom:1px solid var(--rule);align-items:start}
+  .tl__row:last-child{border-bottom:0}
+  .tl__year{font-family:var(--font-mono);font-size:13px;letter-spacing:.06em;color:var(--accent);font-variant-numeric:tabular-nums}
+  .tl__row h3{font-size:22px;letter-spacing:-0.01em;margin-bottom:6px}
+  .tl__row p{font-size:15px;line-height:1.55;color:var(--ink-soft)}
+  .tl__row p em{font-style:italic;color:var(--fg)}
+
+  /* team */
+  .team{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule)}
+  .team__head{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:end;margin-bottom:48px}
+  .team__grid{display:grid;grid-template-columns:repeat(4,1fr);gap:32px}
+  .ppl{display:flex;flex-direction:column;gap:14px}
+  .ppl__face{
+    aspect-ratio:1/1.15;background:var(--paper);border:1px solid var(--rule);position:relative;overflow:hidden;
+  }
+  .ppl__face::before{
+    content:attr(data-init);position:absolute;inset:0;display:grid;place-items:center;
+    font-family:var(--font-display);font-size:64px;letter-spacing:-0.03em;color:var(--accent);opacity:.85;
+    font-style:italic;
+  }
+  .ppl__face::after{
+    content:"";position:absolute;inset:auto 0 0 0;height:36%;
+    background:linear-gradient(180deg,transparent,oklch(82% 0.012 80));
+  }
+  .ppl b{font-family:var(--font-display);font-size:18px;letter-spacing:-0.01em;display:block;color:var(--fg);font-weight:500}
+  .ppl span{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+  /* manifesto */
+  .manif{padding:clamp(80px,10vw,140px) 0;border-bottom:1px solid var(--rule);background:var(--fg);color:var(--bg)}
+  .manif__inner{display:grid;grid-template-columns:1fr 2fr;gap:64px;align-items:start}
+  .manif h2{color:var(--bg);font-size:clamp(36px,4vw,56px);line-height:1.05;text-wrap:balance}
+  .manif h2 em{color:var(--accent);font-style:italic}
+  .manif ol{list-style:none;padding:0;margin:0;counter-reset:m}
+  .manif li{counter-increment:m;border-bottom:1px solid oklch(35% 0.02 60);padding:22px 0;display:grid;grid-template-columns:48px 1fr;gap:18px;align-items:baseline;font-size:17px;line-height:1.5;color:oklch(82% 0.012 80);text-wrap:pretty}
+  .manif li::before{content:counter(m,decimal-leading-zero);font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;color:var(--accent)}
+  .manif li b{display:block;color:var(--bg);font-family:var(--font-display);font-size:22px;font-weight:500;letter-spacing:-0.01em;margin-bottom:6px}
+  .manif li:last-child{border-bottom:0}
+
+  footer{padding:64px 0 28px;background:var(--bg);color:var(--ink-soft);font-size:13px}
+  .foot{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:40px;border-bottom:1px solid var(--rule);padding-bottom:48px;margin-bottom:24px}
+  .foot h4{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400;margin-bottom:16px}
+  .foot ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+  .foot a:hover{color:var(--accent)}
+  .foot__brand .brand{font-size:24px;margin-bottom:14px}
+  .foot__brand p{max-width:32ch;color:var(--muted);font-size:13px;line-height:1.55}
+  .foot__brand .addr{margin-top:18px;font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;color:var(--ink-soft);line-height:1.7}
+  .foot__bottom{display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex-wrap:wrap;gap:14px}
+
+  @media (max-width:980px){
+    .mast__deck,.portrait__grid,.values__head,.team__head,.manif__inner{grid-template-columns:1fr;gap:32px}
+    .values__list{grid-template-columns:1fr;border-top:0}
+    .val{border-right:0!important;border-bottom:1px solid var(--rule);padding:24px 0!important}
+    .team__grid{grid-template-columns:1fr 1fr}
+    .tl__row{grid-template-columns:80px 1fr;gap:24px}
+    .tl__row > p{grid-column:2}
+    .nav{display:none}.topnav__inner{grid-template-columns:1fr auto}
+    .foot{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:640px){
+    .team__grid{grid-template-columns:1fr 1fr}
+    .foot{grid-template-columns:1fr}
+    .nav-cta .btn--ghost{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="announce">
+  <span>Live demo every Thursday — <em>see the dispatch board in action</em></span>
+  <a href="contact.html">Reserve a seat →</a>
+</div>
+
+<nav class="topnav">
+  <div class="topnav__inner">
+    <a href="index.html" class="brand">Tsatsral <small>Limo Co.</small></a>
+    <div class="nav">
+      <a href="index.html">Solutions</a>
+      <a href="services.html">Services</a>
+      <a href="index.html#fleet">Fleet</a>
+      <a href="blog.html">Resources</a>
+      <a href="about.html" class="is-active">About</a>
+    </div>
+    <div class="nav-cta">
+      <a href="#login" class="btn--ghost">Operator login</a>
+      <a href="contact.html" class="btn btn--filled">Request a demo →</a>
+    </div>
+  </div>
+</nav>
+
+<header class="mast">
+  <div class="wrap">
+    <div class="mast__top">
+      <span>About — Vol. IV, Issue 04</span>
+      <span><em>Brooklyn, NY</em> · Founded 2018</span>
+      <span>Issue dated May 2026</span>
+    </div>
+    <h1>We started this because the night dispatcher <em>kept losing sleep.</em></h1>
+    <div class="mast__deck">
+      <div class="mast__byline">
+        <b>Tsatsral Khaltar</b>
+        <span>Founder &amp; CEO</span>
+        <span style="margin-top:14px;display:block">Photographs by<br>Felix Okonkwo</span>
+      </div>
+      <div>
+        <p>Tsatsral Limo started in 2018 with three Cadillacs, a flip phone, and a whiteboard in a rented bay on Atlantic Avenue. The dispatcher was Tsatsral's father — and on the third night of the third month, he called her at 4 a.m. to ask which car was supposed to be at JFK.</p>
+        <p>So she built the dispatch board they wished they'd had. Then a reservations queue. Then a portal so the corporate accounts would stop calling. Six years later, two hundred operators across fourteen cities run on the same software, and her father sleeps through the night.</p>
+        <p>This is, in the literal sense, the operating system we needed to keep our own family business from grinding itself into the dashboard.</p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="portrait">
+  <div class="wrap portrait__grid">
+    <figure class="portrait__art">
+      <figcaption class="portrait__caption">Plate · TSL-01 · Brooklyn depot, March 2018</figcaption>
+    </figure>
+    <div class="portrait__copy">
+      <span class="kicker kicker--accent">A note from the founder</span>
+      <h2>Software shouldn't be the <em>second-hardest part</em> of running a fleet.</h2>
+      <p>I grew up in cars. My father drove for hire in Ulaanbaatar, then in Queens, then in Brooklyn — and the only thing he ever complained about was the paperwork. By the time we owned three vehicles, there were four spreadsheets, two binders, and a dispatch board made of magnets.</p>
+      <p>The software available to us wanted us to either hire a full-time admin or to keep using the magnets. Neither answer was acceptable to a family that worked 18-hour days and still felt like the night was running them.</p>
+      <p>Tsatsral is the answer I would have wanted in 2017 — and the team that built it knows what it's like to have to ask the chauffeur to use his own phone because the company tablet died.</p>
+      <span class="sig">— Tsatsral Khaltar</span>
+    </div>
+  </div>
+</section>
+
+<section class="values">
+  <div class="wrap">
+    <div class="values__head">
+      <div>
+        <span class="kicker kicker--accent">House rules</span>
+        <h2>Three things we will not negotiate.</h2>
+      </div>
+      <p class="lede">A short list of what we believe — written so plainly that an operator three time zones away can hold us to it without a meeting.</p>
+    </div>
+    <div class="values__list">
+      <div class="val">
+        <span class="val__num">01 — One ledger</span>
+        <h3>Reservations and dispatch read from the same row.</h3>
+        <p>If two screens disagree about a trip, one of them is lying. We picked a side: the trip ledger is the truth, and every product is just <em>a different lens</em> on it.</p>
+      </div>
+      <div class="val">
+        <span class="val__num">02 — Honest pricing</span>
+        <h3>The price you quote is the price you charge.</h3>
+        <p>No surge. No "the meter said." Long-distance is fixed-quoted by the mile, airport runs include 15 minutes free, and gratuity is a number — <em>not a guilt-trip slider</em>.</p>
+      </div>
+      <div class="val">
+        <span class="val__num">03 — Boring at scale</span>
+        <h3>The 4 a.m. trip works the same way the noon trip does.</h3>
+        <p>Drama is a sign your software is wrong. We treat <em>boring</em> as a feature — the same workflow at 04:55 as at 14:30, the same dispatch UI on the third trip as on the three-thousandth.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="tl">
+  <div class="wrap">
+    <div class="tl__head">
+      <span class="kicker kicker--accent">Notebook entries · 2018–2026</span>
+      <h2>Eight years of trips, mistakes, and the occasional fix.</h2>
+    </div>
+    <div class="tl__rows">
+      <div class="tl__row">
+        <span class="tl__year">2018</span>
+        <div>
+          <h3>Three cars, one whiteboard.</h3>
+          <p>Tsatsral and her father open the bay on Atlantic Ave. Annual revenue: <em>$184,000</em>. Number of times she's woken up at 4 a.m. by the JFK call: 41.</p>
+        </div>
+        <p>The whiteboard collapses on a Friday in October. We start dispatching from a shared Google Sheet. The Sheet outgrows itself by Christmas.</p>
+      </div>
+      <div class="tl__row">
+        <span class="tl__year">2020</span>
+        <div>
+          <h3>The pandemic year.</h3>
+          <p>Airport revenue collapses 78%. We pivot to long-distance and grocery runs for elderly clients in Brooklyn — <em>and stay open</em>.</p>
+        </div>
+        <p>Customer #214 starts using us monthly for a Boston commute. She's now Customer #214 with 184 trips and counting.</p>
+      </div>
+      <div class="tl__row">
+        <span class="tl__year">2022</span>
+        <div>
+          <h3>First version of the dispatch board.</h3>
+          <p>Built on weekends by a chauffeur named Markus who used to write Java. Six other operators ask if they can buy it. <em>We start charging.</em></p>
+        </div>
+        <p>By the end of the year there are 14 fleets on the platform. Two of them are bigger than ours.</p>
+      </div>
+      <div class="tl__row">
+        <span class="tl__year">2024</span>
+        <div>
+          <h3>Customer portal launches.</h3>
+          <p>White-labelled. A travel desk at a Greenwich hedge fund is the first to use it. They book 220 trips in the first month — <em>and never call us once</em>.</p>
+        </div>
+        <p>We hire two full-time engineers. The chauffeur-engineer remains a chauffeur on weekends because he likes it.</p>
+      </div>
+      <div class="tl__row">
+        <span class="tl__year">2026</span>
+        <div>
+          <h3>Two hundred operators, fourteen cities.</h3>
+          <p>1,200 rides dispatched daily across the platform. The whiteboard is in the office — <em>framed</em>.</p>
+        </div>
+        <p>Tsatsral's father still rides shotgun on the JFK 04:55 once a week. He says it's for quality control. We know it's because he likes it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="team">
+  <div class="wrap">
+    <div class="team__head">
+      <div>
+        <span class="kicker kicker--accent">The crew</span>
+        <h2>The bench you'd want at 4 a.m.</h2>
+      </div>
+      <p class="lede">A small team of dispatchers, drivers-turned-engineers, and one accountant. We answer the phone ourselves — the founder included — between 06:00 and 22:00 ET.</p>
+    </div>
+    <div class="team__grid">
+      <div class="ppl">
+        <div class="ppl__face" data-init="TK"></div>
+        <b>Tsatsral Khaltar</b>
+        <span>Founder · CEO</span>
+      </div>
+      <div class="ppl">
+        <div class="ppl__face" data-init="MO"></div>
+        <b>Markus Olsson</b>
+        <span>Head of platform</span>
+      </div>
+      <div class="ppl">
+        <div class="ppl__face" data-init="LF"></div>
+        <b>Lupita Flores</b>
+        <span>Head of dispatch</span>
+      </div>
+      <div class="ppl">
+        <div class="ppl__face" data-init="EM"></div>
+        <b>Erdene Munkhbat</b>
+        <span>Operator success</span>
+      </div>
+      <div class="ppl">
+        <div class="ppl__face" data-init="JR"></div>
+        <b>Jules Reyes</b>
+        <span>Corporate accounts</span>
+      </div>
+      <div class="ppl">
+        <div class="ppl__face" data-init="IP"></div>
+        <b>Idris Patel</b>
+        <span>Driver platform</span>
+      </div>
+      <div class="ppl">
+        <div class="ppl__face" data-init="MS"></div>
+        <b>Maria Solis</b>
+        <span>Finance</span>
+      </div>
+      <div class="ppl">
+        <div class="ppl__face" data-init="FO"></div>
+        <b>Felix Okonkwo</b>
+        <span>House photographer</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="manif">
+  <div class="wrap manif__inner">
+    <div>
+      <span class="kicker kicker--accent">Manifesto</span>
+      <h2>Six things we'll be <em>boring about</em> for the next ten years.</h2>
+    </div>
+    <ol>
+      <li>
+        <b>One trip ledger.</b>
+        We will not ship a feature that requires reconciling two databases. The trip is the row. Everyone reads from it.
+      </li>
+      <li>
+        <b>The chauffeur sees only their trips.</b>
+        The driver app shows the work. It does not show the back-office. It does not show prices. It does not show other chauffeurs' performance. It is a tool, not a panopticon.
+      </li>
+      <li>
+        <b>Customers own their data, full stop.</b>
+        Export to CSV is a P0. Erase on request is a P0. We will not sell, mine, or "anonymize-and-share" your rider data — ever.
+      </li>
+      <li>
+        <b>Pricing is a number, not a feeling.</b>
+        Quote = charge. Surcharges are listed in the quote. Tips are a percentage the rider picks, not a slider with a pre-checked default we hope they don't notice.
+      </li>
+      <li>
+        <b>We answer the phone.</b>
+        The founder's number is in the welcome email. It is not a chatbot. It is not a rota. If you call between 06:00 and 22:00 ET, a human picks up — usually within four rings.
+      </li>
+      <li>
+        <b>We will not chase a unicorn.</b>
+        We are a software company that started as a limo company. We intend to remain useful to a 3-vehicle fleet on day 4,000.
+      </li>
+    </ol>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div class="foot__brand">
+      <a href="index.html" class="brand">Tsatsral <small>Limo Co.</small></a>
+      <p>The operating system for chauffeured ground transport. Built in New York, run by people who used to dispatch from a flip phone.</p>
+      <div class="addr">
+        488 Atlantic Ave, Floor 3<br>
+        Brooklyn, NY 11217<br>
+        +1 (347) 555-0184
+      </div>
+    </div>
+    <div>
+      <h4>Platform</h4>
+      <ul>
+        <li><a href="index.html#how">Dispatch board</a></li>
+        <li><a href="index.html#how">Reservations</a></li>
+        <li><a href="index.html#how">Customer portal</a></li>
+        <li><a href="index.html#how">Driver app</a></li>
+        <li><a href="index.html#how">Reporting</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Company</h4>
+      <ul>
+        <li><a href="about.html">About</a></li>
+        <li><a href="blog.html">Field guide</a></li>
+        <li><a href="contact.html">Demo</a></li>
+        <li><a href="contact.html">Sales</a></li>
+        <li><a href="#">Press</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>For operators</h4>
+      <ul>
+        <li><a href="#">Operator login</a></li>
+        <li><a href="#">Migrate from Limo Anywhere</a></li>
+        <li><a href="#">Status</a></li>
+        <li><a href="#">Changelog</a></li>
+        <li><a href="#">API docs</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Legal</h4>
+      <ul>
+        <li><a href="#">Terms</a></li>
+        <li><a href="#">Privacy</a></li>
+        <li><a href="#">Security</a></li>
+        <li><a href="#">DPA</a></li>
+        <li><a href="#">Imprint</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap foot__bottom">
+    <span>© 2026 Tsatsral Limo LLC · Vol. IV / Spring</span>
+    <span>New York · Brooklyn · Westchester · Greenwich</span>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,8 @@
+fastapi==0.115.6
+python-multipart==0.0.27
+python-dotenv==1.2.2
+uvicorn[standard]==0.34.0
+twilio==9.4.1
+sqlalchemy==2.0.38
+gunicorn==23.0.0
+stripe

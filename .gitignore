@@ -1,0 +1,33 @@
+# Secrets — never commit
+.env
+
+# Database — contains customer PII and driver data
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs — may contain PII from requests
+*.log
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# macOS
+.DS_Store
+
+# Claude Code session files
+.claude/
+
+# Graphify output (generated, large)
+graphify-out/
+
+# Misc artifacts
+*.artifact.json

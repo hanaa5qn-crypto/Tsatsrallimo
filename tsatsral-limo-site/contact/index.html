@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head><script>(function(){
+  function makeStore(){
+    var data = {};
+    var api = {
+      getItem: function(k){ return Object.prototype.hasOwnProperty.call(data, k) ? data[k] : null; },
+      setItem: function(k, v){ data[k] = String(v); },
+      removeItem: function(k){ delete data[k]; },
+      clear: function(){ data = {}; },
+      key: function(i){ return Object.keys(data)[i] || null; }
+    };
+    Object.defineProperty(api, 'length', { get: function(){ return Object.keys(data).length; } });
+    return api;
+  }
+  function tryShim(name){
+    var works = false;
+    try { works = !!window[name] && typeof window[name].getItem === 'function'; void window[name].length; }
+    catch (_) { works = false; }
+    if (works) return;
+    try { Object.defineProperty(window, name, { configurable: true, value: makeStore() }); }
+    catch (_) { try { window[name] = makeStore(); } catch (__) {} }
+  }
+  tryShim('localStorage');
+  tryShim('sessionStorage');
+})();</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Request a demo — Tsatsral Limo Co.</title>
+<style>
+  :root{
+    --bg:oklch(97% 0.012 80);--paper:oklch(99% 0.005 80);
+    --fg:oklch(20% 0.02 60);--ink-soft:oklch(28% 0.02 60);
+    --muted:oklch(48% 0.015 60);--rule:oklch(82% 0.012 80);
+    --accent:oklch(58% 0.16 35);--good:oklch(55% 0.13 145);
+    --font-display:'Iowan Old Style','Charter',Georgia,serif;
+    --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --font-mono:ui-monospace,'SF Mono','JetBrains Mono',Menlo,monospace;
+    --max:1280px;--pad:clamp(20px,4vw,56px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+  .wrap{max-width:var(--max);margin:0 auto;padding-inline:var(--pad)}
+  h1,h2,h3,h4{font-family:var(--font-display);font-weight:500;letter-spacing:-0.01em;margin:0}
+  h1{font-size:clamp(48px,7vw,88px);line-height:.98;letter-spacing:-0.025em}
+  h2{font-size:clamp(28px,3.4vw,40px);line-height:1.1;letter-spacing:-0.02em}
+  p{margin:0}
+  .kicker{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+  .kicker--accent{color:var(--accent)}
+  .lede{font-size:18px;line-height:1.5;color:var(--ink-soft);max-width:58ch;text-wrap:pretty}
+
+  .announce{background:var(--fg);color:var(--bg);font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;text-align:center;padding:9px var(--pad);display:flex;justify-content:center;gap:14px}
+  .announce em{color:var(--accent);font-style:normal}
+  .announce a{border-bottom:1px solid currentColor;padding-bottom:1px}
+  .topnav{border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:50;backdrop-filter:saturate(140%) blur(8px);background-color:color-mix(in oklch,var(--bg) 88%,transparent)}
+  .topnav__inner{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:32px;padding:18px var(--pad);max-width:var(--max);margin:0 auto}
+  .brand{font-family:var(--font-display);font-size:22px;letter-spacing:-0.02em;display:flex;align-items:baseline;gap:8px}
+  .brand::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);transform:translateY(-2px)}
+  .brand small{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+  .nav{display:flex;justify-content:center;gap:28px;font-size:14px;color:var(--ink-soft)}
+  .nav a{padding:6px 0}
+  .nav a:hover,.nav a.is-active{color:var(--fg)}
+  .nav a.is-active{border-bottom:1px solid var(--accent)}
+  .nav-cta{display:flex;align-items:center;gap:18px;font-size:14px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid var(--fg);color:var(--fg);font-size:14px;background:var(--paper);transition:transform .12s ease}
+  .btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--fg)}
+  .btn--filled{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+  .btn--filled:hover{box-shadow:3px 3px 0 var(--accent)}
+  .btn--ghost{border-color:transparent;background:transparent;padding:10px 0}
+
+  /* page */
+  .page{padding:clamp(56px,7vw,96px) 0;border-bottom:1px solid var(--rule)}
+  .page__inner{display:grid;grid-template-columns:1fr 1.1fr;gap:clamp(48px,7vw,96px);align-items:start}
+
+  /* left rail */
+  .rail .kicker{display:block;margin-bottom:18px}
+  .rail h1{margin-bottom:32px;text-wrap:balance}
+  .rail h1 em{font-style:italic;color:var(--accent)}
+  .rail__lede{font-size:18px;color:var(--ink-soft);line-height:1.55;margin-bottom:40px;max-width:42ch}
+
+  .rail__list{border-top:1px solid var(--rule);margin-bottom:40px}
+  .rail__list dt{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding-top:18px}
+  .rail__list dd{margin:6px 0 18px;font-family:var(--font-display);font-size:18px;letter-spacing:-0.01em;border-bottom:1px solid var(--rule);padding-bottom:18px}
+  .rail__list dd small{display:block;font-family:var(--font-body);font-size:13px;color:var(--ink-soft);margin-top:4px;letter-spacing:0}
+
+  .rail__sla{
+    border:1px solid var(--rule);
+    background:var(--paper);
+    padding:24px;
+    display:grid;grid-template-columns:auto 1fr;gap:18px;
+    align-items:start;
+  }
+  .rail__sla::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good);margin-top:6px;box-shadow:0 0 0 4px color-mix(in oklch,var(--good) 25%,transparent)}
+  .rail__sla h3{font-family:var(--font-display);font-size:18px;font-weight:500;letter-spacing:-0.01em;margin-bottom:6px}
+  .rail__sla p{font-size:14px;color:var(--ink-soft);line-height:1.55}
+
+  /* form */
+  .form{
+    border:1px solid var(--fg);
+    background:var(--paper);
+    padding:clamp(24px,3vw,40px);
+  }
+  .form__head{display:flex;justify-content:space-between;align-items:baseline;gap:14px;border-bottom:1px solid var(--rule);padding-bottom:18px;margin-bottom:24px}
+  .form__head h2{font-size:24px;letter-spacing:-0.01em}
+  .form__head .kicker{color:var(--accent)}
+  .form__steps{display:flex;gap:24px;font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:24px}
+  .form__steps span{display:flex;align-items:center;gap:8px}
+  .form__steps span::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--rule)}
+  .form__steps span.is-active{color:var(--fg)}
+  .form__steps span.is-active::before{background:var(--accent)}
+
+  .field{display:grid;gap:6px;margin-bottom:18px}
+  .field label{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .field label sup{color:var(--accent)}
+  .field input,.field select,.field textarea{
+    border:0;border-bottom:1px solid var(--rule);
+    background:transparent;padding:12px 0;
+    font:inherit;font-family:var(--font-display);font-size:20px;letter-spacing:-0.01em;
+    color:var(--fg);outline:none;
+    appearance:none;-webkit-appearance:none;
+    border-radius:0;
+  }
+  .field textarea{font-family:var(--font-body);font-size:15px;line-height:1.5;resize:vertical;min-height:88px}
+  .field input::placeholder,.field textarea::placeholder{color:var(--muted);font-style:italic}
+  .field input:focus,.field select:focus,.field textarea:focus{border-bottom-color:var(--accent)}
+  .field--row{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+
+  .options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .opt{
+    border:1px solid var(--rule);
+    background:var(--bg);
+    padding:14px 16px;
+    cursor:pointer;
+    font-size:14px;
+    color:var(--ink-soft);
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
+    transition:all .12s ease;
+  }
+  .opt b{font-family:var(--font-display);font-size:16px;color:var(--fg);font-weight:500;letter-spacing:-0.01em;display:block;margin-bottom:2px}
+  .opt small{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .opt input{display:none}
+  .opt:has(input:checked){border-color:var(--fg);background:var(--paper);box-shadow:3px 3px 0 var(--fg)}
+  .opt:has(input:checked) small{color:var(--accent)}
+  .opt:hover{border-color:var(--fg)}
+
+  .form__foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--rule);padding-top:24px;margin-top:24px;gap:18px;flex-wrap:wrap}
+  .form__foot small{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--muted);max-width:32ch;line-height:1.5}
+
+  /* alt contact */
+  .alt{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule);background:var(--paper)}
+  .alt__head{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:end;margin-bottom:48px}
+  .alt__grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--fg)}
+  .alt__cell{padding:32px 28px 32px 0;border-right:1px solid var(--rule)}
+  .alt__cell:last-child{border-right:0;padding-right:0}
+  .alt__cell:not(:first-child){padding-left:28px}
+  .alt__cell h3{font-size:22px;letter-spacing:-0.01em;margin-bottom:10px}
+  .alt__cell p{color:var(--ink-soft);font-size:15px;line-height:1.55;margin-bottom:14px}
+  .alt__cell a{font-family:var(--font-mono);font-size:13px;color:var(--fg);border-bottom:1px solid var(--accent);padding-bottom:1px;letter-spacing:.04em}
+
+  /* map */
+  .map{padding:clamp(64px,8vw,96px) 0;border-bottom:1px solid var(--rule)}
+  .map__inner{display:grid;grid-template-columns:1.4fr 1fr;gap:64px;align-items:stretch}
+  .map__art{
+    aspect-ratio:6/4;
+    background:var(--paper);
+    border:1px solid var(--rule);
+    position:relative;overflow:hidden;
+  }
+  .map__art::before{
+    content:"";position:absolute;inset:0;
+    background:
+      linear-gradient(110deg,oklch(94% 0.012 80) 50%,oklch(89% 0.012 80) 50%) 0 0/22px 22px,
+      var(--paper);
+  }
+  .map__art::after{
+    content:"";position:absolute;left:62%;top:48%;
+    width:14px;height:14px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 0 6px color-mix(in oklch,var(--accent) 25%,transparent), 0 0 0 12px color-mix(in oklch,var(--accent) 12%,transparent);
+  }
+  .map__art .pin{
+    position:absolute;left:62%;top:48%;
+    transform:translate(20px,-20px);
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg);
+    background:var(--bg);border:1px solid var(--fg);padding:6px 10px;
+    z-index:2;
+  }
+  .map__copy h2{margin-bottom:18px;text-wrap:balance}
+  .map__copy h2 em{font-style:italic;color:var(--accent)}
+  .map__copy p{font-size:16px;color:var(--ink-soft);line-height:1.55;margin-bottom:24px}
+  .map__copy address{font-style:normal;font-family:var(--font-mono);font-size:13px;letter-spacing:.04em;color:var(--ink-soft);line-height:1.7;border-top:1px solid var(--rule);padding-top:18px}
+  .map__copy address b{display:block;color:var(--fg);font-family:var(--font-display);font-size:18px;letter-spacing:-0.01em;margin-bottom:4px;font-weight:500}
+
+  footer{padding:64px 0 28px;background:var(--bg);color:var(--ink-soft);font-size:13px}
+  .foot{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:40px;border-bottom:1px solid var(--rule);padding-bottom:48px;margin-bottom:24px}
+  .foot h4{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400;margin-bottom:16px}
+  .foot ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+  .foot a:hover{color:var(--accent)}
+  .foot__brand .brand{font-size:24px;margin-bottom:14px}
+  .foot__brand p{max-width:32ch;color:var(--muted);font-size:13px;line-height:1.55}
+  .foot__brand .addr{margin-top:18px;font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;color:var(--ink-soft);line-height:1.7}
+  .foot__bottom{display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex-wrap:wrap;gap:14px}
+
+  @media (max-width:980px){
+    .page__inner,.alt__head,.map__inner{grid-template-columns:1fr;gap:32px}
+    .alt__grid{grid-template-columns:1fr;border-top:0}
+    .alt__cell{border-right:0!important;border-bottom:1px solid var(--rule);padding:24px 0!important}
+    .options{grid-template-columns:1fr}
+    .field--row{grid-template-columns:1fr}
+    .nav{display:none}.topnav__inner{grid-template-columns:1fr auto}
+    .foot{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:640px){
+    .foot{grid-template-columns:1fr}
+    .nav-cta .btn--ghost{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="announce">
+  <span>Live demo every Thursday — <em>see the dispatch board in action</em></span>
+  <a href="#thursday">Reserve a seat →</a>
+</div>
+
+<nav class="topnav">
+  <div class="topnav__inner">
+    <a href="index.html" class="brand">Tsatsral <small>Limo Co.</small></a>
+    <div class="nav">
+      <a href="index.html">Solutions</a>
+      <a href="services.html">Services</a>
+      <a href="index.html#fleet">Fleet</a>
+      <a href="blog.html">Resources</a>
+      <a href="about.html">About</a>
+    </div>
+    <div class="nav-cta">
+      <a href="#login" class="btn--ghost">Operator login</a>
+      <a href="contact.html" class="btn btn--filled is-active">Request a demo →</a>
+    </div>
+  </div>
+</nav>
+
+<section class="page">
+  <div class="wrap page__inner">
+    <aside class="rail">
+      <span class="kicker kicker--accent">Issue 04 · Demo desk</span>
+      <h1>Twenty minutes. <em>Your fleet.</em> Our dispatcher.</h1>
+      <p class="rail__lede">Send us your fleet size, the cities you cover, and one number you'd like to move. We'll come back inside a business day with three options, three real prices, and the calendar slot of the engineer who'll run your demo.</p>
+
+      <dl class="rail__list">
+        <dt>What we'll show you</dt>
+        <dd>Live dispatch · with your data
+          <small>We import a 30-day sample from your existing system before the call. You see the board in your branding, on your real trips.</small>
+        </dd>
+
+        <dt>Who you'll meet</dt>
+        <dd>An engineer. Not a sales rep.
+          <small>Our demo team is the same team that builds the product — and most of them have dispatched for a living.</small>
+        </dd>
+
+        <dt>What it costs</dt>
+        <dd>Nothing.
+          <small>If we're not a fit, we'll tell you and recommend who is. We've sent four operators to Limo Anywhere this year because they were better suited.</small>
+        </dd>
+      </dl>
+
+      <div class="rail__sla">
+        <div></div>
+        <div>
+          <h3>We answer inside one business day.</h3>
+          <p>Not "within 5 business days." Not "next week." A human reads every form, usually within four hours during ET working hours.</p>
+        </div>
+      </div>
+    </aside>
+
+    <form class="form" onsubmit="event.preventDefault();this.querySelector('.form__submit').textContent='Sent — we\\'ll be in touch ✓';this.querySelector('.form__submit').setAttribute('disabled','')">
+      <div class="form__head">
+        <h2>Request a demo</h2>
+        <span class="kicker kicker--accent">— takes 90 seconds</span>
+      </div>
+
+      <div class="form__steps">
+        <span class="is-active">01 · You</span>
+        <span class="is-active">02 · Fleet</span>
+        <span>03 · Schedule</span>
+      </div>
+
+      <div class="field">
+        <label>Your name <sup>*</sup></label>
+        <input required placeholder="Erdene Munkhbat">
+      </div>
+
+      <div class="field--row">
+        <div class="field">
+          <label>Work email <sup>*</sup></label>
+          <input type="email" required placeholder="erdene@northwindcoach.com">
+        </div>
+        <div class="field">
+          <label>Phone (we'll text first)</label>
+          <input type="tel" placeholder="+1 (347) 555-0184">
+        </div>
+      </div>
+
+      <div class="field--row">
+        <div class="field">
+          <label>Company <sup>*</sup></label>
+          <input required placeholder="Northwind Coach">
+        </div>
+        <div class="field">
+          <label>Primary city</label>
+          <input placeholder="Brooklyn, NY">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>How many vehicles do you operate?</label>
+        <div class="options">
+          <label class="opt"><span><b>1 — 3</b><small>Owner-operator</small></span><input type="radio" name="size"></label>
+          <label class="opt"><span><b>4 — 12</b><small>Family fleet</small></span><input type="radio" name="size" checked></label>
+          <label class="opt"><span><b>13 — 40</b><small>Established operator</small></span><input type="radio" name="size"></label>
+          <label class="opt"><span><b>40+</b><small>Multi-city</small></span><input type="radio" name="size"></label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>What are you running today?</label>
+        <div class="options">
+          <label class="opt"><span><b>Spreadsheet &amp; phone</b><small>The honest answer</small></span><input type="radio" name="now"></label>
+          <label class="opt"><span><b>Limo Anywhere</b><small>Migrating in 2026?</small></span><input type="radio" name="now"></label>
+          <label class="opt"><span><b>Moovs / DriverApp</b><small>Comparing</small></span><input type="radio" name="now"></label>
+          <label class="opt"><span><b>Custom / in-house</b><small>Tell us more below</small></span><input type="radio" name="now"></label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>What problem brought you here? (optional)</label>
+        <textarea placeholder="e.g. Our night dispatcher is burning out — we'd like to move airport runs onto something that watches the FAA feed."></textarea>
+      </div>
+
+      <div class="form__foot">
+        <small>We'll never share your email. Read by a human, usually within four hours during ET hours.</small>
+        <button type="submit" class="btn btn--filled form__submit">Send the request →</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="alt" id="thursday">
+  <div class="wrap">
+    <div class="alt__head">
+      <div>
+        <span class="kicker kicker--accent">Three other ways to reach us</span>
+        <h2>If a form is too much overhead.</h2>
+      </div>
+      <p class="lede">Picking the phone up still works. Dropping into the live demo still works. Emailing the founder directly — also works, though she answers from a flip phone.</p>
+    </div>
+    <div class="alt__grid">
+      <div class="alt__cell">
+        <span class="kicker kicker--accent">Live demo · every Thursday</span>
+        <h3>14:00 ET, 30 minutes, online.</h3>
+        <p>Open Q&amp;A. We share the dispatch board, walk through one real customer's flow, and answer everything in the chat — including the price.</p>
+        <a href="#">Reserve a seat →</a>
+      </div>
+      <div class="alt__cell">
+        <span class="kicker kicker--accent">Talk to a human</span>
+        <h3>Sales desk.</h3>
+        <p>Pick up the phone — it rings to whoever's on the desk. We'll book a demo, send the pricing, or simply answer the question you don't want to type out.</p>
+        <a href="tel:+13475550184">+1 (347) 555-0184</a>
+      </div>
+      <div class="alt__cell">
+        <span class="kicker kicker--accent">Email the founder</span>
+        <h3>Tsatsral, directly.</h3>
+        <p>For complaints, partnerships, and "is your team hiring?" — straight to the inbox of the person who started this. She reads every one.</p>
+        <a href="mailto:tsatsral@tsatsrallimo.co">tsatsral@tsatsrallimo.co</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="map">
+  <div class="wrap map__inner">
+    <figure class="map__art">
+      <span class="pin">488 Atlantic Ave</span>
+    </figure>
+    <div class="map__copy">
+      <span class="kicker kicker--accent">Where we are</span>
+      <h2>Brooklyn, third floor, <em>above the hardware store.</em></h2>
+      <p>Drop in if you're already in the city. We'll show you the dispatch board from the same desk our father uses, make you a coffee, and probably try to sell you on a 4 a.m. ride-along.</p>
+      <address>
+        <b>Tsatsral Limo Co. — HQ</b>
+        488 Atlantic Avenue, Floor 3<br>
+        Brooklyn, NY 11217<br>
+        Mon — Fri, 09:00 — 18:00 ET<br>
+        Sat by appointment
+      </address>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div class="foot__brand">
+      <a href="index.html" class="brand">Tsatsral <small>Limo Co.</small></a>
+      <p>The operating system for chauffeured ground transport. Built in New York, run by people who used to dispatch from a flip phone.</p>
+      <div class="addr">
+        488 Atlantic Ave, Floor 3<br>
+        Brooklyn, NY 11217<br>
+        +1 (347) 555-0184
+      </div>
+    </div>
+    <div>
+      <h4>Platform</h4>
+      <ul>
+        <li><a href="index.html#how">Dispatch board</a></li>
+        <li><a href="index.html#how">Reservations</a></li>
+        <li><a href="index.html#how">Customer portal</a></li>
+        <li><a href="index.html#how">Driver app</a></li>
+        <li><a href="index.html#how">Reporting</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Company</h4>
+      <ul>
+        <li><a href="about.html">About</a></li>
+        <li><a href="blog.html">Field guide</a></li>
+        <li><a href="contact.html">Demo</a></li>
+        <li><a href="contact.html">Sales</a></li>
+        <li><a href="#">Press</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>For operators</h4>
+      <ul>
+        <li><a href="#">Operator login</a></li>
+        <li><a href="#">Migrate from Limo Anywhere</a></li>
+        <li><a href="#">Status</a></li>
+        <li><a href="#">Changelog</a></li>
+        <li><a href="#">API docs</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Legal</h4>
+      <ul>
+        <li><a href="#">Terms</a></li>
+        <li><a href="#">Privacy</a></li>
+        <li><a href="#">Security</a></li>
+        <li><a href="#">DPA</a></li>
+        <li><a href="#">Imprint</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap foot__bottom">
+    <span>© 2026 Tsatsral Limo LLC · Vol. IV / Spring</span>
+    <span>New York · Brooklyn · Westchester · Greenwich</span>
+  </div>
+</footer>
+
+</body>
+</html>

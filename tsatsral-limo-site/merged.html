@@ -1,0 +1,3014 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tsatsral Limo — The operating system for chauffeured ground transport</title>
+<meta name="description" content="Tsatsral is the operating system for chauffeured ground transport — reservations, dispatch, drivers, billing. One platform, one schedule, one source of truth.">
+<style>
+
+  :root{
+    --bg:oklch(97% 0.012 80);
+    --paper:oklch(99% 0.005 80);
+    --surface:oklch(99.5% 0.004 80);
+    --fg:oklch(20% 0.02 60);
+    --ink-soft:oklch(28% 0.02 60);
+    --muted:oklch(48% 0.015 60);
+    --border:oklch(89% 0.012 80);
+    --rule:oklch(82% 0.012 80);
+    --accent:oklch(58% 0.16 35);
+    --accent-soft:oklch(58% 0.16 35 / 0.08);
+    --good:oklch(55% 0.13 145);
+    --font-display:'Iowan Old Style','Charter',Georgia,serif;
+    --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --font-mono:ui-monospace,'SF Mono','JetBrains Mono',Menlo,monospace;
+    --max:1280px;
+    --pad:clamp(20px,4vw,56px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg);
+    color:var(--fg);
+    font-family:var(--font-body);
+    font-size:16px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  a{color:inherit;text-decoration:none}
+  img,svg{display:block;max-width:100%}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+  .wrap{max-width:var(--max);margin:0 auto;padding-inline:var(--pad)}
+  .kicker{
+    font-family:var(--font-mono);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.14em;
+    color:var(--muted);
+  }
+  .kicker--accent{color:var(--accent)}
+  h1,h2,h3,h4{font-family:var(--font-display);font-weight:500;letter-spacing:-0.01em;margin:0;color:var(--fg)}
+  h1{font-size:clamp(48px,7vw,96px);line-height:.98;letter-spacing:-0.025em}
+  h2{font-size:clamp(32px,4vw,52px);line-height:1.05;letter-spacing:-0.02em}
+  h3{font-size:clamp(22px,2vw,28px);line-height:1.15}
+  p{margin:0}
+  .lede{font-size:18px;line-height:1.5;color:var(--ink-soft);max-width:58ch;text-wrap:pretty}
+
+  /* announce bar */
+  .announce{
+    background:var(--fg);
+    color:var(--bg);
+    font-family:var(--font-mono);
+    font-size:12px;
+    letter-spacing:.06em;
+    text-align:center;
+    padding:9px var(--pad);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:14px;
+  }
+  .announce em{color:oklch(58% 0.16 35);font-style:normal}
+  .announce a{border-bottom:1px solid currentColor;padding-bottom:1px}
+
+  /* topnav */
+  .topnav{
+    border-bottom:1px solid var(--rule);
+    background:var(--bg);
+    position:sticky;top:0;z-index:50;
+    backdrop-filter:saturate(140%) blur(8px);
+    background-color:color-mix(in oklch,var(--bg) 88%,transparent);
+  }
+  .topnav__inner{
+    display:grid;
+    grid-template-columns:auto 1fr auto;
+    align-items:center;
+    gap:32px;
+    padding:18px var(--pad);
+    max-width:var(--max);
+    margin:0 auto;
+  }
+  .brand{
+    font-family:var(--font-display);
+    font-size:22px;
+    letter-spacing:-0.02em;
+    display:flex;align-items:baseline;gap:8px;
+  }
+  .brand::before{
+    content:"";
+    width:8px;height:8px;border-radius:50%;
+    background:var(--accent);
+    transform:translateY(-2px);
+  }
+  .brand small{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+  .nav{display:flex;justify-content:center;gap:28px;font-size:14px;color:var(--ink-soft)}
+  .nav a{position:relative;padding:6px 0}
+  .nav a:hover{color:var(--fg)}
+  .nav .has-caret::after{
+    content:"";
+    display:inline-block;
+    width:6px;height:6px;
+    border-right:1px solid currentColor;
+    border-bottom:1px solid currentColor;
+    transform:rotate(45deg) translate(-2px,-2px);
+    margin-left:6px;
+  }
+  .nav-cta{display:flex;align-items:center;gap:18px;font-size:14px}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:10px 18px;
+    border:1px solid var(--fg);
+    color:var(--fg);
+    font-size:14px;
+    background:var(--paper);
+    transition:transform .12s ease;
+  }
+  .btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--fg)}
+  .btn--filled{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+  .btn--filled:hover{box-shadow:3px 3px 0 var(--accent)}
+  .btn--ghost{border-color:transparent;background:transparent;padding:10px 0}
+  .btn .arr{font-family:var(--font-mono)}
+
+  /* hero */
+  .hero{
+    padding:clamp(56px,8vw,120px) 0 clamp(48px,6vw,80px);
+    border-bottom:1px solid var(--rule);
+    position:relative;
+  }
+  .hero__grid{
+    display:grid;
+    grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);
+    gap:64px;
+    align-items:end;
+  }
+  .hero__copy .kicker{margin-bottom:24px;display:block}
+  .hero__copy h1{margin-bottom:28px;text-wrap:balance}
+  .hero__copy h1 em{font-style:italic;color:var(--accent)}
+  .hero__lede{font-size:20px;line-height:1.45;max-width:50ch;color:var(--ink-soft);margin-bottom:36px;text-wrap:pretty}
+  .hero__cta{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+  .hero__meta{
+    display:flex;flex-direction:column;gap:18px;
+    border-top:1px solid var(--rule);
+    padding-top:24px;
+    margin-top:48px;
+    max-width:42ch;
+    font-size:13px;
+    color:var(--muted);
+  }
+  .hero__meta b{color:var(--fg);font-weight:500;font-family:var(--font-display);font-size:18px;display:block;margin-bottom:2px}
+
+  .hero__visual{
+    aspect-ratio:5/6;
+    background:var(--paper);
+    border:1px solid var(--rule);
+    position:relative;
+    overflow:hidden;
+  }
+  .hero__visual::before{
+    content:"";position:absolute;inset:0;
+    background:
+      linear-gradient(180deg,transparent 60%,oklch(20% 0.02 60 / .7) 100%),
+      conic-gradient(from 220deg at 70% 40%,
+        oklch(78% 0.04 60),
+        oklch(64% 0.02 60),
+        oklch(38% 0.02 60),
+        oklch(24% 0.02 60));
+  }
+  .hero__visual::after{
+    content:"";position:absolute;inset:auto 12% 14% 12%;height:14%;
+    background:linear-gradient(180deg,oklch(20% 0.02 60),oklch(8% 0.02 60));
+    clip-path:polygon(8% 100%,0 60%,12% 30%,28% 10%,72% 10%,88% 30%,100% 60%,92% 100%);
+    box-shadow:0 -4px 0 oklch(58% 0.16 35) inset;
+  }
+  .hero__caption{
+    position:absolute;left:18px;bottom:14px;right:18px;
+    display:flex;justify-content:space-between;align-items:end;
+    color:var(--bg);font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    z-index:2;
+  }
+  .hero__caption b{font-family:var(--font-display);text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;display:block;color:var(--bg)}
+
+  /* trusted strip */
+  .trusted{
+    border-bottom:1px solid var(--rule);
+    padding:28px 0;
+    background:var(--paper);
+  }
+  .trusted__inner{
+    display:flex;align-items:center;gap:48px;flex-wrap:wrap;
+    justify-content:space-between;
+    color:var(--muted);
+  }
+  .trusted__label{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;flex:0 0 180px}
+  .trusted__logos{display:flex;gap:48px;flex-wrap:wrap;align-items:center;flex:1;justify-content:flex-end}
+  .trusted__logos span{font-family:var(--font-display);font-size:18px;color:var(--ink-soft);letter-spacing:-0.01em;opacity:.85}
+  .trusted__logos span:nth-child(2){font-style:italic}
+  .trusted__logos span:nth-child(4){font-family:var(--font-mono);font-size:14px;letter-spacing:.06em}
+
+  /* feature pills */
+  .features{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule)}
+  .features__head{display:flex;justify-content:space-between;align-items:end;gap:32px;margin-bottom:40px;flex-wrap:wrap}
+  .features__head h2{max-width:18ch;text-wrap:balance}
+  .features__head p{max-width:36ch;color:var(--muted);font-size:15px}
+  .pills{
+    display:flex;gap:8px;
+    overflow-x:auto;
+    padding-bottom:8px;
+    margin-bottom:40px;
+    scrollbar-width:thin;
+  }
+  .pill{
+    flex:0 0 auto;
+    display:inline-flex;align-items:center;gap:8px;
+    padding:10px 16px;
+    border:1px solid var(--rule);
+    background:var(--paper);
+    font-size:13px;
+    color:var(--ink-soft);
+    cursor:pointer;
+    transition:all .15s ease;
+    font-family:var(--font-body);
+  }
+  .pill__dot{width:6px;height:6px;border-radius:50%;background:var(--rule)}
+  .pill:hover{border-color:var(--fg);color:var(--fg)}
+  .pill[aria-selected="true"]{
+    background:var(--fg);
+    color:var(--bg);
+    border-color:var(--fg);
+  }
+  .pill[aria-selected="true"] .pill__dot{background:var(--accent)}
+
+  /* spotlight */
+  .spotlight{
+    display:grid;
+    grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);
+    gap:64px;
+    align-items:center;
+  }
+  .spotlight__panel{display:none}
+  .spotlight__panel.is-active{display:grid;grid-template-columns:subgrid;grid-column:1 / -1;gap:64px;align-items:center}
+  .spotlight__copy .kicker{display:block;margin-bottom:18px}
+  .spotlight__copy h3{font-size:clamp(28px,3vw,40px);line-height:1.1;margin-bottom:18px;text-wrap:balance;letter-spacing:-0.02em;font-size:clamp(28px,3vw,40px)}
+  .spotlight__copy p{color:var(--ink-soft);font-size:17px;line-height:1.55;margin-bottom:24px;max-width:50ch}
+  .spotlight__copy ul{list-style:none;padding:0;margin:0 0 28px;border-top:1px solid var(--rule)}
+  .spotlight__copy li{
+    border-bottom:1px solid var(--rule);
+    padding:14px 0;
+    display:grid;
+    grid-template-columns:auto 1fr;
+    gap:14px;
+    font-size:14px;
+    color:var(--ink-soft);
+  }
+  .spotlight__copy li b{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:400;align-self:start;padding-top:2px;min-width:32px}
+  .spotlight__copy li b::before{content:"";display:inline-block;width:14px;height:1px;background:var(--accent);margin-right:8px;vertical-align:middle;transform:translateY(-3px)}
+  .spotlight__cta{display:inline-flex;align-items:center;gap:8px;font-size:14px;border-bottom:1px solid var(--fg);padding-bottom:2px}
+  .spotlight__cta:hover{color:var(--accent);border-color:var(--accent)}
+
+  /* mockups */
+  .mock{
+    background:var(--paper);
+    border:1px solid var(--rule);
+    padding:18px;
+    aspect-ratio:5/4;
+    position:relative;
+    font-family:var(--font-mono);
+    overflow:hidden;
+  }
+  .mock__bar{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding-bottom:14px;border-bottom:1px solid var(--rule)}
+  .mock__bar b{color:var(--fg);font-weight:500;font-family:var(--font-body);text-transform:none;letter-spacing:-0.01em;font-size:13px}
+
+  /* dispatch mock */
+  .dispatch{display:grid;grid-template-rows:auto 1fr;height:100%;}
+  .dispatch__grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border-top:1px solid var(--rule);margin-top:14px;padding-top:14px;flex:1;align-content:start}
+  .dispatch__col{padding:0 12px;border-right:1px solid var(--rule)}
+  .dispatch__col:last-child{border-right:0}
+  .dispatch__col:first-child{padding-left:0}
+  .dispatch__col h4{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400;margin-bottom:10px}
+  .dispatch__col h4 span{float:right;color:var(--fg);font-weight:500}
+  .trip{
+    border:1px solid var(--rule);
+    background:var(--bg);
+    padding:8px 10px;
+    margin-bottom:6px;
+    font-size:11px;
+    color:var(--ink-soft);
+    line-height:1.4;
+  }
+  .trip b{color:var(--fg);font-weight:500;display:block;font-family:var(--font-body);font-size:12px;letter-spacing:-0.01em}
+  .trip .row{display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-family:var(--font-mono);font-size:10px}
+  .trip .tag{padding:1px 6px;border:1px solid var(--rule);font-size:9px;letter-spacing:.08em;text-transform:uppercase}
+  .trip--hot{border-color:var(--accent)}
+  .trip--hot .tag{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+
+  /* reservation mock */
+  .res{display:grid;grid-template-rows:auto 1fr;height:100%}
+  .res__list{margin-top:14px;border-top:1px solid var(--rule)}
+  .res__row{
+    display:grid;
+    grid-template-columns:48px 1fr auto auto;
+    gap:14px;
+    padding:12px 0;
+    border-bottom:1px solid var(--rule);
+    align-items:center;
+    font-size:12px;
+  }
+  .res__time{font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.04em;text-align:right}
+  .res__name{font-family:var(--font-body);color:var(--fg);font-size:13px;letter-spacing:-0.01em}
+  .res__name small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+  .res__pill{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--rule);padding:2px 8px}
+  .res__pill--ok{border-color:var(--good);color:var(--good)}
+  .res__pill--hold{border-color:var(--accent);color:var(--accent)}
+  .res__price{font-family:var(--font-mono);font-size:12px;color:var(--fg);font-variant-numeric:tabular-nums}
+
+  /* portal mock */
+  .portal{display:grid;grid-template-rows:auto 1fr;height:100%}
+  .portal__hero{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  .portal__card{border:1px solid var(--rule);padding:12px;background:var(--bg)}
+  .portal__card .label{font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .portal__card .num{font-family:var(--font-display);font-size:32px;letter-spacing:-0.03em;line-height:1;margin-top:6px;font-variant-numeric:tabular-nums}
+  .portal__card .delta{font-family:var(--font-mono);font-size:10px;color:var(--good);margin-top:4px}
+  .portal__form{margin-top:14px;border:1px solid var(--rule);padding:14px;background:var(--bg);flex:1}
+  .portal__form h5{font-family:var(--font-display);font-size:14px;font-weight:500;margin:0 0 10px;letter-spacing:-0.01em}
+  .portal__field{display:grid;grid-template-columns:80px 1fr;gap:10px;padding:6px 0;border-bottom:1px dashed var(--rule);font-size:11px;font-family:var(--font-mono);color:var(--ink-soft)}
+  .portal__field:last-child{border-bottom:0}
+  .portal__field b{color:var(--muted);font-weight:400;letter-spacing:.06em;text-transform:uppercase;font-size:10px}
+
+  /* driver mock */
+  .driver{display:grid;grid-template-rows:auto 1fr;height:100%;font-family:var(--font-mono)}
+  .driver__phone{
+    margin:14px auto 0;
+    width:65%;
+    aspect-ratio:9/19;
+    background:var(--bg);
+    border:1px solid var(--fg);
+    border-radius:18px;
+    padding:18px 12px;
+    position:relative;
+    display:grid;
+    grid-template-rows:auto auto 1fr auto;
+    gap:10px;
+  }
+  .driver__phone::before{
+    content:"";position:absolute;left:50%;top:6px;transform:translateX(-50%);
+    width:30%;height:4px;background:var(--fg);border-radius:99px;
+  }
+  .driver__time{font-family:var(--font-mono);font-size:9px;color:var(--muted);text-align:center;margin-top:6px}
+  .driver__job{border:1px solid var(--rule);padding:8px;font-size:9px}
+  .driver__job b{display:block;font-family:var(--font-body);font-size:11px;color:var(--fg);margin-bottom:3px;letter-spacing:-0.01em}
+  .driver__map{border:1px solid var(--rule);background:
+    linear-gradient(110deg,oklch(94% 0.012 80) 50%,oklch(89% 0.012 80) 50%) 0 0/12px 12px,
+    var(--paper);
+    position:relative;
+  }
+  .driver__map::after{
+    content:"";position:absolute;left:30%;top:60%;
+    width:10px;height:10px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 0 4px color-mix(in oklch,var(--accent) 25%,transparent);
+  }
+  .driver__map::before{
+    content:"";position:absolute;
+    top:62%;left:34%;width:38%;height:1px;
+    background:var(--fg);
+    transform:rotate(-22deg);
+    transform-origin:left;
+  }
+  .driver__cta{
+    background:var(--fg);color:var(--bg);
+    text-align:center;font-family:var(--font-body);font-size:11px;letter-spacing:.04em;
+    padding:10px 0;
+  }
+
+  /* marketing mock */
+  .mkt{display:grid;grid-template-rows:auto 1fr;height:100%;font-family:var(--font-body)}
+  .mkt__inner{margin-top:14px;border:1px solid var(--rule);background:var(--bg);padding:14px;display:grid;grid-template-rows:auto auto 1fr;gap:12px}
+  .mkt__row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--rule);font-size:12px}
+  .mkt__row:last-child{border-bottom:0}
+  .mkt__row .name{font-family:var(--font-display);font-size:14px;letter-spacing:-0.01em}
+  .mkt__row .stat{font-family:var(--font-mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .mkt__row .open{color:var(--good)}
+  .mkt__chart{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:60px}
+  .mkt__chart i{display:block;background:var(--fg);width:100%}
+  .mkt__chart i:nth-child(3){background:var(--accent)}
+  .mkt__chart i:nth-child(6){background:var(--accent)}
+
+  /* KPI section */
+  .kpi{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule);background:var(--paper)}
+  .kpi__head{display:grid;grid-template-columns:1fr 1fr;gap:64px;margin-bottom:48px;align-items:end}
+  .kpi__head h2{max-width:14ch;text-wrap:balance}
+  .kpi__head p{color:var(--ink-soft);font-size:17px;max-width:48ch;text-wrap:pretty}
+  .dashboard{
+    border:1px solid var(--rule);
+    background:var(--bg);
+    display:grid;
+    grid-template-columns:repeat(12,1fr);
+    grid-auto-rows:minmax(0,auto);
+    gap:0;
+  }
+  .cell{
+    border-right:1px solid var(--rule);
+    border-bottom:1px solid var(--rule);
+    padding:24px;
+    display:flex;flex-direction:column;justify-content:space-between;
+    min-height:160px;
+  }
+  .cell:last-child{border-right:0}
+  .cell .label{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:auto}
+  .cell .value{
+    font-family:var(--font-display);
+    font-size:clamp(36px,4vw,56px);
+    letter-spacing:-0.03em;
+    line-height:1;
+    margin-top:24px;
+    font-variant-numeric:tabular-nums;
+  }
+  .cell .value sup{font-family:var(--font-mono);font-size:13px;color:var(--muted);font-weight:400;vertical-align:top;margin-left:4px;letter-spacing:.04em}
+  .cell .delta{font-family:var(--font-mono);font-size:12px;margin-top:8px;color:var(--good);letter-spacing:.04em}
+  .cell .delta.down{color:var(--accent)}
+  .cell--span4{grid-column:span 4}
+  .cell--span3{grid-column:span 3}
+  .cell--span6{grid-column:span 6}
+  .cell--span12{grid-column:span 12;border-bottom:0}
+  .cell--chart{padding:24px}
+  .cell--chart h4{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400;margin:0 0 18px}
+  .bars{display:grid;grid-template-columns:120px 1fr 56px;gap:14px;align-items:center;padding:8px 0;border-bottom:1px solid var(--rule)}
+  .bars:last-child{border-bottom:0}
+  .bars .name{font-family:var(--font-display);font-size:16px;letter-spacing:-0.01em}
+  .bars .name small{display:block;font-family:var(--font-mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+  .bars .track{height:6px;background:var(--paper);border:1px solid var(--rule);position:relative}
+  .bars .track::after{content:"";position:absolute;inset:0 auto 0 0;width:var(--w,50%);background:var(--fg)}
+  .bars:nth-child(2) .track::after{background:var(--accent)}
+  .bars .n{font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:right;color:var(--fg)}
+
+  /* services strip */
+  .services{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule)}
+  .services__head{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:end;margin-bottom:48px}
+  .services__head .lede{font-size:17px}
+  .services__grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--rule)}
+  .svc{
+    padding:32px 28px 28px 0;
+    border-right:1px solid var(--rule);
+    display:flex;flex-direction:column;gap:14px;
+    position:relative;
+  }
+  .svc:last-child{border-right:0;padding-right:0}
+  .svc:not(:first-child){padding-left:28px}
+  .svc__num{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .svc h3{font-size:24px;letter-spacing:-0.015em;line-height:1.15}
+  .svc p{font-size:14px;color:var(--ink-soft);line-height:1.55;flex:1}
+  .svc a{font-size:13px;border-bottom:1px solid var(--fg);align-self:flex-start;padding-bottom:1px}
+  .svc a:hover{color:var(--accent);border-color:var(--accent)}
+
+  /* fleet */
+  .fleet{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule);background:var(--paper)}
+  .fleet__head{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:end;margin-bottom:48px}
+  .fleet__grid{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+  .veh{display:flex;flex-direction:column;gap:18px}
+  .veh__art{
+    aspect-ratio:4/3;
+    background:var(--bg);
+    border:1px solid var(--rule);
+    position:relative;
+    overflow:hidden;
+  }
+  .veh__art svg{position:absolute;inset:0;width:100%;height:100%}
+  .veh__title{display:flex;justify-content:space-between;align-items:baseline;gap:14px;border-bottom:1px solid var(--rule);padding-bottom:10px}
+  .veh__title h3{font-size:22px}
+  .veh__title span{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .veh__specs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .veh__specs b{color:var(--fg);font-weight:500;display:block;font-family:var(--font-display);font-size:18px;text-transform:none;letter-spacing:-0.01em;margin-bottom:2px;font-variant-numeric:tabular-nums}
+
+  /* pull quote */
+  .pq{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule)}
+  .pq__inner{display:grid;grid-template-columns:1fr 2fr;gap:64px;align-items:start}
+  .pq__inner .kicker{margin-top:8px}
+  .pq blockquote{
+    font-family:var(--font-display);
+    font-size:clamp(28px,3.4vw,44px);
+    line-height:1.15;
+    letter-spacing:-0.02em;
+    margin:0 0 32px;
+    text-wrap:balance;
+    border-left:2px solid var(--accent);
+    padding-left:32px;
+  }
+  .pq blockquote em{font-style:italic}
+  .pq cite{font-style:normal;display:flex;align-items:center;gap:14px;padding-left:34px;font-size:14px;color:var(--ink-soft)}
+  .pq cite b{font-family:var(--font-display);color:var(--fg);font-weight:500;font-size:16px;letter-spacing:-0.01em;display:block}
+  .pq__ava{
+    width:48px;height:48px;border-radius:50%;
+    background:var(--fg);color:var(--bg);
+    display:grid;place-items:center;
+    font-family:var(--font-display);font-size:18px;letter-spacing:-0.01em;
+  }
+
+  /* end CTA */
+  .end{
+    padding:clamp(64px,8vw,120px) 0;
+    background:var(--fg);color:var(--bg);
+    border-bottom:1px solid var(--fg);
+  }
+  .end__inner{display:grid;grid-template-columns:1.4fr 1fr;gap:64px;align-items:end}
+  .end h2{color:var(--bg);font-size:clamp(40px,5.5vw,72px);line-height:1;letter-spacing:-0.025em;text-wrap:balance}
+  .end h2 em{color:var(--accent);font-style:italic}
+  .end p{color:oklch(78% 0.012 80);font-size:17px;max-width:38ch;margin-bottom:32px}
+  .end .btn{background:var(--bg);color:var(--fg);border-color:var(--bg)}
+  .end .btn:hover{box-shadow:3px 3px 0 var(--accent)}
+  .end .btn--ghost{background:transparent;color:var(--bg);border-color:oklch(78% 0.012 80)}
+
+  /* footer */
+  footer{padding:64px 0 28px;background:var(--bg);color:var(--ink-soft);font-size:13px}
+  .foot{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:40px;border-bottom:1px solid var(--rule);padding-bottom:48px;margin-bottom:24px}
+  .foot h4{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400;margin-bottom:16px}
+  .foot ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+  .foot a:hover{color:var(--accent)}
+  .foot__brand .brand{font-size:24px;margin-bottom:14px}
+  .foot__brand p{max-width:32ch;color:var(--muted);font-size:13px;line-height:1.55}
+  .foot__brand .addr{margin-top:18px;font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;color:var(--ink-soft);line-height:1.7}
+  .foot__bottom{display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex-wrap:wrap;gap:14px}
+
+  /* responsive */
+  @media (max-width:980px){
+    .hero__grid,.kpi__head,.fleet__head,.services__head,.pq__inner,.end__inner{grid-template-columns:1fr;gap:32px}
+    .spotlight,.spotlight__panel.is-active{grid-template-columns:1fr;gap:32px}
+    .services__grid{grid-template-columns:1fr 1fr}
+    .svc{padding:24px 0;border-right:0;border-bottom:1px solid var(--rule)}
+    .svc:nth-child(odd){padding-left:0}
+    .svc:nth-child(even){padding-left:24px;border-left:1px solid var(--rule)}
+    .fleet__grid{grid-template-columns:1fr 1fr}
+    .cell--span4,.cell--span3,.cell--span6{grid-column:span 6}
+    .cell--span12{grid-column:span 12}
+    .nav{display:none}
+    .topnav__inner{grid-template-columns:1fr auto}
+    .foot{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:640px){
+    .hero__visual{aspect-ratio:4/5}
+    .services__grid,.fleet__grid{grid-template-columns:1fr}
+    .svc{padding:20px 0!important;border-left:0!important}
+    .foot{grid-template-columns:1fr}
+    .cell--span4,.cell--span3,.cell--span6{grid-column:span 12}
+    .nav-cta .btn--ghost{display:none}
+  }
+
+
+/* === SERVICES PAGE STYLES === */
+
+  :root{
+    --bg:oklch(97% 0.012 80);--paper:oklch(99% 0.005 80);
+    --fg:oklch(20% 0.02 60);--ink-soft:oklch(28% 0.02 60);
+    --muted:oklch(48% 0.015 60);--border:oklch(89% 0.012 80);--rule:oklch(82% 0.012 80);
+    --accent:oklch(58% 0.16 35);--good:oklch(55% 0.13 145);
+    --font-display:'Iowan Old Style','Charter',Georgia,serif;
+    --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --font-mono:ui-monospace,'SF Mono','JetBrains Mono',Menlo,monospace;
+    --max:1280px;--pad:clamp(20px,4vw,56px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+  .wrap{max-width:var(--max);margin:0 auto;padding-inline:var(--pad)}
+  h1,h2,h3,h4{font-family:var(--font-display);font-weight:500;letter-spacing:-0.01em;margin:0}
+  h1{font-size:clamp(56px,8vw,112px);line-height:.96;letter-spacing:-0.025em}
+  h2{font-size:clamp(28px,3vw,40px);line-height:1.08;letter-spacing:-0.02em}
+  h3{font-size:clamp(20px,1.8vw,26px);line-height:1.2}
+  p{margin:0}
+  .kicker{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+  .kicker--accent{color:var(--accent)}
+  .lede{font-size:18px;line-height:1.5;color:var(--ink-soft);max-width:58ch;text-wrap:pretty}
+
+  /* announce + nav (shared) */
+  .announce{background:var(--fg);color:var(--bg);font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;text-align:center;padding:9px var(--pad);display:flex;justify-content:center;gap:14px}
+  .announce em{color:var(--accent);font-style:normal}
+  .announce a{border-bottom:1px solid currentColor;padding-bottom:1px}
+  .topnav{border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:50;backdrop-filter:saturate(140%) blur(8px);background-color:color-mix(in oklch,var(--bg) 88%,transparent)}
+  .topnav__inner{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:32px;padding:18px var(--pad);max-width:var(--max);margin:0 auto}
+  .brand{font-family:var(--font-display);font-size:22px;letter-spacing:-0.02em;display:flex;align-items:baseline;gap:8px}
+  .brand::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);transform:translateY(-2px)}
+  .brand small{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+  .nav{display:flex;justify-content:center;gap:28px;font-size:14px;color:var(--ink-soft)}
+  .nav a{padding:6px 0}
+  .nav a:hover,.nav a.is-active{color:var(--fg)}
+  .nav a.is-active{border-bottom:1px solid var(--accent)}
+  .nav-cta{display:flex;align-items:center;gap:18px;font-size:14px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid var(--fg);color:var(--fg);font-size:14px;background:var(--paper);transition:transform .12s ease}
+  .btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--fg)}
+  .btn--filled{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+  .btn--filled:hover{box-shadow:3px 3px 0 var(--accent)}
+  .btn--ghost{border-color:transparent;background:transparent;padding:10px 0}
+
+  /* page hero */
+  .page-hero{padding:clamp(64px,9vw,120px) 0 clamp(56px,7vw,88px);border-bottom:1px solid var(--rule)}
+  .page-hero__grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:end}
+  .page-hero h1{margin-bottom:24px;text-wrap:balance}
+  .page-hero h1 em{font-style:italic;color:var(--accent)}
+  .page-hero .lede{font-size:19px;color:var(--ink-soft)}
+  .page-hero__meta{display:grid;grid-template-columns:1fr 1fr;gap:32px;border-top:1px solid var(--rule);padding-top:24px;margin-top:40px}
+  .page-hero__meta b{font-family:var(--font-display);font-size:32px;letter-spacing:-0.02em;display:block;font-variant-numeric:tabular-nums}
+  .page-hero__meta span{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:block;margin-top:6px}
+
+  /* TOC strip */
+  .toc{background:var(--paper);border-bottom:1px solid var(--rule);position:sticky;top:65px;z-index:40}
+  .toc__inner{display:flex;gap:32px;padding:18px var(--pad);max-width:var(--max);margin:0 auto;font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);overflow-x:auto;align-items:center}
+  .toc a{position:relative;padding-bottom:2px}
+  .toc a:hover,.toc a:focus{color:var(--fg)}
+  .toc a.is-active{color:var(--fg);border-bottom:1px solid var(--accent)}
+  .toc__sep{color:var(--rule)}
+
+  /* service block */
+  .svc-block{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule)}
+  .svc-block:nth-child(even){background:var(--paper)}
+  .svc-block__head{display:grid;grid-template-columns:1fr 1.2fr;gap:64px;margin-bottom:48px;align-items:end}
+  .svc-block__head .num{font-family:var(--font-mono);font-size:48px;letter-spacing:-0.02em;color:var(--rule);font-weight:400;font-variant-numeric:tabular-nums;line-height:1;display:block;margin-bottom:12px}
+  .svc-block h2{text-wrap:balance;margin-bottom:16px}
+  .svc-block h2 em{font-style:italic;color:var(--accent)}
+  .svc-block__head p{font-size:17px;color:var(--ink-soft);max-width:48ch}
+
+  .svc-block__body{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
+  .svc-card{
+    border:1px solid var(--rule);
+    background:var(--bg);
+    padding:32px;
+  }
+  .svc-card h3{font-size:22px;letter-spacing:-0.01em;margin-bottom:14px}
+  .svc-card .row{display:grid;grid-template-columns:1fr auto;gap:16px;padding:14px 0;border-bottom:1px solid var(--rule);align-items:baseline}
+  .svc-card .row:last-of-type{border-bottom:0}
+  .svc-card .row span{color:var(--ink-soft);font-size:14px}
+  .svc-card .row b{font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--fg);letter-spacing:.02em;font-weight:500}
+  .svc-card .row b sup{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:.06em}
+
+  .svc-checklist{list-style:none;padding:0;margin:0}
+  .svc-checklist li{display:grid;grid-template-columns:24px 1fr;gap:14px;padding:14px 0;border-bottom:1px solid var(--rule);align-items:start;font-size:15px;line-height:1.55;color:var(--ink-soft)}
+  .svc-checklist li:last-child{border-bottom:0}
+  .svc-checklist li b{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;color:var(--accent);font-weight:400;padding-top:3px;text-transform:uppercase}
+  .svc-checklist li i{font-style:normal;display:block;color:var(--fg);font-family:var(--font-display);font-size:17px;letter-spacing:-0.01em;margin-bottom:4px}
+
+  .svc-quote{
+    border-left:2px solid var(--accent);
+    padding:8px 0 8px 28px;
+    margin-top:32px;
+    font-family:var(--font-display);
+    font-size:22px;
+    line-height:1.3;
+    letter-spacing:-0.01em;
+    color:var(--ink-soft);
+    text-wrap:pretty;
+  }
+  .svc-quote em{font-style:italic;color:var(--fg)}
+  .svc-quote cite{display:block;font-style:normal;font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:12px}
+
+  /* fleet matrix */
+  .matrix{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule)}
+  .matrix__head{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:end;margin-bottom:48px}
+  .matrix__table{width:100%;border-top:1px solid var(--fg);border-bottom:1px solid var(--fg);border-collapse:collapse;font-size:14px}
+  .matrix__table th,.matrix__table td{padding:18px 14px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
+  .matrix__table th{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400;padding-top:14px;padding-bottom:14px;background:var(--paper)}
+  .matrix__table th:first-child,.matrix__table td:first-child{padding-left:0;font-family:var(--font-display);font-size:18px;letter-spacing:-0.01em;color:var(--fg)}
+  .matrix__table th:first-child{font-family:var(--font-mono);font-size:11px}
+  .matrix__table td{font-family:var(--font-mono);font-size:13px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  .matrix__table tr:last-child td{border-bottom:0}
+  .matrix__table .check{color:var(--good);font-family:var(--font-display);font-size:18px}
+  .matrix__table .x{color:var(--rule)}
+
+  /* end CTA */
+  .end{padding:clamp(64px,8vw,120px) 0;background:var(--fg);color:var(--bg)}
+  .end__inner{display:grid;grid-template-columns:1.4fr 1fr;gap:64px;align-items:end}
+  .end h2{color:var(--bg);font-size:clamp(40px,5.5vw,72px);line-height:1;letter-spacing:-0.025em;text-wrap:balance}
+  .end h2 em{color:var(--accent);font-style:italic}
+  .end p{color:oklch(78% 0.012 80);font-size:17px;max-width:38ch;margin-bottom:32px}
+  .end .btn{background:var(--bg);color:var(--fg);border-color:var(--bg)}
+  .end .btn:hover{box-shadow:3px 3px 0 var(--accent)}
+  .end .btn--ghost{background:transparent;color:var(--bg);border-color:oklch(78% 0.012 80)}
+
+  footer{padding:64px 0 28px;background:var(--bg);color:var(--ink-soft);font-size:13px}
+  .foot{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:40px;border-bottom:1px solid var(--rule);padding-bottom:48px;margin-bottom:24px}
+  .foot h4{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400;margin-bottom:16px}
+  .foot ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+  .foot a:hover{color:var(--accent)}
+  .foot__brand .brand{font-size:24px;margin-bottom:14px}
+  .foot__brand p{max-width:32ch;color:var(--muted);font-size:13px;line-height:1.55}
+  .foot__brand .addr{margin-top:18px;font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;color:var(--ink-soft);line-height:1.7}
+  .foot__bottom{display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex-wrap:wrap;gap:14px}
+
+  @media (max-width:980px){
+    .page-hero__grid,.svc-block__head,.svc-block__body,.matrix__head,.end__inner{grid-template-columns:1fr;gap:32px}
+    .nav{display:none}.topnav__inner{grid-template-columns:1fr auto}
+    .foot{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:640px){
+    .matrix__table th:nth-child(n+3),.matrix__table td:nth-child(n+3){display:none}
+    .foot{grid-template-columns:1fr}
+    .nav-cta .btn--ghost{display:none}
+  }
+
+
+/* === BLOG PAGE STYLES === */
+
+  :root{
+    --bg:oklch(97% 0.012 80);--paper:oklch(99% 0.005 80);
+    --fg:oklch(20% 0.02 60);--ink-soft:oklch(28% 0.02 60);
+    --muted:oklch(48% 0.015 60);--rule:oklch(82% 0.012 80);
+    --accent:oklch(58% 0.16 35);--good:oklch(55% 0.13 145);
+    --font-display:'Iowan Old Style','Charter',Georgia,serif;
+    --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --font-mono:ui-monospace,'SF Mono','JetBrains Mono',Menlo,monospace;
+    --max:1280px;--pad:clamp(20px,4vw,56px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+  .wrap{max-width:var(--max);margin:0 auto;padding-inline:var(--pad)}
+  h1,h2,h3,h4{font-family:var(--font-display);font-weight:500;letter-spacing:-0.01em;margin:0}
+  h1{font-size:clamp(56px,10vw,148px);line-height:.95;letter-spacing:-0.03em}
+  h2{font-size:clamp(28px,3.4vw,44px);line-height:1.1;letter-spacing:-0.02em}
+  h3{font-size:clamp(20px,1.8vw,26px);line-height:1.25}
+  p{margin:0}
+  .kicker{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+  .kicker--accent{color:var(--accent)}
+  .lede{font-size:18px;line-height:1.5;color:var(--ink-soft);max-width:58ch;text-wrap:pretty}
+
+  .announce{background:var(--fg);color:var(--bg);font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;text-align:center;padding:9px var(--pad);display:flex;justify-content:center;gap:14px}
+  .announce em{color:var(--accent);font-style:normal}
+  .announce a{border-bottom:1px solid currentColor;padding-bottom:1px}
+  .topnav{border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:50;backdrop-filter:saturate(140%) blur(8px);background-color:color-mix(in oklch,var(--bg) 88%,transparent)}
+  .topnav__inner{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:32px;padding:18px var(--pad);max-width:var(--max);margin:0 auto}
+  .brand{font-family:var(--font-display);font-size:22px;letter-spacing:-0.02em;display:flex;align-items:baseline;gap:8px}
+  .brand::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);transform:translateY(-2px)}
+  .brand small{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+  .nav{display:flex;justify-content:center;gap:28px;font-size:14px;color:var(--ink-soft)}
+  .nav a{padding:6px 0}
+  .nav a:hover,.nav a.is-active{color:var(--fg)}
+  .nav a.is-active{border-bottom:1px solid var(--accent)}
+  .nav-cta{display:flex;align-items:center;gap:18px;font-size:14px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid var(--fg);color:var(--fg);font-size:14px;background:var(--paper);transition:transform .12s ease}
+  .btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--fg)}
+  .btn--filled{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+  .btn--filled:hover{box-shadow:3px 3px 0 var(--accent)}
+  .btn--ghost{border-color:transparent;background:transparent;padding:10px 0}
+
+  /* masthead — magazine front page */
+  .mast{padding:clamp(48px,7vw,88px) 0 0;border-bottom:1px solid var(--fg)}
+  .mast__top{display:flex;justify-content:space-between;border-bottom:1px solid var(--rule);padding-bottom:14px;margin-bottom:32px;font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .mast__top em{color:var(--accent);font-style:normal}
+  .mast h1{margin-bottom:32px;letter-spacing:-0.04em}
+  .mast h1 em{font-style:italic;color:var(--accent)}
+  .mast__sub{display:grid;grid-template-columns:2fr 1fr 1fr;gap:48px;border-top:1px solid var(--rule);padding:24px 0;align-items:start}
+  .mast__sub p{font-size:18px;color:var(--ink-soft);line-height:1.5;text-wrap:pretty}
+  .mast__sub .label{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:block}
+  .mast__sub b{font-family:var(--font-display);font-size:22px;letter-spacing:-0.01em;display:block;margin-bottom:4px}
+
+  /* category strip */
+  .cats{padding:24px 0;border-bottom:1px solid var(--rule);background:var(--paper)}
+  .cats__inner{display:flex;flex-wrap:wrap;gap:24px 32px;align-items:center;font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .cats__inner a{padding:4px 0;border-bottom:1px solid transparent}
+  .cats__inner a:hover,.cats__inner a.is-active{color:var(--fg);border-bottom-color:var(--accent)}
+  .cats__sep{color:var(--rule)}
+
+  /* feature article */
+  .feat{padding:clamp(48px,6vw,80px) 0;border-bottom:1px solid var(--rule)}
+  .feat__grid{display:grid;grid-template-columns:1.2fr 1fr;gap:64px;align-items:center}
+  .feat__art{aspect-ratio:5/4;background:var(--paper);border:1px solid var(--rule);position:relative;overflow:hidden}
+  .feat__art::before{
+    content:"";position:absolute;inset:0;
+    background:
+      linear-gradient(180deg,transparent 60%,oklch(20% 0.02 60 / .7) 100%),
+      conic-gradient(from 200deg at 60% 50%,oklch(74% 0.025 60),oklch(48% 0.02 60),oklch(28% 0.02 60),oklch(58% 0.16 35) 88%,oklch(48% 0.02 60));
+  }
+  .feat__art::after{
+    content:"";position:absolute;left:25%;right:18%;bottom:18%;height:18%;
+    background:linear-gradient(180deg,oklch(20% 0.02 60),oklch(8% 0.02 60));
+    clip-path:polygon(8% 100%,0 60%,12% 30%,28% 10%,72% 10%,88% 30%,100% 60%,92% 100%);
+  }
+  .feat__cap{position:absolute;left:14px;bottom:14px;font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--bg);text-transform:uppercase;z-index:2}
+  .feat__copy h2{margin-bottom:24px;text-wrap:balance}
+  .feat__copy h2 em{font-style:italic;color:var(--accent)}
+  .feat__copy p{font-size:17px;color:var(--ink-soft);line-height:1.6;margin-bottom:24px}
+  .feat__byline{display:flex;align-items:center;gap:14px;border-top:1px solid var(--rule);padding-top:18px;font-size:13px;color:var(--muted)}
+  .feat__byline b{color:var(--fg);font-family:var(--font-display);font-size:15px;letter-spacing:-0.01em;font-weight:500;display:block}
+  .feat__cta{display:inline-flex;align-items:center;gap:8px;border-bottom:1px solid var(--fg);padding-bottom:2px;font-size:14px;margin-top:24px}
+  .feat__cta:hover{color:var(--accent);border-color:var(--accent)}
+
+  /* article grid */
+  .grid{padding:clamp(64px,7vw,96px) 0;border-bottom:1px solid var(--rule)}
+  .grid__head{display:flex;justify-content:space-between;align-items:end;gap:32px;margin-bottom:48px;flex-wrap:wrap}
+  .grid__head h2{max-width:18ch;text-wrap:balance}
+  .grid__head p{max-width:32ch;color:var(--muted);font-size:15px}
+  .articles{display:grid;grid-template-columns:repeat(3,1fr);gap:48px}
+  .art{display:flex;flex-direction:column;gap:18px;padding-bottom:24px;border-bottom:1px solid var(--rule)}
+  .art__art{
+    aspect-ratio:5/4;background:var(--paper);border:1px solid var(--rule);position:relative;overflow:hidden;
+  }
+  .art__art--tone-a::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,oklch(86% 0.025 80),oklch(58% 0.16 35) 110%)}
+  .art__art--tone-b::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,oklch(89% 0.012 80),oklch(89% 0.012 80) 14px,oklch(78% 0.012 80) 14px,oklch(78% 0.012 80) 28px)}
+  .art__art--tone-c::before{content:"";position:absolute;inset:0;background:radial-gradient(80% 60% at 30% 30%,oklch(72% 0.025 60),oklch(28% 0.02 60))}
+  .art__art--tone-d::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,oklch(94% 0.02 60),oklch(74% 0.04 60));}
+  .art__art--tone-d::after{content:"";position:absolute;inset:35% 22% 35% 22%;background:linear-gradient(180deg,oklch(20% 0.02 60),oklch(10% 0.02 60));clip-path:polygon(8% 100%,0 50%,15% 20%,85% 20%,100% 50%,92% 100%)}
+  .art__art--tone-e::before{content:"";position:absolute;inset:0;background:linear-gradient(110deg,oklch(94% 0.012 80) 50%,oklch(89% 0.012 80) 50%) 0 0/16px 16px,oklch(89% 0.012 80)}
+  .art__art--tone-f::before{content:"";position:absolute;inset:0;background:linear-gradient(140deg,oklch(82% 0.04 35) 0%,oklch(58% 0.16 35) 100%)}
+  .art__cat{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .art h3{font-size:24px;letter-spacing:-0.015em;line-height:1.18;text-wrap:balance}
+  .art h3 em{font-style:italic;color:var(--accent)}
+  .art p{font-size:15px;line-height:1.55;color:var(--ink-soft);text-wrap:pretty}
+  .art__meta{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:auto}
+  .art__meta b{color:var(--ink-soft);font-weight:400}
+
+  /* notebook list */
+  .notebook{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule);background:var(--paper)}
+  .notebook__head{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:end;margin-bottom:48px}
+  .notebook__list{border-top:1px solid var(--fg)}
+  .nb{display:grid;grid-template-columns:80px 100px 1fr 1.2fr 80px;gap:32px;padding:22px 0;border-bottom:1px solid var(--rule);align-items:baseline}
+  .nb:hover{background:color-mix(in oklch,var(--accent) 4%,transparent)}
+  .nb__num{font-family:var(--font-mono);font-size:13px;color:var(--accent);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+  .nb__date{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .nb h3{font-size:20px;letter-spacing:-0.01em;line-height:1.25}
+  .nb p{font-size:14px;line-height:1.5;color:var(--ink-soft)}
+  .nb__time{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:right}
+
+  /* newsletter */
+  .news{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule)}
+  .news__inner{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;border:1px solid var(--fg);background:var(--paper);padding:clamp(32px,4vw,56px)}
+  .news h2{margin-bottom:18px;text-wrap:balance}
+  .news h2 em{font-style:italic;color:var(--accent)}
+  .news p{color:var(--ink-soft);font-size:16px;max-width:42ch}
+  .news__form{display:grid;gap:14px}
+  .news__form label{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .news__form input{
+    border:0;border-bottom:1px solid var(--fg);
+    background:transparent;
+    padding:14px 0;
+    font:inherit;font-family:var(--font-display);font-size:22px;letter-spacing:-0.01em;
+    color:var(--fg);
+    outline:none;
+  }
+  .news__form input::placeholder{color:var(--muted);font-style:italic}
+  .news__form .row{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-top:6px}
+  .news__form small{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+  footer{padding:64px 0 28px;background:var(--bg);color:var(--ink-soft);font-size:13px}
+  .foot{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:40px;border-bottom:1px solid var(--rule);padding-bottom:48px;margin-bottom:24px}
+  .foot h4{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400;margin-bottom:16px}
+  .foot ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+  .foot a:hover{color:var(--accent)}
+  .foot__brand .brand{font-size:24px;margin-bottom:14px}
+  .foot__brand p{max-width:32ch;color:var(--muted);font-size:13px;line-height:1.55}
+  .foot__brand .addr{margin-top:18px;font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;color:var(--ink-soft);line-height:1.7}
+  .foot__bottom{display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex-wrap:wrap;gap:14px}
+
+  @media (max-width:980px){
+    .mast__sub,.feat__grid,.grid__head,.notebook__head,.news__inner{grid-template-columns:1fr;gap:32px}
+    .articles{grid-template-columns:1fr 1fr}
+    .nb{grid-template-columns:60px 1fr;gap:16px}
+    .nb__num,.nb__date{grid-row:1;grid-column:auto}
+    .nb h3,.nb p{grid-column:2;grid-row:auto}
+    .nb__time{display:none}
+    .nav{display:none}.topnav__inner{grid-template-columns:1fr auto}
+    .foot{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:640px){
+    .articles{grid-template-columns:1fr}
+    .foot{grid-template-columns:1fr}
+    .nav-cta .btn--ghost{display:none}
+  }
+
+
+/* === ABOUT PAGE STYLES === */
+
+  :root{
+    --bg:oklch(97% 0.012 80);--paper:oklch(99% 0.005 80);
+    --fg:oklch(20% 0.02 60);--ink-soft:oklch(28% 0.02 60);
+    --muted:oklch(48% 0.015 60);--rule:oklch(82% 0.012 80);
+    --accent:oklch(58% 0.16 35);--good:oklch(55% 0.13 145);
+    --font-display:'Iowan Old Style','Charter',Georgia,serif;
+    --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --font-mono:ui-monospace,'SF Mono','JetBrains Mono',Menlo,monospace;
+    --max:1280px;--pad:clamp(20px,4vw,56px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+  .wrap{max-width:var(--max);margin:0 auto;padding-inline:var(--pad)}
+  h1,h2,h3,h4{font-family:var(--font-display);font-weight:500;letter-spacing:-0.01em;margin:0}
+  h1{font-size:clamp(56px,9vw,128px);line-height:.95;letter-spacing:-0.03em}
+  h2{font-size:clamp(28px,3.4vw,44px);line-height:1.1;letter-spacing:-0.02em}
+  h3{font-size:clamp(20px,1.8vw,24px);line-height:1.25}
+  p{margin:0}
+  .kicker{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+  .kicker--accent{color:var(--accent)}
+  .lede{font-size:18px;line-height:1.5;color:var(--ink-soft);max-width:58ch;text-wrap:pretty}
+
+  .announce{background:var(--fg);color:var(--bg);font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;text-align:center;padding:9px var(--pad);display:flex;justify-content:center;gap:14px}
+  .announce em{color:var(--accent);font-style:normal}
+  .announce a{border-bottom:1px solid currentColor;padding-bottom:1px}
+  .topnav{border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:50;backdrop-filter:saturate(140%) blur(8px);background-color:color-mix(in oklch,var(--bg) 88%,transparent)}
+  .topnav__inner{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:32px;padding:18px var(--pad);max-width:var(--max);margin:0 auto}
+  .brand{font-family:var(--font-display);font-size:22px;letter-spacing:-0.02em;display:flex;align-items:baseline;gap:8px}
+  .brand::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);transform:translateY(-2px)}
+  .brand small{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+  .nav{display:flex;justify-content:center;gap:28px;font-size:14px;color:var(--ink-soft)}
+  .nav a{padding:6px 0}
+  .nav a:hover,.nav a.is-active{color:var(--fg)}
+  .nav a.is-active{border-bottom:1px solid var(--accent)}
+  .nav-cta{display:flex;align-items:center;gap:18px;font-size:14px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid var(--fg);color:var(--fg);font-size:14px;background:var(--paper);transition:transform .12s ease}
+  .btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--fg)}
+  .btn--filled{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+  .btn--filled:hover{box-shadow:3px 3px 0 var(--accent)}
+  .btn--ghost{border-color:transparent;background:transparent;padding:10px 0}
+
+  /* masthead */
+  .mast{padding:clamp(64px,10vw,160px) 0 clamp(56px,8vw,96px);border-bottom:1px solid var(--rule);position:relative}
+  .mast__top{display:flex;justify-content:space-between;align-items:baseline;gap:32px;border-bottom:1px solid var(--rule);padding-bottom:18px;margin-bottom:48px;font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .mast__top em{color:var(--accent);font-style:normal}
+  .mast h1{margin-bottom:48px;text-wrap:balance;max-width:14ch}
+  .mast h1 em{font-style:italic;color:var(--accent)}
+  .mast__deck{display:grid;grid-template-columns:1fr 1.2fr;gap:64px;padding-top:32px;border-top:1px solid var(--rule);align-items:start}
+  .mast__deck p{font-size:18px;line-height:1.5;color:var(--ink-soft);text-wrap:pretty}
+  .mast__deck p:first-of-type::first-letter{font-family:var(--font-display);font-size:84px;float:left;line-height:.85;padding-right:14px;padding-top:6px;color:var(--accent)}
+  .mast__byline{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .mast__byline b{display:block;color:var(--fg);font-family:var(--font-display);font-size:16px;letter-spacing:-0.01em;text-transform:none;margin-bottom:6px}
+
+  /* portrait */
+  .portrait{padding:clamp(64px,8vw,96px) 0;border-bottom:1px solid var(--rule);background:var(--paper)}
+  .portrait__grid{display:grid;grid-template-columns:1.1fr 1fr;gap:64px;align-items:center}
+  .portrait__art{aspect-ratio:4/5;background:var(--bg);border:1px solid var(--rule);position:relative;overflow:hidden}
+  .portrait__art::before{
+    content:"";position:absolute;inset:0;
+    background:
+      radial-gradient(120% 80% at 70% 35%,oklch(78% 0.04 60) 0%,oklch(28% 0.02 60) 70%,oklch(15% 0.02 60) 100%);
+  }
+  .portrait__art::after{
+    content:"";position:absolute;left:18%;top:20%;width:64%;height:70%;
+    background:
+      radial-gradient(60% 30% at 50% 28%,oklch(82% 0.025 60),oklch(52% 0.02 60) 70%,transparent 80%),
+      linear-gradient(180deg,oklch(20% 0.02 60),oklch(10% 0.02 60));
+    clip-path:ellipse(50% 50% at 50% 50%);
+    border-radius:50%;
+    transform:scale(0.85,1);
+  }
+  .portrait__caption{position:absolute;left:14px;bottom:14px;font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--bg);text-transform:uppercase;z-index:2}
+  .portrait__copy h2{margin-bottom:24px;text-wrap:balance}
+  .portrait__copy h2 em{font-style:italic;color:var(--accent)}
+  .portrait__copy p{font-size:17px;color:var(--ink-soft);line-height:1.6;margin-bottom:18px}
+  .portrait__copy p:last-child{margin-bottom:0}
+  .portrait__copy .sig{font-family:var(--font-display);font-size:22px;font-style:italic;color:var(--fg);letter-spacing:-0.01em;margin-top:24px;display:block}
+
+  /* values */
+  .values{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule)}
+  .values__head{display:grid;grid-template-columns:1fr 1.4fr;gap:64px;align-items:end;margin-bottom:64px}
+  .values__list{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--fg)}
+  .val{padding:32px 28px 32px 0;border-right:1px solid var(--rule);display:flex;flex-direction:column;gap:14px}
+  .val:last-child{border-right:0;padding-right:0}
+  .val:not(:first-child){padding-left:28px}
+  .val__num{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .val h3{font-size:22px;letter-spacing:-0.015em}
+  .val p{font-size:14px;color:var(--ink-soft);line-height:1.55}
+  .val em{font-style:italic;color:var(--fg);font-family:var(--font-display)}
+
+  /* timeline */
+  .tl{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule);background:var(--paper)}
+  .tl__head{margin-bottom:48px;max-width:60ch}
+  .tl__head h2{margin-top:14px;text-wrap:balance}
+  .tl__rows{border-top:1px solid var(--fg)}
+  .tl__row{display:grid;grid-template-columns:120px 1fr 1.2fr;gap:48px;padding:28px 0;border-bottom:1px solid var(--rule);align-items:start}
+  .tl__row:last-child{border-bottom:0}
+  .tl__year{font-family:var(--font-mono);font-size:13px;letter-spacing:.06em;color:var(--accent);font-variant-numeric:tabular-nums}
+  .tl__row h3{font-size:22px;letter-spacing:-0.01em;margin-bottom:6px}
+  .tl__row p{font-size:15px;line-height:1.55;color:var(--ink-soft)}
+  .tl__row p em{font-style:italic;color:var(--fg)}
+
+  /* team */
+  .team{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule)}
+  .team__head{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:end;margin-bottom:48px}
+  .team__grid{display:grid;grid-template-columns:repeat(4,1fr);gap:32px}
+  .ppl{display:flex;flex-direction:column;gap:14px}
+  .ppl__face{
+    aspect-ratio:1/1.15;background:var(--paper);border:1px solid var(--rule);position:relative;overflow:hidden;
+  }
+  .ppl__face::before{
+    content:attr(data-init);position:absolute;inset:0;display:grid;place-items:center;
+    font-family:var(--font-display);font-size:64px;letter-spacing:-0.03em;color:var(--accent);opacity:.85;
+    font-style:italic;
+  }
+  .ppl__face::after{
+    content:"";position:absolute;inset:auto 0 0 0;height:36%;
+    background:linear-gradient(180deg,transparent,oklch(82% 0.012 80));
+  }
+  .ppl b{font-family:var(--font-display);font-size:18px;letter-spacing:-0.01em;display:block;color:var(--fg);font-weight:500}
+  .ppl span{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+  /* manifesto */
+  .manif{padding:clamp(80px,10vw,140px) 0;border-bottom:1px solid var(--rule);background:var(--fg);color:var(--bg)}
+  .manif__inner{display:grid;grid-template-columns:1fr 2fr;gap:64px;align-items:start}
+  .manif h2{color:var(--bg);font-size:clamp(36px,4vw,56px);line-height:1.05;text-wrap:balance}
+  .manif h2 em{color:var(--accent);font-style:italic}
+  .manif ol{list-style:none;padding:0;margin:0;counter-reset:m}
+  .manif li{counter-increment:m;border-bottom:1px solid oklch(35% 0.02 60);padding:22px 0;display:grid;grid-template-columns:48px 1fr;gap:18px;align-items:baseline;font-size:17px;line-height:1.5;color:oklch(82% 0.012 80);text-wrap:pretty}
+  .manif li::before{content:counter(m,decimal-leading-zero);font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;color:var(--accent)}
+  .manif li b{display:block;color:var(--bg);font-family:var(--font-display);font-size:22px;font-weight:500;letter-spacing:-0.01em;margin-bottom:6px}
+  .manif li:last-child{border-bottom:0}
+
+  footer{padding:64px 0 28px;background:var(--bg);color:var(--ink-soft);font-size:13px}
+  .foot{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:40px;border-bottom:1px solid var(--rule);padding-bottom:48px;margin-bottom:24px}
+  .foot h4{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400;margin-bottom:16px}
+  .foot ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+  .foot a:hover{color:var(--accent)}
+  .foot__brand .brand{font-size:24px;margin-bottom:14px}
+  .foot__brand p{max-width:32ch;color:var(--muted);font-size:13px;line-height:1.55}
+  .foot__brand .addr{margin-top:18px;font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;color:var(--ink-soft);line-height:1.7}
+  .foot__bottom{display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex-wrap:wrap;gap:14px}
+
+  @media (max-width:980px){
+    .mast__deck,.portrait__grid,.values__head,.team__head,.manif__inner{grid-template-columns:1fr;gap:32px}
+    .values__list{grid-template-columns:1fr;border-top:0}
+    .val{border-right:0!important;border-bottom:1px solid var(--rule);padding:24px 0!important}
+    .team__grid{grid-template-columns:1fr 1fr}
+    .tl__row{grid-template-columns:80px 1fr;gap:24px}
+    .tl__row > p{grid-column:2}
+    .nav{display:none}.topnav__inner{grid-template-columns:1fr auto}
+    .foot{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:640px){
+    .team__grid{grid-template-columns:1fr 1fr}
+    .foot{grid-template-columns:1fr}
+    .nav-cta .btn--ghost{display:none}
+  }
+
+
+/* === CONTACT PAGE STYLES === */
+
+  :root{
+    --bg:oklch(97% 0.012 80);--paper:oklch(99% 0.005 80);
+    --fg:oklch(20% 0.02 60);--ink-soft:oklch(28% 0.02 60);
+    --muted:oklch(48% 0.015 60);--rule:oklch(82% 0.012 80);
+    --accent:oklch(58% 0.16 35);--good:oklch(55% 0.13 145);
+    --font-display:'Iowan Old Style','Charter',Georgia,serif;
+    --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --font-mono:ui-monospace,'SF Mono','JetBrains Mono',Menlo,monospace;
+    --max:1280px;--pad:clamp(20px,4vw,56px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+  .wrap{max-width:var(--max);margin:0 auto;padding-inline:var(--pad)}
+  h1,h2,h3,h4{font-family:var(--font-display);font-weight:500;letter-spacing:-0.01em;margin:0}
+  h1{font-size:clamp(48px,7vw,88px);line-height:.98;letter-spacing:-0.025em}
+  h2{font-size:clamp(28px,3.4vw,40px);line-height:1.1;letter-spacing:-0.02em}
+  p{margin:0}
+  .kicker{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+  .kicker--accent{color:var(--accent)}
+  .lede{font-size:18px;line-height:1.5;color:var(--ink-soft);max-width:58ch;text-wrap:pretty}
+
+  .announce{background:var(--fg);color:var(--bg);font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;text-align:center;padding:9px var(--pad);display:flex;justify-content:center;gap:14px}
+  .announce em{color:var(--accent);font-style:normal}
+  .announce a{border-bottom:1px solid currentColor;padding-bottom:1px}
+  .topnav{border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:50;backdrop-filter:saturate(140%) blur(8px);background-color:color-mix(in oklch,var(--bg) 88%,transparent)}
+  .topnav__inner{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:32px;padding:18px var(--pad);max-width:var(--max);margin:0 auto}
+  .brand{font-family:var(--font-display);font-size:22px;letter-spacing:-0.02em;display:flex;align-items:baseline;gap:8px}
+  .brand::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);transform:translateY(-2px)}
+  .brand small{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+  .nav{display:flex;justify-content:center;gap:28px;font-size:14px;color:var(--ink-soft)}
+  .nav a{padding:6px 0}
+  .nav a:hover,.nav a.is-active{color:var(--fg)}
+  .nav a.is-active{border-bottom:1px solid var(--accent)}
+  .nav-cta{display:flex;align-items:center;gap:18px;font-size:14px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid var(--fg);color:var(--fg);font-size:14px;background:var(--paper);transition:transform .12s ease}
+  .btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--fg)}
+  .btn--filled{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+  .btn--filled:hover{box-shadow:3px 3px 0 var(--accent)}
+  .btn--ghost{border-color:transparent;background:transparent;padding:10px 0}
+
+  /* page */
+  .page{padding:clamp(56px,7vw,96px) 0;border-bottom:1px solid var(--rule)}
+  .page__inner{display:grid;grid-template-columns:1fr 1.1fr;gap:clamp(48px,7vw,96px);align-items:start}
+
+  /* left rail */
+  .rail .kicker{display:block;margin-bottom:18px}
+  .rail h1{margin-bottom:32px;text-wrap:balance}
+  .rail h1 em{font-style:italic;color:var(--accent)}
+  .rail__lede{font-size:18px;color:var(--ink-soft);line-height:1.55;margin-bottom:40px;max-width:42ch}
+
+  .rail__list{border-top:1px solid var(--rule);margin-bottom:40px}
+  .rail__list dt{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding-top:18px}
+  .rail__list dd{margin:6px 0 18px;font-family:var(--font-display);font-size:18px;letter-spacing:-0.01em;border-bottom:1px solid var(--rule);padding-bottom:18px}
+  .rail__list dd small{display:block;font-family:var(--font-body);font-size:13px;color:var(--ink-soft);margin-top:4px;letter-spacing:0}
+
+  .rail__sla{
+    border:1px solid var(--rule);
+    background:var(--paper);
+    padding:24px;
+    display:grid;grid-template-columns:auto 1fr;gap:18px;
+    align-items:start;
+  }
+  .rail__sla::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good);margin-top:6px;box-shadow:0 0 0 4px color-mix(in oklch,var(--good) 25%,transparent)}
+  .rail__sla h3{font-family:var(--font-display);font-size:18px;font-weight:500;letter-spacing:-0.01em;margin-bottom:6px}
+  .rail__sla p{font-size:14px;color:var(--ink-soft);line-height:1.55}
+
+  /* form */
+  .form{
+    border:1px solid var(--fg);
+    background:var(--paper);
+    padding:clamp(24px,3vw,40px);
+  }
+  .form__head{display:flex;justify-content:space-between;align-items:baseline;gap:14px;border-bottom:1px solid var(--rule);padding-bottom:18px;margin-bottom:24px}
+  .form__head h2{font-size:24px;letter-spacing:-0.01em}
+  .form__head .kicker{color:var(--accent)}
+  .form__steps{display:flex;gap:24px;font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:24px}
+  .form__steps span{display:flex;align-items:center;gap:8px}
+  .form__steps span::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--rule)}
+  .form__steps span.is-active{color:var(--fg)}
+  .form__steps span.is-active::before{background:var(--accent)}
+
+  .field{display:grid;gap:6px;margin-bottom:18px}
+  .field label{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .field label sup{color:var(--accent)}
+  .field input,.field select,.field textarea{
+    border:0;border-bottom:1px solid var(--rule);
+    background:transparent;padding:12px 0;
+    font:inherit;font-family:var(--font-display);font-size:20px;letter-spacing:-0.01em;
+    color:var(--fg);outline:none;
+    appearance:none;-webkit-appearance:none;
+    border-radius:0;
+  }
+  .field textarea{font-family:var(--font-body);font-size:15px;line-height:1.5;resize:vertical;min-height:88px}
+  .field input::placeholder,.field textarea::placeholder{color:var(--muted);font-style:italic}
+  .field input:focus,.field select:focus,.field textarea:focus{border-bottom-color:var(--accent)}
+  .field--row{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+
+  .options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .opt{
+    border:1px solid var(--rule);
+    background:var(--bg);
+    padding:14px 16px;
+    cursor:pointer;
+    font-size:14px;
+    color:var(--ink-soft);
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
+    transition:all .12s ease;
+  }
+  .opt b{font-family:var(--font-display);font-size:16px;color:var(--fg);font-weight:500;letter-spacing:-0.01em;display:block;margin-bottom:2px}
+  .opt small{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .opt input{display:none}
+  .opt:has(input:checked){border-color:var(--fg);background:var(--paper);box-shadow:3px 3px 0 var(--fg)}
+  .opt:has(input:checked) small{color:var(--accent)}
+  .opt:hover{border-color:var(--fg)}
+
+  .form__foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--rule);padding-top:24px;margin-top:24px;gap:18px;flex-wrap:wrap}
+  .form__foot small{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--muted);max-width:32ch;line-height:1.5}
+
+  /* alt contact */
+  .alt{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule);background:var(--paper)}
+  .alt__head{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:end;margin-bottom:48px}
+  .alt__grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--fg)}
+  .alt__cell{padding:32px 28px 32px 0;border-right:1px solid var(--rule)}
+  .alt__cell:last-child{border-right:0;padding-right:0}
+  .alt__cell:not(:first-child){padding-left:28px}
+  .alt__cell h3{font-size:22px;letter-spacing:-0.01em;margin-bottom:10px}
+  .alt__cell p{color:var(--ink-soft);font-size:15px;line-height:1.55;margin-bottom:14px}
+  .alt__cell a{font-family:var(--font-mono);font-size:13px;color:var(--fg);border-bottom:1px solid var(--accent);padding-bottom:1px;letter-spacing:.04em}
+
+  /* map */
+  .map{padding:clamp(64px,8vw,96px) 0;border-bottom:1px solid var(--rule)}
+  .map__inner{display:grid;grid-template-columns:1.4fr 1fr;gap:64px;align-items:stretch}
+  .map__art{
+    aspect-ratio:6/4;
+    background:var(--paper);
+    border:1px solid var(--rule);
+    position:relative;overflow:hidden;
+  }
+  .map__art::before{
+    content:"";position:absolute;inset:0;
+    background:
+      linear-gradient(110deg,oklch(94% 0.012 80) 50%,oklch(89% 0.012 80) 50%) 0 0/22px 22px,
+      var(--paper);
+  }
+  .map__art::after{
+    content:"";position:absolute;left:62%;top:48%;
+    width:14px;height:14px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 0 6px color-mix(in oklch,var(--accent) 25%,transparent), 0 0 0 12px color-mix(in oklch,var(--accent) 12%,transparent);
+  }
+  .map__art .pin{
+    position:absolute;left:62%;top:48%;
+    transform:translate(20px,-20px);
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg);
+    background:var(--bg);border:1px solid var(--fg);padding:6px 10px;
+    z-index:2;
+  }
+  .map__copy h2{margin-bottom:18px;text-wrap:balance}
+  .map__copy h2 em{font-style:italic;color:var(--accent)}
+  .map__copy p{font-size:16px;color:var(--ink-soft);line-height:1.55;margin-bottom:24px}
+  .map__copy address{font-style:normal;font-family:var(--font-mono);font-size:13px;letter-spacing:.04em;color:var(--ink-soft);line-height:1.7;border-top:1px solid var(--rule);padding-top:18px}
+  .map__copy address b{display:block;color:var(--fg);font-family:var(--font-display);font-size:18px;letter-spacing:-0.01em;margin-bottom:4px;font-weight:500}
+
+  footer{padding:64px 0 28px;background:var(--bg);color:var(--ink-soft);font-size:13px}
+  .foot{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:40px;border-bottom:1px solid var(--rule);padding-bottom:48px;margin-bottom:24px}
+  .foot h4{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400;margin-bottom:16px}
+  .foot ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+  .foot a:hover{color:var(--accent)}
+  .foot__brand .brand{font-size:24px;margin-bottom:14px}
+  .foot__brand p{max-width:32ch;color:var(--muted);font-size:13px;line-height:1.55}
+  .foot__brand .addr{margin-top:18px;font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;color:var(--ink-soft);line-height:1.7}
+  .foot__bottom{display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex-wrap:wrap;gap:14px}
+
+  @media (max-width:980px){
+    .page__inner,.alt__head,.map__inner{grid-template-columns:1fr;gap:32px}
+    .alt__grid{grid-template-columns:1fr;border-top:0}
+    .alt__cell{border-right:0!important;border-bottom:1px solid var(--rule);padding:24px 0!important}
+    .options{grid-template-columns:1fr}
+    .field--row{grid-template-columns:1fr}
+    .nav{display:none}.topnav__inner{grid-template-columns:1fr auto}
+    .foot{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:640px){
+    .foot{grid-template-columns:1fr}
+    .nav-cta .btn--ghost{display:none}
+  }
+
+
+/* === SPA ROUTING === */
+.page-section { display: none; }
+.page-section.is-active { display: block; }
+.nav a[data-nav].is-active { color: var(--fg); border-bottom: 1px solid var(--accent); }
+
+</style>
+</head>
+<body>
+
+<div class="announce">
+  <span>Live demo every Thursday — <em>see the dispatch board in action</em></span>
+  <a href="#contact">Reserve a seat →</a>
+</div>
+
+<nav class="topnav">
+  <div class="topnav__inner">
+    <a href="#home" class="brand">Tsatsral <small>Limo Co.</small></a>
+    <div class="nav">
+      <a href="#" >Solutions</a>
+      <a href="#services" data-nav="services">Services</a>
+      <a href="#home" data-scroll="fleet">Fleet</a>
+      <a href="#blog" data-nav="blog">Resources</a>
+      <a href="#about" data-nav="about">About</a>
+    </div>
+    <div class="nav-cta">
+      <a href="#login" class="btn--ghost">Operator login</a>
+      <a href="#contact" class="btn btn--filled">Request a demo <span class="arr">→</span></a>
+    </div>
+  </div>
+</nav>
+
+<!-- ====== HOME PAGE ====== -->
+<div class="page-section is-active" data-page="home">
+<header class="hero">
+  <div class="wrap hero__grid">
+    <div class="hero__copy">
+      <span class="kicker kicker--accent">Issue 04 — A field guide to running a fleet</span>
+      <h1>Black-car operators deserve software that <em>doesn't dispatch like a spreadsheet.</em></h1>
+      <p class="hero__lede">Tsatsral is the operating system we built for chauffeured ground transport — reservations, dispatch, drivers, billing, and the awkward late-night phone calls. One platform, one schedule, one source of truth.</p>
+      <div class="hero__cta">
+        <a href="#contact" class="btn btn--filled">Book a 20-minute walkthrough <span class="arr">→</span></a>
+        <a href="#how" class="btn">Watch the 3-minute tour</a>
+      </div>
+      <div class="hero__meta">
+        <div><b>1,200+ rides dispatched daily</b>From corporate accounts in 14 cities, on a single shared queue.</div>
+        <div><b>0:14 average response</b>From booking confirmation to driver assignment, even on red-eye departures.</div>
+      </div>
+    </div>
+    <figure class="hero__visual">
+      <figcaption class="hero__caption">
+        <span><b>Plate · TSL-04</b>Late-shift, Terminal 5</span>
+        <span>03:42 EDT</span>
+      </figcaption>
+    </figure>
+  </div>
+</header>
+
+<section class="trusted">
+  <div class="wrap trusted__inner">
+    <div class="trusted__label">Trusted by 200+ operators</div>
+    <div class="trusted__logos">
+      <span>Northwind Coach</span>
+      <span>Atelier Black</span>
+      <span>Driver &amp; Co.</span>
+      <span>FLEETHAUS</span>
+      <span>Verde Charter</span>
+    </div>
+  </div>
+</section>
+
+<section class="features wrap" id="how">
+  <div class="features__head">
+    <h2>Ten products, one schedule, zero double-booking.</h2>
+    <p>Every Tsatsral module reads from the same trip ledger, so reservations, drivers, and accounting never argue about the truth.</p>
+  </div>
+
+  <div class="pills" role="tablist" aria-label="Feature spotlight">
+    <button class="pill" role="tab" aria-selected="true" data-target="dispatch"><span class="pill__dot"></span>Dispatch board</button>
+    <button class="pill" role="tab" aria-selected="false" data-target="reservation"><span class="pill__dot"></span>Reservations</button>
+    <button class="pill" role="tab" aria-selected="false" data-target="portal"><span class="pill__dot"></span>Customer portal</button>
+    <button class="pill" role="tab" aria-selected="false" data-target="passenger"><span class="pill__dot"></span>Passenger app</button>
+    <button class="pill" role="tab" aria-selected="false" data-target="driver"><span class="pill__dot"></span>Driver platform</button>
+    <button class="pill" role="tab" aria-selected="false" data-target="chat"><span class="pill__dot"></span>Chat</button>
+    <button class="pill" role="tab" aria-selected="false" data-target="marketing"><span class="pill__dot"></span>Marketing</button>
+    <button class="pill" role="tab" aria-selected="false" data-target="crm"><span class="pill__dot"></span>CRM</button>
+    <button class="pill" role="tab" aria-selected="false" data-target="payments"><span class="pill__dot"></span>Payments</button>
+    <button class="pill" role="tab" aria-selected="false" data-target="reporting"><span class="pill__dot"></span>Reporting</button>
+  </div>
+
+  <div class="spotlight">
+
+    <div class="spotlight__panel is-active" data-id="dispatch">
+      <div class="spotlight__copy">
+        <span class="kicker kicker--accent">01 · Dispatch board</span>
+        <h3>A queue your night shift can actually read.</h3>
+        <p>Every leg, every airport, every hand-off in one column-based view. Drag a trip onto a chauffeur and the manifest, the SMS, the GPS hand-off and the invoice update at the same instant — no shouting across the desk.</p>
+        <ul>
+          <li><b>01</b>Auto-assign by zone, vehicle class, and seniority — with a manual override that doesn't break the audit trail.</li>
+          <li><b>02</b>Multi-pickup leg builder for proms, weddings, and corporate roadshows.</li>
+          <li><b>03</b>Late-flight watcher pulls FlightAware deltas straight onto the assigned trip.</li>
+        </ul>
+        <a href="#services" class="spotlight__cta">See dispatch in action <span class="arr">→</span></a>
+      </div>
+      <div class="mock dispatch">
+        <div class="mock__bar"><b>Dispatch · Wednesday, May 6</b><span>14 active · 03 unassigned</span></div>
+        <div class="dispatch__grid">
+          <div class="dispatch__col">
+            <h4>Unassigned <span>03</span></h4>
+            <div class="trip trip--hot">
+              <b>JFK → Tribeca</b>
+              <div class="row"><span>04:55 PU</span><span class="tag">Sedan</span></div>
+            </div>
+            <div class="trip">
+              <b>Greenwich → LGA T-B</b>
+              <div class="row"><span>05:20 PU</span><span class="tag">SUV</span></div>
+            </div>
+            <div class="trip">
+              <b>Newark → Brooklyn</b>
+              <div class="row"><span>06:10 PU</span><span class="tag">Sedan</span></div>
+            </div>
+          </div>
+          <div class="dispatch__col">
+            <h4>Dispatched <span>06</span></h4>
+            <div class="trip">
+              <b>Hotel Wythe → JFK</b>
+              <div class="row"><span>D · Markus</span><span class="tag">en route</span></div>
+            </div>
+            <div class="trip">
+              <b>Riverdale Prom</b>
+              <div class="row"><span>D · Lupita</span><span class="tag">arrived</span></div>
+            </div>
+            <div class="trip">
+              <b>Stamford → JFK T-4</b>
+              <div class="row"><span>D · Idris</span><span class="tag">en route</span></div>
+            </div>
+          </div>
+          <div class="dispatch__col">
+            <h4>Completed <span>05</span></h4>
+            <div class="trip">
+              <b>BBG Roadshow</b>
+              <div class="row"><span>D · Felix</span><span class="tag">closed</span></div>
+            </div>
+            <div class="trip">
+              <b>EWR → Soho House</b>
+              <div class="row"><span>D · Maria</span><span class="tag">closed</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spotlight__panel" data-id="reservation">
+      <div class="spotlight__copy">
+        <span class="kicker kicker--accent">02 · Reservations</span>
+        <h3>One booking screen for the airport, the prom, and the road trip to Boston.</h3>
+        <p>Quote, confirm, and capture a deposit in under a minute. Long-distance pricing snaps to your tariff zones; multi-night charters check vehicle availability before they're saved.</p>
+        <ul>
+          <li><b>01</b>Zone-aware tariffs with peak, dead-mile, and gratuity baked in.</li>
+          <li><b>02</b>Holds, deposits, and tentative bookings in one queue your team trusts.</li>
+          <li><b>03</b>Clone a trip, swap the date, send the e-sign — done.</li>
+        </ul>
+        <a href="#services" class="spotlight__cta">Open the reservation desk <span class="arr">→</span></a>
+      </div>
+      <div class="mock res">
+        <div class="mock__bar"><b>Reservations · Today</b><span>22 confirmed · 04 hold</span></div>
+        <div class="res__list">
+          <div class="res__row">
+            <span class="res__time">04:55</span>
+            <div class="res__name">Cynthia Park <small>JFK → Tribeca · Stretch</small></div>
+            <span class="res__pill res__pill--ok">Confirmed</span>
+            <span class="res__price">$612.40</span>
+          </div>
+          <div class="res__row">
+            <span class="res__time">06:30</span>
+            <div class="res__name">Greenwich Capital <small>3-stop roadshow · 2× SUV</small></div>
+            <span class="res__pill res__pill--ok">Confirmed</span>
+            <span class="res__price">$2,140.00</span>
+          </div>
+          <div class="res__row">
+            <span class="res__time">17:15</span>
+            <div class="res__name">Riverdale High Prom <small>14-pax stretch · 4hr</small></div>
+            <span class="res__pill res__pill--hold">Hold · Deposit</span>
+            <span class="res__price">$1,480.00</span>
+          </div>
+          <div class="res__row">
+            <span class="res__time">19:00</span>
+            <div class="res__name">A. Patel — Boston</div>
+            <span class="res__pill res__pill--ok">Confirmed</span>
+            <span class="res__price">$948.00</span>
+          </div>
+          <div class="res__row">
+            <span class="res__time">22:40</span>
+            <div class="res__name">M. Okafor <small>Long-distance · NYC → DC</small></div>
+            <span class="res__pill res__pill--hold">Hold · Cards</span>
+            <span class="res__price">$1,820.00</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spotlight__panel" data-id="portal">
+      <div class="spotlight__copy">
+        <span class="kicker kicker--accent">03 · Customer portal</span>
+        <h3>Your corporate accounts can self-serve without breaking your inbox.</h3>
+        <p>White-labelled to your domain. Travel managers see live availability, book recurring trips, manage billing groups, and pull a clean monthly statement without filing a ticket.</p>
+        <ul>
+          <li><b>01</b>Custom domains, custom branding — looks like your company, not ours.</li>
+          <li><b>02</b>Cost-center splits, per-rider rules, automatic monthly statements.</li>
+          <li><b>03</b>Saved itineraries: rebook last Friday's red-eye in two taps.</li>
+        </ul>
+        <a href="#services" class="spotlight__cta">Tour the portal <span class="arr">→</span></a>
+      </div>
+      <div class="mock portal">
+        <div class="mock__bar"><b>portal.greenwichcap.com</b><span>Logged in · Travel desk</span></div>
+        <div class="portal__hero">
+          <div class="portal__card"><span class="label">Visitors / 30d</span><div class="num">2,184</div><div class="delta">+12.4%</div></div>
+          <div class="portal__card"><span class="label">Promo redemptions</span><div class="num">186</div><div class="delta">+5.1%</div></div>
+        </div>
+        <div class="portal__form">
+          <h5>Book a return — JFK Terminal 4</h5>
+          <div class="portal__field"><b>Date</b><span>Thu, May 8 — 18:40 PU</span></div>
+          <div class="portal__field"><b>Vehicle</b><span>Sedan · Cadillac XT6</span></div>
+          <div class="portal__field"><b>Cost center</b><span>FUND-04 / Travel</span></div>
+          <div class="portal__field"><b>Notes</b><span>Two pieces of luggage, water cold</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spotlight__panel" data-id="passenger">
+      <div class="spotlight__copy">
+        <span class="kicker kicker--accent">04 · Passenger app</span>
+        <h3>The rider experience, minus the surge pricing.</h3>
+        <p>iOS and Android. Track a chauffeur, share a live ETA, swap pickup curbs, tip and rate — everything passengers already expect, on your branded app.</p>
+        <ul>
+          <li><b>01</b>Apple Wallet pass for every trip — no more "what was the confirmation number?"</li>
+          <li><b>02</b>One-tap meet point switch at airport curbs.</li>
+          <li><b>03</b>Saved riders, saved cards, saved cost centers — bookable in 12 seconds flat.</li>
+        </ul>
+        <a href="#services" class="spotlight__cta">See the rider app <span class="arr">→</span></a>
+      </div>
+      <div class="mock driver">
+        <div class="mock__bar"><b>Tsatsral · iOS</b><span>v 4.6.0</span></div>
+        <div class="driver__phone">
+          <div class="driver__time">04:42 · Wed, May 6</div>
+          <div class="driver__job"><b>Markus is on the way</b>Cadillac XT6 · TSL-04 · ETA 6 min</div>
+          <div class="driver__map"></div>
+          <div class="driver__cta">Share live trip</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spotlight__panel" data-id="driver">
+      <div class="spotlight__copy">
+        <span class="kicker kicker--accent">05 · Driver platform</span>
+        <h3>One tap to clock in, one tap to close out.</h3>
+        <p>Drivers see only the trips they own. Vehicle inspections, tolls, gratuities, mileage — all captured at the seat, all on the back office's books before they get home.</p>
+        <ul>
+          <li><b>01</b>Pre-shift inspection with photo upload, geofenced to the depot.</li>
+          <li><b>02</b>Auto-paid tolls and parking from the receipt scanner.</li>
+          <li><b>03</b>End-of-shift summary with split for cash, card, and house gratuity.</li>
+        </ul>
+        <a href="#services" class="spotlight__cta">Open driver tools <span class="arr">→</span></a>
+      </div>
+      <div class="mock driver">
+        <div class="mock__bar"><b>Driver · Markus T.</b><span>On shift · 04h 12m</span></div>
+        <div class="driver__phone">
+          <div class="driver__time">04:51 · Job 4 of 7</div>
+          <div class="driver__job"><b>JFK T-4 → Tribeca</b>Cynthia Park · 1 bag · gratuity 20%</div>
+          <div class="driver__map"></div>
+          <div class="driver__cta">Tap to start trip</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spotlight__panel" data-id="chat">
+      <div class="spotlight__copy">
+        <span class="kicker kicker--accent">06 · Chat</span>
+        <h3>Every conversation, on the trip it belongs to.</h3>
+        <p>SMS, WhatsApp, web chat — all stitched to the right reservation. Your dispatcher answers from one inbox, the chauffeur sees the thread that matters, and nothing gets buried in a personal phone.</p>
+        <ul>
+          <li><b>01</b>Two-way SMS attached to the reservation, not a stranger's phone.</li>
+          <li><b>02</b>Auto-replies for "where's my driver?" with the live ETA.</li>
+          <li><b>03</b>Quiet hours and routing rules so the night shift sees only what's theirs.</li>
+        </ul>
+        <a href="#services" class="spotlight__cta">Open the inbox <span class="arr">→</span></a>
+      </div>
+      <div class="mock res">
+        <div class="mock__bar"><b>Inbox · 04 unread</b><span>SMS · WhatsApp · Web</span></div>
+        <div class="res__list">
+          <div class="res__row">
+            <span class="res__time">04:42</span>
+            <div class="res__name">Cynthia P. <small>"At terminal — by door 4. Black coat."</small></div>
+            <span class="res__pill res__pill--hold">SMS</span>
+            <span class="res__price">JFK</span>
+          </div>
+          <div class="res__row">
+            <span class="res__time">04:38</span>
+            <div class="res__name">Greenwich Capital <small>"Add a stop at 1101 Park."</small></div>
+            <span class="res__pill res__pill--ok">WhatsApp</span>
+            <span class="res__price">Roadshow</span>
+          </div>
+          <div class="res__row">
+            <span class="res__time">04:18</span>
+            <div class="res__name">Riverdale Prom <small>"Two more guests. Possible?"</small></div>
+            <span class="res__pill res__pill--hold">Web</span>
+            <span class="res__price">17:15</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spotlight__panel" data-id="marketing">
+      <div class="spotlight__copy">
+        <span class="kicker kicker--accent">07 · Marketing</span>
+        <h3>Email and SMS that pulls from the same passenger list, not a CSV.</h3>
+        <p>Win back the rider who hasn't booked since November. Send a Mother's Day promo to the 200 riders who tipped 25%+. Audiences that update themselves, copy that you can actually edit.</p>
+        <ul>
+          <li><b>01</b>Lifecycle audiences — first-trip, lapsed, high-LTV, corporate-only.</li>
+          <li><b>02</b>Promo codes that expire on cue and stop applying past their cap.</li>
+          <li><b>03</b>One-click unsubscribe by channel, by audience, or by everything.</li>
+        </ul>
+        <a href="#services" class="spotlight__cta">Plan a campaign <span class="arr">→</span></a>
+      </div>
+      <div class="mock mkt">
+        <div class="mock__bar"><b>Campaign · MAY-RETURN</b><span>Sent 04 May · 12,480 riders</span></div>
+        <div class="mkt__inner">
+          <div class="mkt__row"><span class="name">Open rate</span><span class="stat open">48.2%</span></div>
+          <div class="mkt__row"><span class="name">Promo redemptions</span><span class="stat">186</span></div>
+          <div class="mkt__row"><span class="name">Bookings attributed</span><span class="stat">$48,210</span></div>
+          <div class="mkt__chart">
+            <i style="height:35%"></i><i style="height:55%"></i><i style="height:75%"></i><i style="height:60%"></i><i style="height:80%"></i><i style="height:95%"></i><i style="height:70%"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spotlight__panel" data-id="crm">
+      <div class="spotlight__copy">
+        <span class="kicker kicker--accent">08 · CRM</span>
+        <h3>The traveler's quirks, finally written down.</h3>
+        <p>One profile per rider, attached to every trip they've ever taken. Preferences, allergies, the cousin who picks up on Fridays — visible to dispatch and the chauffeur, gone the moment they ask to be forgotten.</p>
+        <ul>
+          <li><b>01</b>Household and corporate-account hierarchies.</li>
+          <li><b>02</b>Notes, preferences, and gate codes on the trip card.</li>
+          <li><b>03</b>GDPR-compliant erase, signed and timestamped.</li>
+        </ul>
+        <a href="#services" class="spotlight__cta">Open a profile <span class="arr">→</span></a>
+      </div>
+      <div class="mock res">
+        <div class="mock__bar"><b>Cynthia Park · 64 trips</b><span>Member since '21 · LTV $24.6k</span></div>
+        <div class="res__list">
+          <div class="res__row">
+            <span class="res__time">May 6</span>
+            <div class="res__name">JFK → Tribeca <small>Sedan · 04:55</small></div>
+            <span class="res__pill res__pill--ok">Confirmed</span>
+            <span class="res__price">$612</span>
+          </div>
+          <div class="res__row">
+            <span class="res__time">Apr 22</span>
+            <div class="res__name">Tribeca → JFK <small>Sedan · 16:10</small></div>
+            <span class="res__pill res__pill--ok">Closed</span>
+            <span class="res__price">$598</span>
+          </div>
+          <div class="res__row">
+            <span class="res__time">Apr 14</span>
+            <div class="res__name">Greenwich roadshow <small>SUV · 6hr</small></div>
+            <span class="res__pill res__pill--ok">Closed</span>
+            <span class="res__price">$2,140</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spotlight__panel" data-id="payments">
+      <div class="spotlight__copy">
+        <span class="kicker kicker--accent">09 · Payments</span>
+        <h3>From quote to closed invoice without leaving the trip card.</h3>
+        <p>Capture deposits at booking, run the final card after the trip, settle the chauffeur's gratuity in the same flow. Direct-debit, ACH, Apple Pay — all the rails your accounts ask for.</p>
+        <ul>
+          <li><b>01</b>Hold-and-capture for late-night cancellations.</li>
+          <li><b>02</b>Net-30 invoicing for corporate, sent the morning after the close.</li>
+          <li><b>03</b>Reconciliation report that matches your bank's statement, not your guess.</li>
+        </ul>
+        <a href="#services" class="spotlight__cta">See the ledger <span class="arr">→</span></a>
+      </div>
+      <div class="mock res">
+        <div class="mock__bar"><b>Ledger · Yesterday</b><span>$48,212 captured · $1,482 outstanding</span></div>
+        <div class="res__list">
+          <div class="res__row">
+            <span class="res__time">23:41</span>
+            <div class="res__name">Greenwich Capital <small>Net-30 · INV-2041</small></div>
+            <span class="res__pill res__pill--ok">Sent</span>
+            <span class="res__price">$2,140.00</span>
+          </div>
+          <div class="res__row">
+            <span class="res__time">22:18</span>
+            <div class="res__name">C. Park · Visa •• 4422</div>
+            <span class="res__pill res__pill--ok">Captured</span>
+            <span class="res__price">$612.40</span>
+          </div>
+          <div class="res__row">
+            <span class="res__time">19:50</span>
+            <div class="res__name">Riverdale Prom · ACH</div>
+            <span class="res__pill res__pill--hold">Pending</span>
+            <span class="res__price">$1,480.00</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spotlight__panel" data-id="reporting">
+      <div class="spotlight__copy">
+        <span class="kicker kicker--accent">10 · Reporting</span>
+        <h3>The numbers your accountant trusts, on the morning they're asked for.</h3>
+        <p>P&amp;L by vehicle, by chauffeur, by client. Utilisation, dead-mile percentage, average gratuity, and how many trips Mrs. Park took last quarter — exported to whatever your finance team uses at midnight.</p>
+        <ul>
+          <li><b>01</b>Saved boards for daily, weekly, monthly, ad-hoc.</li>
+          <li><b>02</b>Vehicle and driver utilisation with the dead-mile cost broken out.</li>
+          <li><b>03</b>QuickBooks, Xero, and a clean CSV — all of them, none of the headaches.</li>
+        </ul>
+        <a href="#services" class="spotlight__cta">Build a report <span class="arr">→</span></a>
+      </div>
+      <div class="mock portal">
+        <div class="mock__bar"><b>April 2026 — board</b><span>Saved · Updated 06:00</span></div>
+        <div class="portal__hero">
+          <div class="portal__card"><span class="label">Net revenue</span><div class="num">$184k</div><div class="delta">+18.2%</div></div>
+          <div class="portal__card"><span class="label">Utilisation</span><div class="num">71<sup>%</sup></div><div class="delta">+4.1%</div></div>
+        </div>
+        <div class="portal__form">
+          <h5>Top revenue lines</h5>
+          <div class="portal__field"><b>Airport</b><span>$84,210 · 1,248 trips</span></div>
+          <div class="portal__field"><b>Corporate</b><span>$62,410 · 412 trips</span></div>
+          <div class="portal__field"><b>Long-dist</b><span>$24,180 · 84 trips</span></div>
+          <div class="portal__field"><b>Events</b><span>$13,200 · 48 trips</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section class="kpi">
+  <div class="wrap">
+    <div class="kpi__head">
+      <div>
+        <span class="kicker kicker--accent">A floating second opinion</span>
+        <h2>Personalized insights, in the corner of the dispatch screen.</h2>
+      </div>
+      <p>Tsatsral watches your operation in the background and floats a single weekly card to the manager: the metric that mattered, the chauffeur who carried it, the day the queue ran lean. No dashboards to open, no SQL to write.</p>
+    </div>
+
+    <div class="dashboard">
+      <div class="cell cell--span4">
+        <span class="label">Customer portal · 30d</span>
+        <div>
+          <div class="value">2,184</div>
+          <div class="delta">+12.4% vs prior</div>
+        </div>
+      </div>
+      <div class="cell cell--span3">
+        <span class="label">Promo codes redeemed</span>
+        <div>
+          <div class="value">186</div>
+          <div class="delta">+5.1% vs prior</div>
+        </div>
+      </div>
+      <div class="cell cell--span2" style="grid-column:span 2">
+        <span class="label">Busiest day</span>
+        <div>
+          <div class="value">Thu</div>
+          <div class="delta">3.2× median</div>
+        </div>
+      </div>
+      <div class="cell cell--span3" style="border-right:0">
+        <span class="label">Avg daily revenue</span>
+        <div>
+          <div class="value">$6,124</div>
+          <div class="delta">+18.2%</div>
+        </div>
+      </div>
+
+      <div class="cell cell--span12 cell--chart" style="border-bottom:0">
+        <h4>Top chauffeurs · trips closed, last 30 days</h4>
+        <div class="bars">
+          <div class="name">Markus T. <small>Brooklyn depot</small></div>
+          <div class="track" style="--w:96%"></div>
+          <div class="n">182</div>
+        </div>
+        <div class="bars">
+          <div class="name">Lupita F. <small>Bronx depot</small></div>
+          <div class="track" style="--w:84%"></div>
+          <div class="n">160</div>
+        </div>
+        <div class="bars">
+          <div class="name">Idris M. <small>Queens depot</small></div>
+          <div class="track" style="--w:71%"></div>
+          <div class="n">134</div>
+        </div>
+        <div class="bars">
+          <div class="name">Felix O. <small>Long Island</small></div>
+          <div class="track" style="--w:58%"></div>
+          <div class="n">112</div>
+        </div>
+        <div class="bars">
+          <div class="name">Maria S. <small>Newark depot</small></div>
+          <div class="track" style="--w:46%"></div>
+          <div class="n">88</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="services wrap" id="services">
+  <div class="services__head">
+    <div>
+      <span class="kicker kicker--accent">What we move</span>
+      <h2>Four lanes. One platform. Every chauffeur on the same calendar.</h2>
+    </div>
+    <p class="lede">Tsatsral's dispatch board doesn't care if it's a 4 a.m. red-eye or a Saturday-night prom — they sit in the same queue and your night manager runs them with the same set of keys.</p>
+  </div>
+  <div class="services__grid">
+    <article class="svc">
+      <span class="svc__num">01 — Airport</span>
+      <h3>Airport transfers, stitched to flight data.</h3>
+      <p>JFK, LGA, Newark, Teterboro. We read the flight number, watch the FAA, and re-cut the pickup window when wheels-up slips. No more idling at the curb on a $14 toll.</p>
+      <a href="#services" data-scroll="airport">Run an airport quote</a>
+    </article>
+    <article class="svc">
+      <span class="svc__num">02 — Long distance</span>
+      <h3>Long-distance, with a real schedule for the chauffeur.</h3>
+      <p>NYC ↔ Boston, NYC ↔ DC, NYC ↔ Philly. Trips longer than two hours come with mandated rest stops, rotating drivers on overnight legs, and a passenger who arrives un-rumpled.</p>
+      <a href="#services" data-scroll="long-distance">See long-distance pricing</a>
+    </article>
+    <article class="svc">
+      <span class="svc__num">03 — Proms &amp; events</span>
+      <h3>Proms and weddings without the group-chat panic.</h3>
+      <p>Multi-stop pickups for prom convoys, wedding parties, milestone birthdays. Parents see live ETAs, photographers see arrival manifests, and nobody has to text the chauffeur directly.</p>
+      <a href="#services" data-scroll="events">Plan an event</a>
+    </article>
+    <article class="svc">
+      <span class="svc__num">04 — Corporate</span>
+      <h3>Corporate accounts that don't need a phone call.</h3>
+      <p>Travel desks book on the portal, finance gets a single monthly invoice with cost-center splits, and roadshows run on a manifest the chauffeur can actually read without scrolling.</p>
+      <a href="#services" data-scroll="corporate">Open a corporate account</a>
+    </article>
+  </div>
+</section>
+
+<section class="fleet" id="fleet">
+  <div class="wrap">
+    <div class="fleet__head">
+      <div>
+        <span class="kicker kicker--accent">The garage</span>
+        <h2>Three classes of car. None of them rented yesterday.</h2>
+      </div>
+      <p class="lede">Every vehicle on the platform is detailed weekly, deep-cleaned monthly, and tracked by the same dispatch board your account manager uses. We don't dispatch what we wouldn't send our own family in.</p>
+    </div>
+    <div class="fleet__grid">
+      <article class="veh">
+        <div class="veh__art">
+          <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <rect width="400" height="300" fill="oklch(97% 0.012 80)"/>
+            <g fill="oklch(20% 0.02 60)">
+              <path d="M40 200 L80 150 L160 130 L240 130 L320 150 L360 200 L360 220 L40 220 Z"/>
+              <path d="M85 152 L150 145 L190 142 L240 142 L300 152 L295 178 L100 178 Z" fill="oklch(50% 0.018 250)" opacity="0.55"/>
+            </g>
+            <circle cx="115" cy="220" r="22" fill="oklch(15% 0.02 60)"/>
+            <circle cx="285" cy="220" r="22" fill="oklch(15% 0.02 60)"/>
+            <circle cx="115" cy="220" r="9" fill="oklch(80% 0.012 80)"/>
+            <circle cx="285" cy="220" r="9" fill="oklch(80% 0.012 80)"/>
+          </svg>
+        </div>
+        <div class="veh__title">
+          <h3>The Sedan</h3>
+          <span>Cadillac XT6</span>
+        </div>
+        <p style="color:var(--ink-soft);font-size:14px;line-height:1.55">Discreet, quiet, made for one or two passengers and a piece of luggage that doesn't want a roof rack. The default for airport runs and after-meeting glass-of-wine logistics.</p>
+        <div class="veh__specs">
+          <div><b>3</b>Passengers</div>
+          <div><b>2</b>Bags</div>
+          <div><b>$94</b>Base / hr</div>
+        </div>
+      </article>
+      <article class="veh">
+        <div class="veh__art">
+          <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <rect width="400" height="300" fill="oklch(97% 0.012 80)"/>
+            <g fill="oklch(20% 0.02 60)">
+              <path d="M30 210 L70 130 L160 110 L260 110 L330 130 L370 210 L370 230 L30 230 Z"/>
+              <path d="M75 132 L150 122 L195 118 L260 122 L320 132 L315 168 L80 168 Z" fill="oklch(50% 0.018 250)" opacity="0.5"/>
+            </g>
+            <circle cx="105" cy="230" r="22" fill="oklch(15% 0.02 60)"/>
+            <circle cx="295" cy="230" r="22" fill="oklch(15% 0.02 60)"/>
+            <circle cx="105" cy="230" r="9" fill="oklch(80% 0.012 80)"/>
+            <circle cx="295" cy="230" r="9" fill="oklch(80% 0.012 80)"/>
+          </svg>
+        </div>
+        <div class="veh__title">
+          <h3>The SUV</h3>
+          <span>Cadillac Escalade</span>
+        </div>
+        <p style="color:var(--ink-soft);font-size:14px;line-height:1.55">Six passengers, three full suitcases, and the seatback room a basketball player won't curse at. The right call for families on long-distance, ski trips, and roadshows that need to fit a pelican case.</p>
+        <div class="veh__specs">
+          <div><b>6</b>Passengers</div>
+          <div><b>5</b>Bags</div>
+          <div><b>$140</b>Base / hr</div>
+        </div>
+      </article>
+      <article class="veh">
+        <div class="veh__art">
+          <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <rect width="400" height="300" fill="oklch(97% 0.012 80)"/>
+            <g fill="oklch(20% 0.02 60)">
+              <path d="M10 215 L40 145 L100 125 L320 125 L360 145 L390 215 L390 235 L10 235 Z"/>
+              <g fill="oklch(50% 0.018 250)" opacity="0.5">
+                <rect x="48" y="138" width="32" height="30"/>
+                <rect x="92" y="138" width="32" height="30"/>
+                <rect x="136" y="138" width="32" height="30"/>
+                <rect x="180" y="138" width="32" height="30"/>
+                <rect x="224" y="138" width="32" height="30"/>
+                <rect x="268" y="138" width="32" height="30"/>
+                <rect x="312" y="138" width="32" height="30"/>
+              </g>
+            </g>
+            <circle cx="80" cy="235" r="22" fill="oklch(15% 0.02 60)"/>
+            <circle cx="200" cy="235" r="22" fill="oklch(15% 0.02 60)"/>
+            <circle cx="320" cy="235" r="22" fill="oklch(15% 0.02 60)"/>
+            <circle cx="80" cy="235" r="9" fill="oklch(80% 0.012 80)"/>
+            <circle cx="200" cy="235" r="9" fill="oklch(80% 0.012 80)"/>
+            <circle cx="320" cy="235" r="9" fill="oklch(80% 0.012 80)"/>
+          </svg>
+        </div>
+        <div class="veh__title">
+          <h3>The Stretch</h3>
+          <span>Lincoln Continental · 14-pax</span>
+        </div>
+        <p style="color:var(--ink-soft);font-size:14px;line-height:1.55">Fourteen seats of cool blue interior light, sound system that survives the senior class, and a chauffeur who's actually done this before. The reason your daughter's prom group is asking specifically for us.</p>
+        <div class="veh__specs">
+          <div><b>14</b>Passengers</div>
+          <div><b>—</b>Trunk only</div>
+          <div><b>$370</b>Base / hr</div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="pq">
+  <div class="wrap pq__inner">
+    <span class="kicker kicker--accent">Letter from a customer</span>
+    <div>
+      <blockquote>
+        We used to keep dispatch on a whiteboard and a group text. The first morning on Tsatsral, I closed seven trips before my coffee. By the third week the night manager <em>stopped calling me at 4 a.m.</em> — and that, more than any KPI, is why we'll never go back.
+      </blockquote>
+      <cite>
+        <span class="pq__ava">EM</span>
+        <span><b>Erdene Munkhbat</b>Owner-operator · Northwind Coach, Brooklyn</span>
+      </cite>
+    </div>
+  </div>
+</section>
+
+<section class="end" id="demo">
+  <div class="wrap end__inner">
+    <h2>Operate a fleet that <em>actually</em> looks like the brand on the door.</h2>
+    <div>
+      <p>20 minutes with our team. We'll quote your fleet against the platform, walk through dispatch with your live data, and tell you honestly if Tsatsral is the wrong fit.</p>
+      <a href="#contact" class="btn">Request a demo <span class="arr">→</span></a>
+      &nbsp;
+      <a href="#services" class="btn btn--ghost">Read the services brief</a>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- ====== SERVICES PAGE ====== -->
+<div class="page-section" data-page="services">
+<header class="page-hero">
+  <div class="wrap page-hero__grid">
+    <div>
+      <span class="kicker kicker--accent">Vol. IV — Services brief</span>
+      <h1>Four lanes we drive, <em>one bench</em> we run them from.</h1>
+    </div>
+    <div>
+      <p class="lede">We don't operate fourteen products. We operate one queue, with four jobs we keep getting hired for. Each gets its own playbook, its own pricing logic, and its own chauffeurs who actually like doing it.</p>
+      <div class="page-hero__meta">
+        <div><b>4</b><span>Service lines</span></div>
+        <div><b>14</b><span>Cities, on one schedule</span></div>
+        <div><b>0:14</b><span>Avg. dispatch response</span></div>
+        <div><b>2018</b><span>Year operating</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="toc__inner">
+    <span>Sections</span>
+    <span class="toc__sep">·</span>
+    <a href="#airport" class="is-active">01 Airport</a>
+    <a href="#long-distance">02 Long-distance</a>
+    <a href="#events">03 Proms &amp; events</a>
+    <a href="#corporate">04 Corporate</a>
+    <span class="toc__sep">·</span>
+    <a href="#fleet-matrix">Fleet matrix</a>
+  </div>
+</nav>
+
+<section class="svc-block" id="airport">
+  <div class="wrap">
+    <div class="svc-block__head">
+      <div>
+        <span class="num">01</span>
+        <span class="kicker kicker--accent">Service · Airport transfers</span>
+      </div>
+      <div>
+        <h2>Airport runs that <em>watch the flight</em>, not the clock.</h2>
+        <p>JFK, LGA, Newark, Teterboro, Westchester. We pull live FAA data on every booked flight, re-cut the pickup window when wheels-up slips, and let the chauffeur know before the rider does.</p>
+      </div>
+    </div>
+
+    <div class="svc-block__body">
+      <ul class="svc-checklist">
+        <li>
+          <b>01</b>
+          <span>
+            <i>Flight tracking is on by default.</i>
+            FlightAware feed posts deltas to the assigned trip every two minutes. No more "is the flight on time?" calls at 3 a.m.
+          </span>
+        </li>
+        <li>
+          <b>02</b>
+          <span>
+            <i>Curbside swap on a tap.</i>
+            If a rider lands at a different terminal than booked, they switch the meet point in the app and dispatch sees it before the chauffeur pulls up to the wrong door.
+          </span>
+        </li>
+        <li>
+          <b>03</b>
+          <span>
+            <i>Wait time, not surge time.</i>
+            First fifteen minutes after wheels-down are free. Beyond that, $1.20/min — never surged, never surprised.
+          </span>
+        </li>
+        <li>
+          <b>04</b>
+          <span>
+            <i>Frequent-flyer profiles.</i>
+            We remember Cynthia takes a sedan, not an SUV. We remember Mr. Patel won't ride without bottled water. The rider doesn't have to keep telling us.
+          </span>
+        </li>
+      </ul>
+
+      <div>
+        <div class="svc-card">
+          <h3>What it costs</h3>
+          <div class="row"><span>Sedan · curb-to-door, one airport</span><b>from $128</b></div>
+          <div class="row"><span>SUV · curb-to-door, one airport</span><b>from $172</b></div>
+          <div class="row"><span>Stretch · arrivals greet</span><b>from $480</b></div>
+          <div class="row"><span>Meet-and-greet inside terminal</span><b>+$45</b></div>
+          <div class="row"><span>Wait time after free 15 min</span><b>$1.20<sup>/min</sup></b></div>
+          <div class="row"><span>Late-night surcharge (00:00–05:00)</span><b>+15%</b></div>
+        </div>
+        <p class="svc-quote">
+          We've used three other car services. Tsatsral is the only one that <em>texted me before I texted them</em> when my flight slid two hours.
+          <cite>— Daniel V., Greenwich</cite>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="svc-block" id="long-distance">
+  <div class="wrap">
+    <div class="svc-block__head">
+      <div>
+        <span class="num">02</span>
+        <span class="kicker kicker--accent">Service · Long-distance</span>
+      </div>
+      <div>
+        <h2>Long-distance built around <em>the chauffeur's hours,</em> not just yours.</h2>
+        <p>NYC ↔ Boston, NYC ↔ DC, NYC ↔ Philadelphia, NYC ↔ Hamptons, NYC ↔ Burlington. Trips longer than two hours come with mandated rest stops, a clean back seat, and — on overnight legs — a second driver waiting at the relay.</p>
+      </div>
+    </div>
+
+    <div class="svc-block__body">
+      <ul class="svc-checklist">
+        <li>
+          <b>01</b>
+          <span>
+            <i>Pre-quoted, dollar-fixed.</i>
+            We price every long-distance leg by the mile, plus tolls at cost. No "the meter said". You see the number before you book it.
+          </span>
+        </li>
+        <li>
+          <b>02</b>
+          <span>
+            <i>Rotating drivers on overnights.</i>
+            Anything past 4 hours one-way and we plan a relay. The car keeps moving. The chauffeur isn't dangerous.
+          </span>
+        </li>
+        <li>
+          <b>03</b>
+          <span>
+            <i>Wifi, water, charger, not optional.</i>
+            Every long-distance vehicle is set up before it leaves the depot — confirmed by the driver's pre-shift checklist.
+          </span>
+        </li>
+        <li>
+          <b>04</b>
+          <span>
+            <i>Dog-friendly on request.</i>
+            We have three vehicles in rotation that take dogs. Tell us when you book; the cabin gets the right blankets and a different chauffeur.
+          </span>
+        </li>
+      </ul>
+
+      <div>
+        <div class="svc-card">
+          <h3>Sample fixed quotes</h3>
+          <div class="row"><span>NYC → Boston, sedan, one-way</span><b>$948</b></div>
+          <div class="row"><span>NYC → Washington DC, SUV</span><b>$1,260</b></div>
+          <div class="row"><span>NYC → Philadelphia, sedan</span><b>$684</b></div>
+          <div class="row"><span>NYC → Hamptons (East), SUV</span><b>$622</b></div>
+          <div class="row"><span>NYC → Burlington, VT, SUV</span><b>$1,720</b></div>
+          <div class="row"><span>Round-trip · stay-with-vehicle</span><b>−18%</b></div>
+        </div>
+        <p class="svc-quote">
+          We do the Boston run twelve times a year. The driver is <em>always rested</em>, and that's not a small thing when you've got a board meeting on the other side.
+          <cite>— Lila M., partner, Park Ave</cite>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="svc-block" id="events">
+  <div class="wrap">
+    <div class="svc-block__head">
+      <div>
+        <span class="num">03</span>
+        <span class="kicker kicker--accent">Service · Proms &amp; events</span>
+      </div>
+      <div>
+        <h2>The prom, the wedding, the milestone — <em>without the group-chat panic.</em></h2>
+        <p>14-passenger stretch limousines, multi-stop manifests, and a chauffeur who's done senior nights for eight years. Parents see live ETAs. Photographers see arrival times. Nobody has to text anyone privately.</p>
+      </div>
+    </div>
+
+    <div class="svc-block__body">
+      <ul class="svc-checklist">
+        <li>
+          <b>01</b>
+          <span>
+            <i>Multi-pickup manifests.</i>
+            Up to twelve pickup addresses on a single trip. Each parent gets a live ETA — they can stop refreshing the family group chat.
+          </span>
+        </li>
+        <li>
+          <b>02</b>
+          <span>
+            <i>Chaperone-friendly.</i>
+            Drivers are background-checked, alcohol policy is no-tolerance, and we report back to the booking parent — not just the rider — at the end of the night.
+          </span>
+        </li>
+        <li>
+          <b>03</b>
+          <span>
+            <i>The interior the kids actually want.</i>
+            Cool blue floor lights. Bluetooth audio that survives a senior class. A bar with sparkling water and ice — no minibar of secrets.
+          </span>
+        </li>
+        <li>
+          <b>04</b>
+          <span>
+            <i>Wedding day producer mode.</i>
+            On weddings, we assign a single dispatcher to your timeline. They're on the phone with the photographer, the venue, and the maid of honor — so the bride isn't.
+          </span>
+        </li>
+      </ul>
+
+      <div>
+        <div class="svc-card">
+          <h3>Event packages</h3>
+          <div class="row"><span>Prom · 14-pax stretch · 4 hr</span><b>from $1,480</b></div>
+          <div class="row"><span>Prom · 14-pax stretch · 6 hr</span><b>from $2,040</b></div>
+          <div class="row"><span>Wedding · 8-hr coordinated convoy</span><b>from $3,200</b></div>
+          <div class="row"><span>Bachelor / bachelorette · 6 hr</span><b>from $1,720</b></div>
+          <div class="row"><span>Sweet sixteen · 4 hr</span><b>from $1,420</b></div>
+          <div class="row"><span>Same-day add — extra hour</span><b>$320<sup>/hr</sup></b></div>
+        </div>
+        <p class="svc-quote">
+          Twenty-two seventeen-year-olds, four pickups, one driver named Felix who <em>actually liked them.</em> Best $1,500 we've spent on this kid.
+          <cite>— Marisol V., Riverdale parent</cite>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="svc-block" id="corporate">
+  <div class="wrap">
+    <div class="svc-block__head">
+      <div>
+        <span class="num">04</span>
+        <span class="kicker kicker--accent">Service · Corporate &amp; executive</span>
+      </div>
+      <div>
+        <h2>Corporate accounts that <em>don't need a phone call</em> to book a ride.</h2>
+        <p>White-labelled portal for travel desks, monthly invoicing with cost-center splits, dedicated chauffeurs for principals, and a single roadshow manifest that everyone in the convoy can read.</p>
+      </div>
+    </div>
+
+    <div class="svc-block__body">
+      <ul class="svc-checklist">
+        <li>
+          <b>01</b>
+          <span>
+            <i>Dedicated travel-desk login.</i>
+            Your assistant books on the portal, sees live availability, and never has to call us. We still answer if they want.
+          </span>
+        </li>
+        <li>
+          <b>02</b>
+          <span>
+            <i>Net-30 invoicing, signed off.</i>
+            One monthly statement. Cost-center splits. PO numbers. The columns your finance team has already decided they need.
+          </span>
+        </li>
+        <li>
+          <b>03</b>
+          <span>
+            <i>Roadshow manifests, not 14 separate trips.</i>
+            We move investor roadshows as one orchestrated convoy — five stops, three vehicles, one dispatcher on the line. Nobody loses their schedule.
+          </span>
+        </li>
+        <li>
+          <b>04</b>
+          <span>
+            <i>Principal-level chauffeurs.</i>
+            For C-suite and family principals: the same chauffeur every time, on retainer. They learn the building, the gate code, and how loud the music's allowed to be.
+          </span>
+        </li>
+        <li>
+          <b>05</b>
+          <span>
+            <i>SOC 2 Type II.</i>
+            Travel data is sensitive. We treat it that way — encrypted at rest, audited annually, deletable on request.
+          </span>
+        </li>
+      </ul>
+
+      <div>
+        <div class="svc-card">
+          <h3>Account tiers</h3>
+          <div class="row"><span>Foundation · &lt; $5k/mo</span><b>standard</b></div>
+          <div class="row"><span>Operating · $5–25k/mo</span><b>+5% off list</b></div>
+          <div class="row"><span>Principal · $25k+/mo</span><b>+12% · dedicated dispatcher</b></div>
+          <div class="row"><span>Roadshow add-on · per event</span><b>$1,200<sup>/day</sup></b></div>
+          <div class="row"><span>SOC 2 / DPA package</span><b>included</b></div>
+          <div class="row"><span>Cancellations &lt;2 hrs</span><b>full charge</b></div>
+        </div>
+        <p class="svc-quote">
+          Roadshow week is now a meeting on a calendar, not a fire drill. The dispatcher knows our schedule <em>better than my own assistant.</em>
+          <cite>— Jules R., COO, Greenwich Capital</cite>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="matrix" id="fleet-matrix">
+  <div class="wrap">
+    <div class="matrix__head">
+      <div>
+        <span class="kicker kicker--accent">The garage at a glance</span>
+        <h2>Three classes. Six vehicles each. Detailed weekly.</h2>
+      </div>
+      <p class="lede">A side-by-side of what fits where, what costs what, and what we don't pretend to do. The honest version of the fleet PDF every operator sends as a 2 MB attachment.</p>
+    </div>
+    <table class="matrix__table">
+      <thead>
+        <tr>
+          <th>Class</th>
+          <th>Make &amp; model</th>
+          <th>Pax</th>
+          <th>Bags</th>
+          <th>Best for</th>
+          <th>Hourly</th>
+          <th>Min hrs</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Sedan</td>
+          <td>Cadillac XT6</td>
+          <td>3</td>
+          <td>2</td>
+          <td>Airport, corporate</td>
+          <td>$94</td>
+          <td>2</td>
+        </tr>
+        <tr>
+          <td>Sedan · executive</td>
+          <td>Mercedes-Benz S-Class</td>
+          <td>3</td>
+          <td>2</td>
+          <td>Principal accounts</td>
+          <td>$148</td>
+          <td>3</td>
+        </tr>
+        <tr>
+          <td>SUV</td>
+          <td>Cadillac Escalade</td>
+          <td>6</td>
+          <td>5</td>
+          <td>Family, long-distance</td>
+          <td>$140</td>
+          <td>2</td>
+        </tr>
+        <tr>
+          <td>SUV · executive</td>
+          <td>Lincoln Navigator L</td>
+          <td>6</td>
+          <td>6</td>
+          <td>Roadshows</td>
+          <td>$168</td>
+          <td>3</td>
+        </tr>
+        <tr>
+          <td>Stretch · 14-pax</td>
+          <td>Lincoln Continental</td>
+          <td>14</td>
+          <td>—</td>
+          <td>Proms, milestones</td>
+          <td>$370</td>
+          <td>4</td>
+        </tr>
+        <tr>
+          <td>Stretch · 18-pax</td>
+          <td>Cadillac Escalade ESV</td>
+          <td>18</td>
+          <td>—</td>
+          <td>Wedding parties</td>
+          <td>$420</td>
+          <td>4</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="end" id="demo">
+  <div class="wrap end__inner">
+    <h2>Pick the lane. <em>We'll quote it</em> while you read the email back.</h2>
+    <div>
+      <p>Send us the city, the date, the size of the party. We'll come back with three options, three real prices, and the name of the chauffeur we'd assign.</p>
+      <a href="#contact" class="btn">Request a quote →</a>
+      &nbsp;
+      <a href="#home" class="btn btn--ghost">Back to overview</a>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- ====== BLOG PAGE ====== -->
+<div class="page-section" data-page="blog">
+<header class="mast">
+  <div class="wrap">
+    <div class="mast__top">
+      <span>The Field Guide</span>
+      <span><em>Vol. IV — Issue 04</em> · Spring 2026</span>
+      <span>Brooklyn, NY · 36 pages</span>
+    </div>
+    <h1>Field <em>guide</em>.</h1>
+    <div class="mast__sub">
+      <p>An editorial we publish every other Thursday — on running a fleet, raising a chauffeur, billing a corporate account, and the slow art of not being woken up at four in the morning.</p>
+      <div>
+        <span class="label">In this issue</span>
+        <b>The night shift</b>
+        <span style="color:var(--muted);font-size:14px">Six dispatchers, six cities, one shared queue. What the 2 a.m. board really looks like.</span>
+      </div>
+      <div>
+        <span class="label">Next issue</span>
+        <b>The 14-pax math</b>
+        <span style="color:var(--muted);font-size:14px">Why prom season is the most underestimated revenue line in the chauffeur business.</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="cats">
+  <div class="wrap cats__inner">
+    <span style="color:var(--fg)">Browse</span>
+    <span class="cats__sep">·</span>
+    <a href="#" class="is-active">All issues</a>
+    <a href="#">Operations</a>
+    <a href="#">Pricing</a>
+    <a href="#">Drivers</a>
+    <a href="#">Corporate accounts</a>
+    <a href="#">Long-distance</a>
+    <a href="#">Events</a>
+    <a href="#">Software</a>
+    <a href="#">Letters</a>
+  </div>
+</nav>
+
+<section class="feat">
+  <div class="wrap feat__grid">
+    <figure class="feat__art">
+      <figcaption class="feat__cap">Plate · TSL-04 · 02:41 EDT, JFK Terminal 4</figcaption>
+    </figure>
+    <div class="feat__copy">
+      <span class="kicker kicker--accent">Issue 04 · Cover essay</span>
+      <h2>The dispatcher who <em>finally slept through the night.</em></h2>
+      <p>For seven years our father took the 4 a.m. JFK call himself. Then we wrote a piece of software that knew which car was where, and one Tuesday in October he didn't pick up — because nothing was wrong.</p>
+      <p>This issue is about that Tuesday. About what it took to teach the night shift that the answer to "where's the car?" can come from a screen instead of a phone call. About why "boring at scale" is the hardest design constraint we know.</p>
+      <div class="feat__byline">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--fg);color:var(--bg);display:grid;place-items:center;font-family:var(--font-display);font-size:14px;letter-spacing:-0.01em">TK</div>
+        <div>
+          <b>Tsatsral Khaltar</b>
+          <span>Founder · Brooklyn · 14 minutes</span>
+        </div>
+      </div>
+      <a href="#" class="feat__cta">Read the cover essay →</a>
+    </div>
+  </div>
+</section>
+
+<section class="grid">
+  <div class="wrap">
+    <div class="grid__head">
+      <div>
+        <span class="kicker kicker--accent">Recent dispatches · 06</span>
+        <h2>What we wrote about this season.</h2>
+      </div>
+      <p>Operators write to us with the same six questions every week. We answer them once, in print, with the math attached.</p>
+    </div>
+
+    <div class="articles">
+      <article class="art">
+        <div class="art__art art__art--tone-a"></div>
+        <span class="art__cat">Pricing</span>
+        <h3>The honest cost of a <em>quiet</em> dispatch board.</h3>
+        <p>Surge pricing is what you do when your dispatcher is lazy. Here's the spreadsheet that proves it — and the three rules we use instead.</p>
+        <div class="art__meta"><b>Markus Olsson</b><span>02 May · 11 min</span></div>
+      </article>
+
+      <article class="art">
+        <div class="art__art art__art--tone-b"></div>
+        <span class="art__cat">Operations</span>
+        <h3>Why the 04:55 trip is the <em>most expensive</em> trip you run.</h3>
+        <p>Dead miles, sleepy chauffeurs, surge tolls. We added it up across 1,200 trips and the answer is uglier than we expected.</p>
+        <div class="art__meta"><b>Lupita Flores</b><span>22 Apr · 8 min</span></div>
+      </article>
+
+      <article class="art">
+        <div class="art__art art__art--tone-c"></div>
+        <span class="art__cat">Drivers</span>
+        <h3>The chauffeur app you'd actually <em>want to clock in to.</em></h3>
+        <p>One tap to start the shift, one tap to close out. Why the driver platform is the only one we let our own family test.</p>
+        <div class="art__meta"><b>Idris Patel</b><span>14 Apr · 6 min</span></div>
+      </article>
+
+      <article class="art">
+        <div class="art__art art__art--tone-d"></div>
+        <span class="art__cat">Corporate</span>
+        <h3>What a travel-desk login is <em>actually worth</em> to a hedge fund.</h3>
+        <p>One Greenwich client booked 220 trips in a month, never called us once, and shaved $48,000 off their travel budget. The math, the migration, the morning-after.</p>
+        <div class="art__meta"><b>Jules Reyes</b><span>03 Apr · 10 min</span></div>
+      </article>
+
+      <article class="art">
+        <div class="art__art art__art--tone-e"></div>
+        <span class="art__cat">Software</span>
+        <h3>One trip ledger, two hundred fleets, <em>zero double-booking.</em></h3>
+        <p>An honest engineering note on the database we picked, the choices we made about consistency, and why we don't do "eventually."</p>
+        <div class="art__meta"><b>Markus Olsson</b><span>27 Mar · 14 min</span></div>
+      </article>
+
+      <article class="art">
+        <div class="art__art art__art--tone-f"></div>
+        <span class="art__cat">Events</span>
+        <h3>How to run prom season <em>without losing the chauffeurs you trust.</em></h3>
+        <p>Multi-pickup manifests, parent communication, the senior class who's already tipsy. A March-to-June operations diary.</p>
+        <div class="art__meta"><b>Felix Okonkwo</b><span>18 Mar · 9 min</span></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="notebook">
+  <div class="wrap">
+    <div class="notebook__head">
+      <div>
+        <span class="kicker kicker--accent">Field notes</span>
+        <h2>Short ones. Mostly numbers, occasionally opinions.</h2>
+      </div>
+      <p class="lede">Reading list for the dispatcher who has six tabs open and three minutes between calls.</p>
+    </div>
+    <div class="notebook__list">
+      <a class="nb" href="#">
+        <span class="nb__num">N° 21</span>
+        <span class="nb__date">28 Apr 2026</span>
+        <h3>Two charts that explain why dead-mile percentage is the only metric that matters.</h3>
+        <p>If you only watch one number this quarter, watch this one. Here's why, with the bar chart.</p>
+        <span class="nb__time">04 min</span>
+      </a>
+      <a class="nb" href="#">
+        <span class="nb__num">N° 20</span>
+        <span class="nb__date">22 Apr 2026</span>
+        <h3>The text message we send when a chauffeur runs late, in 47 words.</h3>
+        <p>Copy-paste it. Replace the placeholders. Stop writing apology paragraphs at 2 a.m.</p>
+        <span class="nb__time">02 min</span>
+      </a>
+      <a class="nb" href="#">
+        <span class="nb__num">N° 19</span>
+        <span class="nb__date">11 Apr 2026</span>
+        <h3>Five questions we ask before adding a sixth vehicle.</h3>
+        <p>Most of them are about your dispatcher's sleep, not your accountant's spreadsheet.</p>
+        <span class="nb__time">05 min</span>
+      </a>
+      <a class="nb" href="#">
+        <span class="nb__num">N° 18</span>
+        <span class="nb__date">02 Apr 2026</span>
+        <h3>What it costs to migrate from Limo Anywhere — the honest version.</h3>
+        <p>Three weeks of data export. Two days of training. One nervous Sunday morning.</p>
+        <span class="nb__time">07 min</span>
+      </a>
+      <a class="nb" href="#">
+        <span class="nb__num">N° 17</span>
+        <span class="nb__date">25 Mar 2026</span>
+        <h3>How we decide which corporate account is worth a dedicated dispatcher.</h3>
+        <p>Three thresholds, one decision tree, no spreadsheet you can't read on a phone.</p>
+        <span class="nb__time">06 min</span>
+      </a>
+      <a class="nb" href="#">
+        <span class="nb__num">N° 16</span>
+        <span class="nb__date">14 Mar 2026</span>
+        <h3>The four phrases we banned from our customer-facing copy in 2025.</h3>
+        <p>None of them were "synergy". All of them were worse.</p>
+        <span class="nb__time">03 min</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="news">
+  <div class="wrap">
+    <div class="news__inner">
+      <div>
+        <span class="kicker kicker--accent">Subscribe — free, every other Thursday</span>
+        <h2>One issue every fortnight. Read in <em>twenty minutes.</em> Mostly numbers.</h2>
+        <p>Operations, pricing, software, and the occasional letter from a dispatcher who's had enough. No webinar invitations, no "exclusive download," no funnel.</p>
+      </div>
+      <form class="news__form" onsubmit="event.preventDefault();this.querySelector('input').value='—  thanks, we\\'ll be in touch.'">
+        <label for="email">Your work email</label>
+        <input id="email" type="email" placeholder="dispatcher@northwindcoach.com" required>
+        <div class="row">
+          <small>We'll never share it. One-tap unsubscribe.</small>
+          <button type="submit" class="btn">Subscribe →</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- ====== ABOUT PAGE ====== -->
+<div class="page-section" data-page="about">
+<header class="mast">
+  <div class="wrap">
+    <div class="mast__top">
+      <span>About — Vol. IV, Issue 04</span>
+      <span><em>Brooklyn, NY</em> · Founded 2018</span>
+      <span>Issue dated May 2026</span>
+    </div>
+    <h1>We started this because the night dispatcher <em>kept losing sleep.</em></h1>
+    <div class="mast__deck">
+      <div class="mast__byline">
+        <b>Tsatsral Khaltar</b>
+        <span>Founder &amp; CEO</span>
+        <span style="margin-top:14px;display:block">Photographs by<br>Felix Okonkwo</span>
+      </div>
+      <div>
+        <p>Tsatsral Limo started in 2018 with three Cadillacs, a flip phone, and a whiteboard in a rented bay on Atlantic Avenue. The dispatcher was Tsatsral's father — and on the third night of the third month, he called her at 4 a.m. to ask which car was supposed to be at JFK.</p>
+        <p>So she built the dispatch board they wished they'd had. Then a reservations queue. Then a portal so the corporate accounts would stop calling. Six years later, two hundred operators across fourteen cities run on the same software, and her father sleeps through the night.</p>
+        <p>This is, in the literal sense, the operating system we needed to keep our own family business from grinding itself into the dashboard.</p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="portrait">
+  <div class="wrap portrait__grid">
+    <figure class="portrait__art">
+      <figcaption class="portrait__caption">Plate · TSL-01 · Brooklyn depot, March 2018</figcaption>
+    </figure>
+    <div class="portrait__copy">
+      <span class="kicker kicker--accent">A note from the founder</span>
+      <h2>Software shouldn't be the <em>second-hardest part</em> of running a fleet.</h2>
+      <p>I grew up in cars. My father drove for hire in Ulaanbaatar, then in Queens, then in Brooklyn — and the only thing he ever complained about was the paperwork. By the time we owned three vehicles, there were four spreadsheets, two binders, and a dispatch board made of magnets.</p>
+      <p>The software available to us wanted us to either hire a full-time admin or to keep using the magnets. Neither answer was acceptable to a family that worked 18-hour days and still felt like the night was running them.</p>
+      <p>Tsatsral is the answer I would have wanted in 2017 — and the team that built it knows what it's like to have to ask the chauffeur to use his own phone because the company tablet died.</p>
+      <span class="sig">— Tsatsral Khaltar</span>
+    </div>
+  </div>
+</section>
+
+<section class="values">
+  <div class="wrap">
+    <div class="values__head">
+      <div>
+        <span class="kicker kicker--accent">House rules</span>
+        <h2>Three things we will not negotiate.</h2>
+      </div>
+      <p class="lede">A short list of what we believe — written so plainly that an operator three time zones away can hold us to it without a meeting.</p>
+    </div>
+    <div class="values__list">
+      <div class="val">
+        <span class="val__num">01 — One ledger</span>
+        <h3>Reservations and dispatch read from the same row.</h3>
+        <p>If two screens disagree about a trip, one of them is lying. We picked a side: the trip ledger is the truth, and every product is just <em>a different lens</em> on it.</p>
+      </div>
+      <div class="val">
+        <span class="val__num">02 — Honest pricing</span>
+        <h3>The price you quote is the price you charge.</h3>
+        <p>No surge. No "the meter said." Long-distance is fixed-quoted by the mile, airport runs include 15 minutes free, and gratuity is a number — <em>not a guilt-trip slider</em>.</p>
+      </div>
+      <div class="val">
+        <span class="val__num">03 — Boring at scale</span>
+        <h3>The 4 a.m. trip works the same way the noon trip does.</h3>
+        <p>Drama is a sign your software is wrong. We treat <em>boring</em> as a feature — the same workflow at 04:55 as at 14:30, the same dispatch UI on the third trip as on the three-thousandth.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="tl">
+  <div class="wrap">
+    <div class="tl__head">
+      <span class="kicker kicker--accent">Notebook entries · 2018–2026</span>
+      <h2>Eight years of trips, mistakes, and the occasional fix.</h2>
+    </div>
+    <div class="tl__rows">
+      <div class="tl__row">
+        <span class="tl__year">2018</span>
+        <div>
+          <h3>Three cars, one whiteboard.</h3>
+          <p>Tsatsral and her father open the bay on Atlantic Ave. Annual revenue: <em>$184,000</em>. Number of times she's woken up at 4 a.m. by the JFK call: 41.</p>
+        </div>
+        <p>The whiteboard collapses on a Friday in October. We start dispatching from a shared Google Sheet. The Sheet outgrows itself by Christmas.</p>
+      </div>
+      <div class="tl__row">
+        <span class="tl__year">2020</span>
+        <div>
+          <h3>The pandemic year.</h3>
+          <p>Airport revenue collapses 78%. We pivot to long-distance and grocery runs for elderly clients in Brooklyn — <em>and stay open</em>.</p>
+        </div>
+        <p>Customer #214 starts using us monthly for a Boston commute. She's now Customer #214 with 184 trips and counting.</p>
+      </div>
+      <div class="tl__row">
+        <span class="tl__year">2022</span>
+        <div>
+          <h3>First version of the dispatch board.</h3>
+          <p>Built on weekends by a chauffeur named Markus who used to write Java. Six other operators ask if they can buy it. <em>We start charging.</em></p>
+        </div>
+        <p>By the end of the year there are 14 fleets on the platform. Two of them are bigger than ours.</p>
+      </div>
+      <div class="tl__row">
+        <span class="tl__year">2024</span>
+        <div>
+          <h3>Customer portal launches.</h3>
+          <p>White-labelled. A travel desk at a Greenwich hedge fund is the first to use it. They book 220 trips in the first month — <em>and never call us once</em>.</p>
+        </div>
+        <p>We hire two full-time engineers. The chauffeur-engineer remains a chauffeur on weekends because he likes it.</p>
+      </div>
+      <div class="tl__row">
+        <span class="tl__year">2026</span>
+        <div>
+          <h3>Two hundred operators, fourteen cities.</h3>
+          <p>1,200 rides dispatched daily across the platform. The whiteboard is in the office — <em>framed</em>.</p>
+        </div>
+        <p>Tsatsral's father still rides shotgun on the JFK 04:55 once a week. He says it's for quality control. We know it's because he likes it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="team">
+  <div class="wrap">
+    <div class="team__head">
+      <div>
+        <span class="kicker kicker--accent">The crew</span>
+        <h2>The bench you'd want at 4 a.m.</h2>
+      </div>
+      <p class="lede">A small team of dispatchers, drivers-turned-engineers, and one accountant. We answer the phone ourselves — the founder included — between 06:00 and 22:00 ET.</p>
+    </div>
+    <div class="team__grid">
+      <div class="ppl">
+        <div class="ppl__face" data-init="TK"></div>
+        <b>Tsatsral Khaltar</b>
+        <span>Founder · CEO</span>
+      </div>
+      <div class="ppl">
+        <div class="ppl__face" data-init="MO"></div>
+        <b>Markus Olsson</b>
+        <span>Head of platform</span>
+      </div>
+      <div class="ppl">
+        <div class="ppl__face" data-init="LF"></div>
+        <b>Lupita Flores</b>
+        <span>Head of dispatch</span>
+      </div>
+      <div class="ppl">
+        <div class="ppl__face" data-init="EM"></div>
+        <b>Erdene Munkhbat</b>
+        <span>Operator success</span>
+      </div>
+      <div class="ppl">
+        <div class="ppl__face" data-init="JR"></div>
+        <b>Jules Reyes</b>
+        <span>Corporate accounts</span>
+      </div>
+      <div class="ppl">
+        <div class="ppl__face" data-init="IP"></div>
+        <b>Idris Patel</b>
+        <span>Driver platform</span>
+      </div>
+      <div class="ppl">
+        <div class="ppl__face" data-init="MS"></div>
+        <b>Maria Solis</b>
+        <span>Finance</span>
+      </div>
+      <div class="ppl">
+        <div class="ppl__face" data-init="FO"></div>
+        <b>Felix Okonkwo</b>
+        <span>House photographer</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="manif">
+  <div class="wrap manif__inner">
+    <div>
+      <span class="kicker kicker--accent">Manifesto</span>
+      <h2>Six things we'll be <em>boring about</em> for the next ten years.</h2>
+    </div>
+    <ol>
+      <li>
+        <b>One trip ledger.</b>
+        We will not ship a feature that requires reconciling two databases. The trip is the row. Everyone reads from it.
+      </li>
+      <li>
+        <b>The chauffeur sees only their trips.</b>
+        The driver app shows the work. It does not show the back-office. It does not show prices. It does not show other chauffeurs' performance. It is a tool, not a panopticon.
+      </li>
+      <li>
+        <b>Customers own their data, full stop.</b>
+        Export to CSV is a P0. Erase on request is a P0. We will not sell, mine, or "anonymize-and-share" your rider data — ever.
+      </li>
+      <li>
+        <b>Pricing is a number, not a feeling.</b>
+        Quote = charge. Surcharges are listed in the quote. Tips are a percentage the rider picks, not a slider with a pre-checked default we hope they don't notice.
+      </li>
+      <li>
+        <b>We answer the phone.</b>
+        The founder's number is in the welcome email. It is not a chatbot. It is not a rota. If you call between 06:00 and 22:00 ET, a human picks up — usually within four rings.
+      </li>
+      <li>
+        <b>We will not chase a unicorn.</b>
+        We are a software company that started as a limo company. We intend to remain useful to a 3-vehicle fleet on day 4,000.
+      </li>
+    </ol>
+  </div>
+</section>
+</div>
+
+<!-- ====== CONTACT PAGE ====== -->
+<div class="page-section" data-page="contact">
+<section class="page">
+  <div class="wrap page__inner">
+    <aside class="rail">
+      <span class="kicker kicker--accent">Issue 04 · Demo desk</span>
+      <h1>Twenty minutes. <em>Your fleet.</em> Our dispatcher.</h1>
+      <p class="rail__lede">Send us your fleet size, the cities you cover, and one number you'd like to move. We'll come back inside a business day with three options, three real prices, and the calendar slot of the engineer who'll run your demo.</p>
+
+      <dl class="rail__list">
+        <dt>What we'll show you</dt>
+        <dd>Live dispatch · with your data
+          <small>We import a 30-day sample from your existing system before the call. You see the board in your branding, on your real trips.</small>
+        </dd>
+
+        <dt>Who you'll meet</dt>
+        <dd>An engineer. Not a sales rep.
+          <small>Our demo team is the same team that builds the product — and most of them have dispatched for a living.</small>
+        </dd>
+
+        <dt>What it costs</dt>
+        <dd>Nothing.
+          <small>If we're not a fit, we'll tell you and recommend who is. We've sent four operators to Limo Anywhere this year because they were better suited.</small>
+        </dd>
+      </dl>
+
+      <div class="rail__sla">
+        <div></div>
+        <div>
+          <h3>We answer inside one business day.</h3>
+          <p>Not "within 5 business days." Not "next week." A human reads every form, usually within four hours during ET working hours.</p>
+        </div>
+      </div>
+    </aside>
+
+    <form class="form" onsubmit="event.preventDefault();this.querySelector('.form__submit').textContent='Sent — we\\'ll be in touch ✓';this.querySelector('.form__submit').setAttribute('disabled','')">
+      <div class="form__head">
+        <h2>Request a demo</h2>
+        <span class="kicker kicker--accent">— takes 90 seconds</span>
+      </div>
+
+      <div class="form__steps">
+        <span class="is-active">01 · You</span>
+        <span class="is-active">02 · Fleet</span>
+        <span>03 · Schedule</span>
+      </div>
+
+      <div class="field">
+        <label>Your name <sup>*</sup></label>
+        <input required placeholder="Erdene Munkhbat">
+      </div>
+
+      <div class="field--row">
+        <div class="field">
+          <label>Work email <sup>*</sup></label>
+          <input type="email" required placeholder="erdene@northwindcoach.com">
+        </div>
+        <div class="field">
+          <label>Phone (we'll text first)</label>
+          <input type="tel" placeholder="+1 (347) 555-0184">
+        </div>
+      </div>
+
+      <div class="field--row">
+        <div class="field">
+          <label>Company <sup>*</sup></label>
+          <input required placeholder="Northwind Coach">
+        </div>
+        <div class="field">
+          <label>Primary city</label>
+          <input placeholder="Brooklyn, NY">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>How many vehicles do you operate?</label>
+        <div class="options">
+          <label class="opt"><span><b>1 — 3</b><small>Owner-operator</small></span><input type="radio" name="size"></label>
+          <label class="opt"><span><b>4 — 12</b><small>Family fleet</small></span><input type="radio" name="size" checked></label>
+          <label class="opt"><span><b>13 — 40</b><small>Established operator</small></span><input type="radio" name="size"></label>
+          <label class="opt"><span><b>40+</b><small>Multi-city</small></span><input type="radio" name="size"></label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>What are you running today?</label>
+        <div class="options">
+          <label class="opt"><span><b>Spreadsheet &amp; phone</b><small>The honest answer</small></span><input type="radio" name="now"></label>
+          <label class="opt"><span><b>Limo Anywhere</b><small>Migrating in 2026?</small></span><input type="radio" name="now"></label>
+          <label class="opt"><span><b>Moovs / DriverApp</b><small>Comparing</small></span><input type="radio" name="now"></label>
+          <label class="opt"><span><b>Custom / in-house</b><small>Tell us more below</small></span><input type="radio" name="now"></label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>What problem brought you here? (optional)</label>
+        <textarea placeholder="e.g. Our night dispatcher is burning out — we'd like to move airport runs onto something that watches the FAA feed."></textarea>
+      </div>
+
+      <div class="form__foot">
+        <small>We'll never share your email. Read by a human, usually within four hours during ET hours.</small>
+        <button type="submit" class="btn btn--filled form__submit">Send the request →</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="alt" id="thursday">
+  <div class="wrap">
+    <div class="alt__head">
+      <div>
+        <span class="kicker kicker--accent">Three other ways to reach us</span>
+        <h2>If a form is too much overhead.</h2>
+      </div>
+      <p class="lede">Picking the phone up still works. Dropping into the live demo still works. Emailing the founder directly — also works, though she answers from a flip phone.</p>
+    </div>
+    <div class="alt__grid">
+      <div class="alt__cell">
+        <span class="kicker kicker--accent">Live demo · every Thursday</span>
+        <h3>14:00 ET, 30 minutes, online.</h3>
+        <p>Open Q&amp;A. We share the dispatch board, walk through one real customer's flow, and answer everything in the chat — including the price.</p>
+        <a href="#">Reserve a seat →</a>
+      </div>
+      <div class="alt__cell">
+        <span class="kicker kicker--accent">Talk to a human</span>
+        <h3>Sales desk.</h3>
+        <p>Pick up the phone — it rings to whoever's on the desk. We'll book a demo, send the pricing, or simply answer the question you don't want to type out.</p>
+        <a href="tel:+13475550184">+1 (347) 555-0184</a>
+      </div>
+      <div class="alt__cell">
+        <span class="kicker kicker--accent">Email the founder</span>
+        <h3>Tsatsral, directly.</h3>
+        <p>For complaints, partnerships, and "is your team hiring?" — straight to the inbox of the person who started this. She reads every one.</p>
+        <a href="mailto:tsatsral@tsatsrallimo.co">tsatsral@tsatsrallimo.co</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="map">
+  <div class="wrap map__inner">
+    <figure class="map__art">
+      <span class="pin">488 Atlantic Ave</span>
+    </figure>
+    <div class="map__copy">
+      <span class="kicker kicker--accent">Where we are</span>
+      <h2>Brooklyn, third floor, <em>above the hardware store.</em></h2>
+      <p>Drop in if you're already in the city. We'll show you the dispatch board from the same desk our father uses, make you a coffee, and probably try to sell you on a 4 a.m. ride-along.</p>
+      <address>
+        <b>Tsatsral Limo Co. — HQ</b>
+        488 Atlantic Avenue, Floor 3<br>
+        Brooklyn, NY 11217<br>
+        Mon — Fri, 09:00 — 18:00 ET<br>
+        Sat by appointment
+      </address>
+    </div>
+  </div>
+</section>
+</div>
+
+<footer>
+  <div class="wrap foot">
+    <div class="foot__brand">
+      <a href="#home" class="brand">Tsatsral <small>Limo Co.</small></a>
+      <p>The operating system for chauffeured ground transport. Built in New York, run by people who used to dispatch from a flip phone.</p>
+      <div class="addr">
+        488 Atlantic Ave, Floor 3<br>
+        Brooklyn, NY 11217<br>
+        +1 (347) 555-0184
+      </div>
+    </div>
+    <div>
+      <h4>Platform</h4>
+      <ul>
+        <li><a href="#services">Dispatch board</a></li>
+        <li><a href="#services">Reservations</a></li>
+        <li><a href="#services">Customer portal</a></li>
+        <li><a href="#services">Driver app</a></li>
+        <li><a href="#services">Reporting</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Company</h4>
+      <ul>
+        <li><a href="#about">About</a></li>
+        <li><a href="#blog">Field guide</a></li>
+        <li><a href="#contact">Demo</a></li>
+        <li><a href="#contact">Sales</a></li>
+        <li><a href="#">Press</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>For operators</h4>
+      <ul>
+        <li><a href="#">Operator login</a></li>
+        <li><a href="#">Migrate from Limo Anywhere</a></li>
+        <li><a href="#">Status</a></li>
+        <li><a href="#">Changelog</a></li>
+        <li><a href="#">API docs</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Legal</h4>
+      <ul>
+        <li><a href="#">Terms</a></li>
+        <li><a href="#">Privacy</a></li>
+        <li><a href="#">Security</a></li>
+        <li><a href="#">DPA</a></li>
+        <li><a href="#">Imprint</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap foot__bottom">
+    <span>© 2026 Tsatsral Limo LLC · No. 04 / Spring</span>
+    <span>New York · Brooklyn · Westchester · Greenwich</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // ── Pill / spotlight switcher (home page) ──
+  
+  (function(){
+    const pills = document.querySelectorAll('.pill');
+    const panels = document.querySelectorAll('.spotlight__panel');
+    pills.forEach(p => p.addEventListener('click', () => {
+      const id = p.dataset.target;
+      pills.forEach(x => x.setAttribute('aria-selected', x === p ? 'true' : 'false'));
+      panels.forEach(panel => panel.classList.toggle('is-active', panel.dataset.id === id));
+    }));
+  })();
+
+
+  // ── TOC scroll-spy (services page) ──
+  (function(){
+    const tocLinks = document.querySelectorAll('.toc a[href^="#"]');
+    const tocSections = [...tocLinks].map(a => document.getElementById(a.getAttribute('href').slice(1))).filter(Boolean);
+    function onScroll(){
+      if (!tocSections.length) return;
+      const y = window.scrollY + 200;
+      let active = tocSections[0];
+      for (const s of tocSections) if (s.offsetTop <= y) active = s;
+      tocLinks.forEach(a => a.classList.toggle('is-active', a.getAttribute('href') === '#' + active.id));
+    }
+    window.addEventListener('scroll', onScroll, {passive:true});
+  })();
+
+
+  // ── SPA Router ──
+  const sections = document.querySelectorAll('.page-section');
+  const navLinks = document.querySelectorAll('.nav a[data-nav]');
+
+  function navigate(page, scrollTarget) {
+    // Show the right section
+    sections.forEach(s => s.classList.toggle('is-active', s.dataset.page === page));
+    // Update nav active state
+    navLinks.forEach(a => a.classList.toggle('is-active', a.dataset.nav === page));
+    // Scroll to top or to a specific element
+    if (scrollTarget) {
+      const el = document.getElementById(scrollTarget);
+      if (el) { setTimeout(() => el.scrollIntoView({behavior:'smooth'}), 50); return; }
+    }
+    window.scrollTo(0, 0);
+  }
+
+  // Handle all link clicks with hash hrefs
+  document.addEventListener('click', function(e) {
+    const link = e.target.closest('a[href^="#"]');
+    if (!link) return;
+    const href = link.getAttribute('href');
+    const scrollTarget = link.dataset.scroll;
+    
+    // Map hash to page
+    const page = href.replace('#', '');
+    const validPages = ['home','services','blog','about','contact'];
+    
+    if (validPages.includes(page)) {
+      e.preventDefault();
+      history.pushState(null, '', '#' + page);
+      navigate(page, scrollTarget);
+    }
+  });
+
+  // Handle browser back/forward
+  window.addEventListener('popstate', function() {
+    const hash = location.hash.replace('#', '') || 'home';
+    navigate(hash);
+  });
+
+  // Handle initial load with hash
+  const initialHash = location.hash.replace('#', '') || 'home';
+  if (initialHash !== 'home') navigate(initialHash);
+})();
+</script>
+
+</body>
+</html>

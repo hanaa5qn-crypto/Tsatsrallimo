@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Driver — Location Share</title>
+  <style>
+    :root {
+      --green: #38b478;
+      --green-dark: #2a8f5e;
+      --red: #e05252;
+      --bg: #0d1410;
+      --surface: #161e1a;
+      --border: #253029;
+      --text: #eef5f0;
+      --muted: #7a9080;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0 }
+    html, body { height: 100% }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px 20px;
+      gap: 24px;
+    }
+
+    .logo {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--green);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 16px;
+      padding: 14px 16px;
+      width: 100%;
+      appearance: none;
+      outline: none;
+    }
+
+    select:focus {
+      border-color: var(--green);
+    }
+
+    .toggle-btn {
+      width: 100%;
+      border: none;
+      border-radius: 14px;
+      font-size: 17px;
+      font-weight: 700;
+      padding: 20px;
+      cursor: pointer;
+      transition: background .2s, transform .1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      letter-spacing: -.01em;
+    }
+
+    .toggle-btn:active { transform: scale(.97) }
+
+    .toggle-btn.start {
+      background: var(--green);
+      color: #0d1410;
+    }
+
+    .toggle-btn.start:hover { background: var(--green-dark) }
+
+    .toggle-btn.stop {
+      background: #2a1a1a;
+      color: var(--red);
+      border: 2px solid rgba(224, 82, 82, .3);
+    }
+
+    .pip {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
+    .pip.pulse {
+      animation: blink 1.4s ease infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1 }
+      50% { opacity: .3 }
+    }
+
+    .status-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      display: none;
+    }
+
+    .status-box.show { display: flex }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+
+    .status-row span:first-child { color: var(--muted) }
+    .status-row span:last-child { font-weight: 600; font-variant-numeric: tabular-nums }
+
+    .notice {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .error-msg {
+      font-size: 13px;
+      color: var(--red);
+      background: rgba(224, 82, 82, .08);
+      border: 1px solid rgba(224, 82, 82, .2);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: none;
+      text-align: center;
+    }
+
+    .error-msg.show { display: block }
+  </style>
+</head>
+<body>
+
+  <div class="logo">DispatchLink · Driver</div>
+
+  <div class="card">
+    <div class="field">
+      <label>I am</label>
+      <select id="driverSelect">
+        <option value="">Loading drivers…</option>
+      </select>
+    </div>
+
+    <div class="error-msg" id="errMsg"></div>
+
+    <button class="toggle-btn start" id="toggleBtn" onclick="toggle()">
+      <span class="pip" id="pip"></span>
+      Start sharing location
+    </button>
+
+    <div class="status-box" id="statusBox">
+      <div class="status-row"><span>Status</span><span id="stStatus">—</span></div>
+      <div class="status-row"><span>Accuracy</span><span id="stAccuracy">—</span></div>
+      <div class="status-row"><span>Last sent</span><span id="stSent">—</span></div>
+      <div class="status-row"><span>Coordinates</span><span id="stCoords">—</span></div>
+    </div>
+  </div>
+
+  <p class="notice">Keep this page open while driving.<br>Lock screen is fine — GPS stays active.</p>
+
+  <script>
+    let watchId = null;
+    let selectedDriverId = null;
+    let lastSent = null;
+    let sharing = false;
+
+    async function loadDrivers() {
+      try {
+        const r = await fetch('/api/drivers');
+        if (r.status === 401) { location.href = '/login'; return; }
+        const data = await r.json();
+        const sel = document.getElementById('driverSelect');
+        const fragment = document.createDocumentFragment();
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '— pick your name —';
+        fragment.appendChild(placeholder);
+        data.drivers.forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d.id;
+          opt.textContent = `${d.name} · ${d.vehicle}`;
+          fragment.appendChild(opt);
+        });
+        sel.innerHTML = '';
+        sel.appendChild(fragment);
+      } catch (e) {
+        showError('Could not load drivers. Is the server running?');
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('errMsg');
+      el.textContent = msg;
+      el.classList.add('show');
+    }
+
+    function hideError() {
+      document.getElementById('errMsg').classList.remove('show');
+    }
+
+    async function sendLocation(lat, lon, accuracy) {
+      const id = document.getElementById('driverSelect').value;
+      if (!id) return;
+      try {
+        await fetch(`/api/drivers/${id}/location`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat, lon })
+        });
+        lastSent = new Date();
+        document.getElementById('stSent').textContent = lastSent.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        document.getElementById('stCoords').textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+        document.getElementById('stAccuracy').textContent = accuracy ? `±${Math.round(accuracy)} m` : '—';
+        document.getElementById('stStatus').textContent = '✓ Live';
+        hideError();
+      } catch (e) {
+        document.getElementById('stStatus').textContent = 'Send failed';
+      }
+    }
+
+    function toggle() {
+      const id = document.getElementById('driverSelect').value;
+      if (!id) { showError('Pick your name first.'); return; }
+      hideError();
+
+      if (!sharing) {
+        startSharing();
+      } else {
+        stopSharing();
+      }
+    }
+
+    function startSharing() {
+      if (!navigator.geolocation) {
+        showError('Geolocation is not supported by this browser.');
+        return;
+      }
+
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          sendLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+        },
+        (err) => {
+          showError('Location error: ' + err.message);
+          stopSharing();
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+
+      sharing = true;
+      const btn = document.getElementById('toggleBtn');
+      btn.className = 'toggle-btn stop';
+      btn.innerHTML = '<span class="pip pulse" id="pip"></span> Stop sharing';
+      document.getElementById('statusBox').classList.add('show');
+      document.getElementById('stStatus').textContent = 'Getting GPS…';
+      document.getElementById('driverSelect').disabled = true;
+
+      // Keep screen awake if supported
+      if (navigator.wakeLock) {
+        navigator.wakeLock.request('screen').catch(() => {});
+      }
+    }
+
+    function stopSharing() {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      sharing = false;
+      const btn = document.getElementById('toggleBtn');
+      btn.className = 'toggle-btn start';
+      btn.innerHTML = '<span class="pip" id="pip"></span> Start sharing location';
+      document.getElementById('statusBox').classList.remove('show');
+      document.getElementById('driverSelect').disabled = false;
+    }
+
+    loadDrivers();
+  </script>
+</body>
+</html>

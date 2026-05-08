@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Field Guide — Tsatsral Limo Co.</title>
+<style>
+  :root{
+    --bg:oklch(97% 0.012 80);--paper:oklch(99% 0.005 80);
+    --fg:oklch(20% 0.02 60);--ink-soft:oklch(28% 0.02 60);
+    --muted:oklch(48% 0.015 60);--rule:oklch(82% 0.012 80);
+    --accent:oklch(58% 0.16 35);--good:oklch(55% 0.13 145);
+    --font-display:'Iowan Old Style','Charter',Georgia,serif;
+    --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --font-mono:ui-monospace,'SF Mono','JetBrains Mono',Menlo,monospace;
+    --max:1280px;--pad:clamp(20px,4vw,56px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+  .wrap{max-width:var(--max);margin:0 auto;padding-inline:var(--pad)}
+  h1,h2,h3,h4{font-family:var(--font-display);font-weight:500;letter-spacing:-0.01em;margin:0}
+  h1{font-size:clamp(56px,10vw,148px);line-height:.95;letter-spacing:-0.03em}
+  h2{font-size:clamp(28px,3.4vw,44px);line-height:1.1;letter-spacing:-0.02em}
+  h3{font-size:clamp(20px,1.8vw,26px);line-height:1.25}
+  p{margin:0}
+  .kicker{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+  .kicker--accent{color:var(--accent)}
+  .lede{font-size:18px;line-height:1.5;color:var(--ink-soft);max-width:58ch;text-wrap:pretty}
+
+  .announce{background:var(--fg);color:var(--bg);font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;text-align:center;padding:9px var(--pad);display:flex;justify-content:center;gap:14px}
+  .announce em{color:var(--accent);font-style:normal}
+  .announce a{border-bottom:1px solid currentColor;padding-bottom:1px}
+  .topnav{border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:50;backdrop-filter:saturate(140%) blur(8px);background-color:color-mix(in oklch,var(--bg) 88%,transparent)}
+  .topnav__inner{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:32px;padding:18px var(--pad);max-width:var(--max);margin:0 auto}
+  .brand{font-family:var(--font-display);font-size:22px;letter-spacing:-0.02em;display:flex;align-items:baseline;gap:8px}
+  .brand::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);transform:translateY(-2px)}
+  .brand small{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+  .nav{display:flex;justify-content:center;gap:28px;font-size:14px;color:var(--ink-soft)}
+  .nav a{padding:6px 0}
+  .nav a:hover,.nav a.is-active{color:var(--fg)}
+  .nav a.is-active{border-bottom:1px solid var(--accent)}
+  .nav-cta{display:flex;align-items:center;gap:18px;font-size:14px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid var(--fg);color:var(--fg);font-size:14px;background:var(--paper);transition:transform .12s ease}
+  .btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--fg)}
+  .btn--filled{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+  .btn--filled:hover{box-shadow:3px 3px 0 var(--accent)}
+  .btn--ghost{border-color:transparent;background:transparent;padding:10px 0}
+
+  /* masthead — magazine front page */
+  .mast{padding:clamp(48px,7vw,88px) 0 0;border-bottom:1px solid var(--fg)}
+  .mast__top{display:flex;justify-content:space-between;border-bottom:1px solid var(--rule);padding-bottom:14px;margin-bottom:32px;font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .mast__top em{color:var(--accent);font-style:normal}
+  .mast h1{margin-bottom:32px;letter-spacing:-0.04em}
+  .mast h1 em{font-style:italic;color:var(--accent)}
+  .mast__sub{display:grid;grid-template-columns:2fr 1fr 1fr;gap:48px;border-top:1px solid var(--rule);padding:24px 0;align-items:start}
+  .mast__sub p{font-size:18px;color:var(--ink-soft);line-height:1.5;text-wrap:pretty}
+  .mast__sub .label{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:block}
+  .mast__sub b{font-family:var(--font-display);font-size:22px;letter-spacing:-0.01em;display:block;margin-bottom:4px}
+
+  /* category strip */
+  .cats{padding:24px 0;border-bottom:1px solid var(--rule);background:var(--paper)}
+  .cats__inner{display:flex;flex-wrap:wrap;gap:24px 32px;align-items:center;font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .cats__inner a{padding:4px 0;border-bottom:1px solid transparent}
+  .cats__inner a:hover,.cats__inner a.is-active{color:var(--fg);border-bottom-color:var(--accent)}
+  .cats__sep{color:var(--rule)}
+
+  /* feature article */
+  .feat{padding:clamp(48px,6vw,80px) 0;border-bottom:1px solid var(--rule)}
+  .feat__grid{display:grid;grid-template-columns:1.2fr 1fr;gap:64px;align-items:center}
+  .feat__art{aspect-ratio:5/4;background:var(--paper);border:1px solid var(--rule);position:relative;overflow:hidden}
+  .feat__art::before{
+    content:"";position:absolute;inset:0;
+    background:
+      linear-gradient(180deg,transparent 60%,oklch(20% 0.02 60 / .7) 100%),
+      conic-gradient(from 200deg at 60% 50%,oklch(74% 0.025 60),oklch(48% 0.02 60),oklch(28% 0.02 60),oklch(58% 0.16 35) 88%,oklch(48% 0.02 60));
+  }
+  .feat__art::after{
+    content:"";position:absolute;left:25%;right:18%;bottom:18%;height:18%;
+    background:linear-gradient(180deg,oklch(20% 0.02 60),oklch(8% 0.02 60));
+    clip-path:polygon(8% 100%,0 60%,12% 30%,28% 10%,72% 10%,88% 30%,100% 60%,92% 100%);
+  }
+  .feat__cap{position:absolute;left:14px;bottom:14px;font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--bg);text-transform:uppercase;z-index:2}
+  .feat__copy h2{margin-bottom:24px;text-wrap:balance}
+  .feat__copy h2 em{font-style:italic;color:var(--accent)}
+  .feat__copy p{font-size:17px;color:var(--ink-soft);line-height:1.6;margin-bottom:24px}
+  .feat__byline{display:flex;align-items:center;gap:14px;border-top:1px solid var(--rule);padding-top:18px;font-size:13px;color:var(--muted)}
+  .feat__byline b{color:var(--fg);font-family:var(--font-display);font-size:15px;letter-spacing:-0.01em;font-weight:500;display:block}
+  .feat__cta{display:inline-flex;align-items:center;gap:8px;border-bottom:1px solid var(--fg);padding-bottom:2px;font-size:14px;margin-top:24px}
+  .feat__cta:hover{color:var(--accent);border-color:var(--accent)}
+
+  /* article grid */
+  .grid{padding:clamp(64px,7vw,96px) 0;border-bottom:1px solid var(--rule)}
+  .grid__head{display:flex;justify-content:space-between;align-items:end;gap:32px;margin-bottom:48px;flex-wrap:wrap}
+  .grid__head h2{max-width:18ch;text-wrap:balance}
+  .grid__head p{max-width:32ch;color:var(--muted);font-size:15px}
+  .articles{display:grid;grid-template-columns:repeat(3,1fr);gap:48px}
+  .art{display:flex;flex-direction:column;gap:18px;padding-bottom:24px;border-bottom:1px solid var(--rule)}
+  .art__art{
+    aspect-ratio:5/4;background:var(--paper);border:1px solid var(--rule);position:relative;overflow:hidden;
+  }
+  .art__art--tone-a::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,oklch(86% 0.025 80),oklch(58% 0.16 35) 110%)}
+  .art__art--tone-b::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,oklch(89% 0.012 80),oklch(89% 0.012 80) 14px,oklch(78% 0.012 80) 14px,oklch(78% 0.012 80) 28px)}
+  .art__art--tone-c::before{content:"";position:absolute;inset:0;background:radial-gradient(80% 60% at 30% 30%,oklch(72% 0.025 60),oklch(28% 0.02 60))}
+  .art__art--tone-d::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,oklch(94% 0.02 60),oklch(74% 0.04 60));}
+  .art__art--tone-d::after{content:"";position:absolute;inset:35% 22% 35% 22%;background:linear-gradient(180deg,oklch(20% 0.02 60),oklch(10% 0.02 60));clip-path:polygon(8% 100%,0 50%,15% 20%,85% 20%,100% 50%,92% 100%)}
+  .art__art--tone-e::before{content:"";position:absolute;inset:0;background:linear-gradient(110deg,oklch(94% 0.012 80) 50%,oklch(89% 0.012 80) 50%) 0 0/16px 16px,oklch(89% 0.012 80)}
+  .art__art--tone-f::before{content:"";position:absolute;inset:0;background:linear-gradient(140deg,oklch(82% 0.04 35) 0%,oklch(58% 0.16 35) 100%)}
+  .art__cat{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .art h3{font-size:24px;letter-spacing:-0.015em;line-height:1.18;text-wrap:balance}
+  .art h3 em{font-style:italic;color:var(--accent)}
+  .art p{font-size:15px;line-height:1.55;color:var(--ink-soft);text-wrap:pretty}
+  .art__meta{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:auto}
+  .art__meta b{color:var(--ink-soft);font-weight:400}
+
+  /* notebook list */
+  .notebook{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule);background:var(--paper)}
+  .notebook__head{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:end;margin-bottom:48px}
+  .notebook__list{border-top:1px solid var(--fg)}
+  .nb{display:grid;grid-template-columns:80px 100px 1fr 1.2fr 80px;gap:32px;padding:22px 0;border-bottom:1px solid var(--rule);align-items:baseline}
+  .nb:hover{background:color-mix(in oklch,var(--accent) 4%,transparent)}
+  .nb__num{font-family:var(--font-mono);font-size:13px;color:var(--accent);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+  .nb__date{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .nb h3{font-size:20px;letter-spacing:-0.01em;line-height:1.25}
+  .nb p{font-size:14px;line-height:1.5;color:var(--ink-soft)}
+  .nb__time{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:right}
+
+  /* newsletter */
+  .news{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule)}
+  .news__inner{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;border:1px solid var(--fg);background:var(--paper);padding:clamp(32px,4vw,56px)}
+  .news h2{margin-bottom:18px;text-wrap:balance}
+  .news h2 em{font-style:italic;color:var(--accent)}
+  .news p{color:var(--ink-soft);font-size:16px;max-width:42ch}
+  .news__form{display:grid;gap:14px}
+  .news__form label{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .news__form input{
+    border:0;border-bottom:1px solid var(--fg);
+    background:transparent;
+    padding:14px 0;
+    font:inherit;font-family:var(--font-display);font-size:22px;letter-spacing:-0.01em;
+    color:var(--fg);
+    outline:none;
+  }
+  .news__form input::placeholder{color:var(--muted);font-style:italic}
+  .news__form .row{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-top:6px}
+  .news__form small{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+  footer{padding:64px 0 28px;background:var(--bg);color:var(--ink-soft);font-size:13px}
+  .foot{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:40px;border-bottom:1px solid var(--rule);padding-bottom:48px;margin-bottom:24px}
+  .foot h4{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400;margin-bottom:16px}
+  .foot ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+  .foot a:hover{color:var(--accent)}
+  .foot__brand .brand{font-size:24px;margin-bottom:14px}
+  .foot__brand p{max-width:32ch;color:var(--muted);font-size:13px;line-height:1.55}
+  .foot__brand .addr{margin-top:18px;font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;color:var(--ink-soft);line-height:1.7}
+  .foot__bottom{display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex-wrap:wrap;gap:14px}
+
+  @media (max-width:980px){
+    .mast__sub,.feat__grid,.grid__head,.notebook__head,.news__inner{grid-template-columns:1fr;gap:32px}
+    .articles{grid-template-columns:1fr 1fr}
+    .nb{grid-template-columns:60px 1fr;gap:16px}
+    .nb__num,.nb__date{grid-row:1;grid-column:auto}
+    .nb h3,.nb p{grid-column:2;grid-row:auto}
+    .nb__time{display:none}
+    .nav{display:none}.topnav__inner{grid-template-columns:1fr auto}
+    .foot{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:640px){
+    .articles{grid-template-columns:1fr}
+    .foot{grid-template-columns:1fr}
+    .nav-cta .btn--ghost{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="announce">
+  <span>Live demo every Thursday — <em>see the dispatch board in action</em></span>
+  <a href="contact.html">Reserve a seat →</a>
+</div>
+
+<nav class="topnav">
+  <div class="topnav__inner">
+    <a href="index.html" class="brand">Tsatsral <small>Limo Co.</small></a>
+    <div class="nav">
+      <a href="index.html">Solutions</a>
+      <a href="services.html">Services</a>
+      <a href="index.html#fleet">Fleet</a>
+      <a href="blog.html" class="is-active">Resources</a>
+      <a href="about.html">About</a>
+    </div>
+    <div class="nav-cta">
+      <a href="#login" class="btn--ghost">Operator login</a>
+      <a href="contact.html" class="btn btn--filled">Request a demo →</a>
+    </div>
+  </div>
+</nav>
+
+<header class="mast">
+  <div class="wrap">
+    <div class="mast__top">
+      <span>The Field Guide</span>
+      <span><em>Vol. IV — Issue 04</em> · Spring 2026</span>
+      <span>Brooklyn, NY · 36 pages</span>
+    </div>
+    <h1>Field <em>guide</em>.</h1>
+    <div class="mast__sub">
+      <p>An editorial we publish every other Thursday — on running a fleet, raising a chauffeur, billing a corporate account, and the slow art of not being woken up at four in the morning.</p>
+      <div>
+        <span class="label">In this issue</span>
+        <b>The night shift</b>
+        <span style="color:var(--muted);font-size:14px">Six dispatchers, six cities, one shared queue. What the 2 a.m. board really looks like.</span>
+      </div>
+      <div>
+        <span class="label">Next issue</span>
+        <b>The 14-pax math</b>
+        <span style="color:var(--muted);font-size:14px">Why prom season is the most underestimated revenue line in the chauffeur business.</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="cats">
+  <div class="wrap cats__inner">
+    <span style="color:var(--fg)">Browse</span>
+    <span class="cats__sep">·</span>
+    <a href="#" class="is-active">All issues</a>
+    <a href="#">Operations</a>
+    <a href="#">Pricing</a>
+    <a href="#">Drivers</a>
+    <a href="#">Corporate accounts</a>
+    <a href="#">Long-distance</a>
+    <a href="#">Events</a>
+    <a href="#">Software</a>
+    <a href="#">Letters</a>
+  </div>
+</nav>
+
+<section class="feat">
+  <div class="wrap feat__grid">
+    <figure class="feat__art">
+      <figcaption class="feat__cap">Plate · TSL-04 · 02:41 EDT, JFK Terminal 4</figcaption>
+    </figure>
+    <div class="feat__copy">
+      <span class="kicker kicker--accent">Issue 04 · Cover essay</span>
+      <h2>The dispatcher who <em>finally slept through the night.</em></h2>
+      <p>For seven years our father took the 4 a.m. JFK call himself. Then we wrote a piece of software that knew which car was where, and one Tuesday in October he didn't pick up — because nothing was wrong.</p>
+      <p>This issue is about that Tuesday. About what it took to teach the night shift that the answer to "where's the car?" can come from a screen instead of a phone call. About why "boring at scale" is the hardest design constraint we know.</p>
+      <div class="feat__byline">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--fg);color:var(--bg);display:grid;place-items:center;font-family:var(--font-display);font-size:14px;letter-spacing:-0.01em">TK</div>
+        <div>
+          <b>Tsatsral Khaltar</b>
+          <span>Founder · Brooklyn · 14 minutes</span>
+        </div>
+      </div>
+      <a href="#" class="feat__cta">Read the cover essay →</a>
+    </div>
+  </div>
+</section>
+
+<section class="grid">
+  <div class="wrap">
+    <div class="grid__head">
+      <div>
+        <span class="kicker kicker--accent">Recent dispatches · 06</span>
+        <h2>What we wrote about this season.</h2>
+      </div>
+      <p>Operators write to us with the same six questions every week. We answer them once, in print, with the math attached.</p>
+    </div>
+
+    <div class="articles">
+      <article class="art">
+        <div class="art__art art__art--tone-a"></div>
+        <span class="art__cat">Pricing</span>
+        <h3>The honest cost of a <em>quiet</em> dispatch board.</h3>
+        <p>Surge pricing is what you do when your dispatcher is lazy. Here's the spreadsheet that proves it — and the three rules we use instead.</p>
+        <div class="art__meta"><b>Markus Olsson</b><span>02 May · 11 min</span></div>
+      </article>
+
+      <article class="art">
+        <div class="art__art art__art--tone-b"></div>
+        <span class="art__cat">Operations</span>
+        <h3>Why the 04:55 trip is the <em>most expensive</em> trip you run.</h3>
+        <p>Dead miles, sleepy chauffeurs, surge tolls. We added it up across 1,200 trips and the answer is uglier than we expected.</p>
+        <div class="art__meta"><b>Lupita Flores</b><span>22 Apr · 8 min</span></div>
+      </article>
+
+      <article class="art">
+        <div class="art__art art__art--tone-c"></div>
+        <span class="art__cat">Drivers</span>
+        <h3>The chauffeur app you'd actually <em>want to clock in to.</em></h3>
+        <p>One tap to start the shift, one tap to close out. Why the driver platform is the only one we let our own family test.</p>
+        <div class="art__meta"><b>Idris Patel</b><span>14 Apr · 6 min</span></div>
+      </article>
+
+      <article class="art">
+        <div class="art__art art__art--tone-d"></div>
+        <span class="art__cat">Corporate</span>
+        <h3>What a travel-desk login is <em>actually worth</em> to a hedge fund.</h3>
+        <p>One Greenwich client booked 220 trips in a month, never called us once, and shaved $48,000 off their travel budget. The math, the migration, the morning-after.</p>
+        <div class="art__meta"><b>Jules Reyes</b><span>03 Apr · 10 min</span></div>
+      </article>
+
+      <article class="art">
+        <div class="art__art art__art--tone-e"></div>
+        <span class="art__cat">Software</span>
+        <h3>One trip ledger, two hundred fleets, <em>zero double-booking.</em></h3>
+        <p>An honest engineering note on the database we picked, the choices we made about consistency, and why we don't do "eventually."</p>
+        <div class="art__meta"><b>Markus Olsson</b><span>27 Mar · 14 min</span></div>
+      </article>
+
+      <article class="art">
+        <div class="art__art art__art--tone-f"></div>
+        <span class="art__cat">Events</span>
+        <h3>How to run prom season <em>without losing the chauffeurs you trust.</em></h3>
+        <p>Multi-pickup manifests, parent communication, the senior class who's already tipsy. A March-to-June operations diary.</p>
+        <div class="art__meta"><b>Felix Okonkwo</b><span>18 Mar · 9 min</span></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="notebook">
+  <div class="wrap">
+    <div class="notebook__head">
+      <div>
+        <span class="kicker kicker--accent">Field notes</span>
+        <h2>Short ones. Mostly numbers, occasionally opinions.</h2>
+      </div>
+      <p class="lede">Reading list for the dispatcher who has six tabs open and three minutes between calls.</p>
+    </div>
+    <div class="notebook__list">
+      <a class="nb" href="#">
+        <span class="nb__num">N° 21</span>
+        <span class="nb__date">28 Apr 2026</span>
+        <h3>Two charts that explain why dead-mile percentage is the only metric that matters.</h3>
+        <p>If you only watch one number this quarter, watch this one. Here's why, with the bar chart.</p>
+        <span class="nb__time">04 min</span>
+      </a>
+      <a class="nb" href="#">
+        <span class="nb__num">N° 20</span>
+        <span class="nb__date">22 Apr 2026</span>
+        <h3>The text message we send when a chauffeur runs late, in 47 words.</h3>
+        <p>Copy-paste it. Replace the placeholders. Stop writing apology paragraphs at 2 a.m.</p>
+        <span class="nb__time">02 min</span>
+      </a>
+      <a class="nb" href="#">
+        <span class="nb__num">N° 19</span>
+        <span class="nb__date">11 Apr 2026</span>
+        <h3>Five questions we ask before adding a sixth vehicle.</h3>
+        <p>Most of them are about your dispatcher's sleep, not your accountant's spreadsheet.</p>
+        <span class="nb__time">05 min</span>
+      </a>
+      <a class="nb" href="#">
+        <span class="nb__num">N° 18</span>
+        <span class="nb__date">02 Apr 2026</span>
+        <h3>What it costs to migrate from Limo Anywhere — the honest version.</h3>
+        <p>Three weeks of data export. Two days of training. One nervous Sunday morning.</p>
+        <span class="nb__time">07 min</span>
+      </a>
+      <a class="nb" href="#">
+        <span class="nb__num">N° 17</span>
+        <span class="nb__date">25 Mar 2026</span>
+        <h3>How we decide which corporate account is worth a dedicated dispatcher.</h3>
+        <p>Three thresholds, one decision tree, no spreadsheet you can't read on a phone.</p>
+        <span class="nb__time">06 min</span>
+      </a>
+      <a class="nb" href="#">
+        <span class="nb__num">N° 16</span>
+        <span class="nb__date">14 Mar 2026</span>
+        <h3>The four phrases we banned from our customer-facing copy in 2025.</h3>
+        <p>None of them were "synergy". All of them were worse.</p>
+        <span class="nb__time">03 min</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="news">
+  <div class="wrap">
+    <div class="news__inner">
+      <div>
+        <span class="kicker kicker--accent">Subscribe — free, every other Thursday</span>
+        <h2>One issue every fortnight. Read in <em>twenty minutes.</em> Mostly numbers.</h2>
+        <p>Operations, pricing, software, and the occasional letter from a dispatcher who's had enough. No webinar invitations, no "exclusive download," no funnel.</p>
+      </div>
+      <form class="news__form" onsubmit="event.preventDefault();this.querySelector('input').value='—  thanks, we\\'ll be in touch.'">
+        <label for="email">Your work email</label>
+        <input id="email" type="email" placeholder="dispatcher@northwindcoach.com" required>
+        <div class="row">
+          <small>We'll never share it. One-tap unsubscribe.</small>
+          <button type="submit" class="btn">Subscribe →</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div class="foot__brand">
+      <a href="index.html" class="brand">Tsatsral <small>Limo Co.</small></a>
+      <p>The operating system for chauffeured ground transport. Built in New York, run by people who used to dispatch from a flip phone.</p>
+      <div class="addr">
+        488 Atlantic Ave, Floor 3<br>
+        Brooklyn, NY 11217<br>
+        +1 (347) 555-0184
+      </div>
+    </div>
+    <div>
+      <h4>Platform</h4>
+      <ul>
+        <li><a href="index.html#how">Dispatch board</a></li>
+        <li><a href="index.html#how">Reservations</a></li>
+        <li><a href="index.html#how">Customer portal</a></li>
+        <li><a href="index.html#how">Driver app</a></li>
+        <li><a href="index.html#how">Reporting</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Company</h4>
+      <ul>
+        <li><a href="about.html">About</a></li>
+        <li><a href="blog.html">Field guide</a></li>
+        <li><a href="contact.html">Demo</a></li>
+        <li><a href="contact.html">Sales</a></li>
+        <li><a href="#">Press</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>For operators</h4>
+      <ul>
+        <li><a href="#">Operator login</a></li>
+        <li><a href="#">Migrate from Limo Anywhere</a></li>
+        <li><a href="#">Status</a></li>
+        <li><a href="#">Changelog</a></li>
+        <li><a href="#">API docs</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Legal</h4>
+      <ul>
+        <li><a href="#">Terms</a></li>
+        <li><a href="#">Privacy</a></li>
+        <li><a href="#">Security</a></li>
+        <li><a href="#">DPA</a></li>
+        <li><a href="#">Imprint</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap foot__bottom">
+    <span>© 2026 Tsatsral Limo LLC · Vol. IV / Spring</span>
+    <span>New York · Brooklyn · Westchester · Greenwich</span>
+  </div>
+</footer>
+
+</body>
+</html>
