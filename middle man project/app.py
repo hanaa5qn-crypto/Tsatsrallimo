@@ -5,6 +5,7 @@ import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, List
+import re
 
 import httpx
 from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request, Form, Cookie
@@ -905,11 +906,14 @@ async def assign_driver(reservation_id: int, payload: dict, db: Session = Depend
         raise HTTPException(status_code=503, detail="Requested driver not available")
 
     # Twilio logic
-    sid = "MOCKED_SID"
     try:
         sid = notify_driver_of_reservation(reservation, {"name": driver.name, "phone": driver.phone})
+        if sid == "TWILIO_NOT_CONFIGURED":
+            raise HTTPException(status_code=503, detail="Twilio not configured")
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Twilio failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Twilio error: {e}")
 
     reservation.status = "Pending confirmation"
     reservation.assigned_driver = driver.name
@@ -1090,6 +1094,17 @@ async def update_driver_location(driver_id: int, payload: dict, db: Session = De
     return {"status": "Success"}
 
 
+def _to_e164(phone: str) -> str:
+    digits = re.sub(r'\D', '', (phone or ''))
+    if len(digits) == 10:
+        return f"+1{digits}"
+    if len(digits) == 11 and digits.startswith('1'):
+        return f"+{digits}"
+    if phone and phone.startswith('+'):
+        return phone
+    return f"+{digits}" if digits else phone
+
+
 def notify_driver_of_reservation(reservation: ReservationModel, driver: dict[str, str]) -> str:
     account_sid = os.getenv("TWILIO_ACCOUNT_SID")
     auth_token = os.getenv("TWILIO_AUTH_TOKEN")
@@ -1099,10 +1114,11 @@ def notify_driver_of_reservation(reservation: ReservationModel, driver: dict[str
         return "TWILIO_NOT_CONFIGURED"
 
     client = Client(account_sid, auth_token)
+    to_number = _to_e164(driver.get("phone", ""))
     message = client.messages.create(
         body=build_driver_message(reservation),
         from_=from_number,
-        to=driver["phone"],
+        to=to_number,
     )
     return message.sid
 
