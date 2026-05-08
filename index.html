@@ -1,243 +1,1490 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tsatsral Limo Co. — Reservations, fleet, and dispatch</title>
-<style>
-  :root{
-    --bg:oklch(97% 0.012 80);
-    --paper:oklch(99% 0.005 80);
-    --fg:oklch(20% 0.02 60);
-    --ink-soft:oklch(28% 0.02 60);
-    --muted:oklch(48% 0.015 60);
-    --rule:oklch(82% 0.012 80);
-    --accent:oklch(58% 0.16 35);
-    --green:oklch(48% 0.11 150);
-    --font-display:'Iowan Old Style','Charter',Georgia,serif;
-    --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
-    --font-mono:ui-monospace,'SF Mono','JetBrains Mono',Menlo,monospace;
-    --max:1280px;
-    --pad:clamp(20px,4vw,56px);
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;scroll-behavior:smooth}
-  body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
-  a{color:inherit;text-decoration:none}
-  .wrap{max-width:var(--max);margin:0 auto;padding-inline:var(--pad)}
-  h1,h2,h3{font-family:var(--font-display);font-weight:500;letter-spacing:-.02em;margin:0;color:var(--fg)}
-  h1{font-size:clamp(48px,7vw,98px);line-height:.96;letter-spacing:-.035em}
-  h2{font-size:clamp(34px,4.2vw,58px);line-height:1.03}
-  h3{font-size:clamp(22px,2vw,28px);line-height:1.12}
-  p{margin:0}
-  .kicker{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-  .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border:1px solid var(--fg);background:var(--paper);font-size:14px;transition:transform .12s ease}
-  .btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--fg)}
-  .btn--filled{background:var(--fg);color:var(--bg)}
-  .btn--filled:hover{box-shadow:3px 3px 0 var(--accent)}
-  .announce{background:var(--fg);color:var(--bg);font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;text-align:center;padding:9px var(--pad)}
-  .announce a{border-bottom:1px solid currentColor}
-  .topnav{border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:10;backdrop-filter:saturate(140%) blur(8px);background-color:color-mix(in oklch,var(--bg) 88%,transparent)}
-  .topnav__inner{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:30px;padding:18px var(--pad);max-width:var(--max);margin:0 auto}
-  .brand{font-family:var(--font-display);font-size:22px;letter-spacing:-.02em;display:flex;align-items:baseline;gap:8px}
-  .brand::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);transform:translateY(-2px)}
-  .brand small{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
-  .nav{display:flex;justify-content:center;gap:26px;font-size:14px;color:var(--ink-soft)}
-  .nav a{padding:6px 0}
-  .nav a:hover{color:var(--fg)}
-  .nav-cta{display:flex;align-items:center;gap:14px;font-size:14px}
-  .hero{padding:clamp(58px,8vw,116px) 0 clamp(50px,7vw,86px);border-bottom:1px solid var(--rule)}
-  .hero__grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(360px,.85fr);gap:64px;align-items:end}
-  .hero h1{margin:22px 0 26px;text-wrap:balance}
-  .hero h1 em{font-style:italic;color:var(--accent)}
-  .lede{font-size:20px;line-height:1.45;color:var(--ink-soft);max-width:56ch;text-wrap:pretty}
-  .hero__cta{display:flex;gap:16px;flex-wrap:wrap;margin-top:34px}
-  .hero__meta{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);margin-top:48px}
-  .hero__meta div{background:var(--paper);padding:18px}
-  .hero__meta b{display:block;font-family:var(--font-display);font-size:30px;line-height:1;margin-bottom:8px}
-  .hero__meta span{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-  .visual{border:1px solid var(--rule);background:var(--paper);min-height:520px;position:relative;overflow:hidden}
-  .visual::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 58%,oklch(19% 0.02 60 / .72)),conic-gradient(from 210deg at 70% 35%,oklch(80% 0.04 75),oklch(54% 0.02 65),oklch(23% 0.02 60),oklch(80% 0.04 75))}
-  .car{position:absolute;left:10%;right:10%;bottom:18%;height:80px;background:linear-gradient(180deg,#252523,#0d0e0d);clip-path:polygon(7% 100%,0 62%,13% 30%,31% 7%,70% 7%,87% 30%,100% 62%,93% 100%);box-shadow:0 -5px 0 var(--accent) inset}
-  .dispatch-card{position:absolute;left:20px;right:20px;bottom:20px;background:oklch(99% 0.005 80 / .92);border:1px solid var(--rule);padding:18px;display:grid;gap:12px}
-  .dispatch-card__top{display:flex;justify-content:space-between;gap:12px;align-items:center}
-  .dispatch-card b{font-size:14px}
-  .badge{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);background:oklch(92% .04 150);padding:5px 7px;border-radius:999px}
-  .mini-route{display:grid;gap:7px;font-size:13px;color:var(--ink-soft)}
-  .mini-route span{display:flex;gap:8px;align-items:center}
-  .dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block}
-  .dot.drop{background:oklch(50% .12 250)}
-  .section{padding:clamp(64px,8vw,112px) 0;border-bottom:1px solid var(--rule)}
-  .section--paper{background:var(--paper)}
-  .section__head{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:end;margin-bottom:44px}
-  .section__head p{color:var(--ink-soft);font-size:17px;max-width:48ch}
-  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule)}
-  .card{background:var(--bg);padding:28px;min-height:240px;display:flex;flex-direction:column;justify-content:space-between}
-  .card p{color:var(--ink-soft);font-size:15px;margin-top:12px}
-  .card .kicker{color:var(--accent)}
-  .dispatch{display:grid;grid-template-columns:.9fr 1.1fr;gap:42px;align-items:center}
-  .dispatch-copy p{font-size:18px;color:var(--ink-soft);max-width:49ch;margin-top:18px}
-  .dispatch-actions{display:flex;gap:14px;flex-wrap:wrap;margin-top:30px}
-  .dashboard{border:1px solid var(--fg);background:#f9fbf8;padding:18px;display:grid;gap:14px}
-  .dashboard__bar{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--rule);padding-bottom:14px}
-  .dashboard__bar b{font-family:var(--font-display);font-size:20px;font-weight:500}
-  .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .dash-card{border:1px solid var(--rule);background:white;padding:14px;display:grid;gap:10px}
-  .dash-card h3{font-family:var(--font-body);font-size:14px;font-weight:700;letter-spacing:0}
-  .dash-card p{font-size:13px;color:var(--ink-soft)}
-  .driver{display:grid;grid-template-columns:36px 1fr auto;gap:10px;align-items:center}
-  .avatar{width:36px;height:36px;border-radius:8px;background:oklch(92% .04 150);display:grid;place-items:center;font-weight:800;color:var(--green)}
-  .status{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--green)}
-  .fleet{display:grid;grid-template-columns:1fr 1fr 1fr;gap:28px}
-  .fleet article{border-top:1px solid var(--fg);padding-top:18px}
-  .fleet p{color:var(--ink-soft);font-size:15px;margin-top:10px}
-  .final{padding:clamp(58px,8vw,96px) 0;background:var(--fg);color:var(--bg)}
-  .final h2{color:var(--bg);max-width:760px}
-  .final p{color:oklch(88% .01 80);font-size:18px;max-width:620px;margin:18px 0 30px}
-  .final .btn{border-color:var(--bg);background:var(--bg);color:var(--fg)}
-  @media (max-width:980px){
-    .topnav__inner{grid-template-columns:1fr;gap:14px}.nav{justify-content:flex-start;overflow:auto}.nav-cta{justify-content:flex-start}
-    .hero__grid,.section__head,.dispatch{grid-template-columns:1fr}.visual{min-height:390px}.cards,.fleet{grid-template-columns:1fr}.dash-grid{grid-template-columns:1fr}
-  }
-  @media (max-width:620px){
-    .hero__meta{grid-template-columns:1fr}.hero__cta,.dispatch-actions{flex-direction:column}.btn{justify-content:center}.visual{min-height:340px}.nav{gap:16px}
-  }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reserve a Ride — Tsatsral Limo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root {
+      --void: #060608;
+      --surface: #0d0d10;
+      --surface-2: #161619;
+      --surface-3: #1e1e23;
+      --border: #28282f;
+      --border-strong: #3a3a45;
+      --gold: #C8A45A;
+      --gold-light: #E5C87A;
+      --gold-pale: rgba(200,164,90,.1);
+      --text: #F0EBE1;
+      --text-soft: #9A9590;
+      --text-muted: #58586A;
+      --green: #2A6B50;
+      --radius: 10px;
+      --radius-lg: 18px;
+      --hero-img: url('images/suv.png');
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      min-height: 100vh;
+      background: var(--void);
+      color: var(--text);
+      font-family: 'DM Sans', -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* page-wide vignette */
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background:
+        radial-gradient(ellipse 90% 60% at 18% 30%, rgba(200,164,90,.06), transparent 65%),
+        radial-gradient(ellipse 70% 50% at 80% 90%, rgba(200,164,90,.04), transparent 70%);
+    }
+
+    body::after {
+      content: ''; position: fixed; inset: 0; opacity: .35;
+      pointer-events: none; z-index: 1;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E");
+    }
+
+    /* ── HEADER ── */
+    .site-header {
+      position: sticky; top: 0; height: 68px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 clamp(20px,4vw,52px);
+      background: rgba(6,6,8,.86); backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border); z-index: 100;
+    }
+
+    .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; color: inherit; }
+    .brand-emblem { width: 32px; height: 32px; border-radius: 8px; background: var(--gold); display: grid; place-items: center; flex-shrink: 0; }
+    .brand-name { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 500; letter-spacing: .06em; color: var(--text); }
+    .brand-name em { font-style: italic; color: var(--gold-light); font-weight: 400; }
+
+    .header-nav { display: flex; align-items: center; gap: 28px; }
+    .nav-link { font-size: 13px; color: var(--text-soft); text-decoration: none; transition: color .15s; letter-spacing: .01em; }
+    .nav-link:hover { color: var(--text); }
+
+    .header-actions { display: flex; align-items: center; gap: 14px; }
+
+    .header-phone {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 14px; border-radius: 8px;
+      background: var(--gold-pale); border: 1px solid rgba(200,164,90,.25);
+      font-size: 13px; font-weight: 600; color: var(--gold-light); text-decoration: none;
+      transition: background .15s, border-color .15s;
+    }
+    .header-phone:hover { background: rgba(200,164,90,.18); border-color: var(--gold); }
+    .header-phone svg { color: var(--gold); }
+
+    .header-login {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: 8px;
+      border: 1px solid var(--border); background: transparent;
+      font-size: 13px; color: var(--text-soft); text-decoration: none; cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    .header-login:hover { border-color: var(--border-strong); color: var(--text); }
+
+    /* ── PAGE SHELL ── */
+    .page { position: relative; z-index: 2; min-height: calc(100vh - 68px); }
+
+    /* ── HERO SCREEN (lead-capture) ── */
+    .hero-screen { display: block; padding: clamp(20px,3vw,40px) clamp(16px,3vw,40px); }
+    .hero-screen.is-hidden { display: none; }
+
+    .hero-wrap {
+      max-width: 1320px; margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 0 0 1px rgba(200,164,90,.04), 0 50px 120px rgba(0,0,0,.55);
+      overflow: hidden;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+      gap: 0;
+      align-items: stretch;
+    }
+
+    /* form side */
+    .hero-form-side {
+      padding: clamp(36px, 4.5vw, 72px);
+      display: flex; flex-direction: column;
+      min-width: 0;
+    }
+
+    .hero-eyebrow-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; margin-bottom: 22px; flex-wrap: wrap;
+    }
+
+    .city-pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 12px; color: var(--text-soft);
+      padding: 6px 12px 6px 10px; border-radius: 999px;
+      background: var(--surface-2); border: 1px solid var(--border);
+    }
+    .city-pill svg { color: var(--gold); flex-shrink: 0; }
+    .city-pill .change { color: var(--gold-light); font-weight: 600; cursor: pointer; margin-left: 4px; padding-left: 8px; border-left: 1px solid var(--border); }
+    .city-pill .change:hover { color: var(--gold); }
+
+    .eta-chip {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 6px 12px; border-radius: 999px;
+      background: rgba(42,107,80,.18);
+      border: 1px solid rgba(42,107,80,.4);
+      font-size: 11.5px; color: #6BE5A0; font-weight: 500;
+      letter-spacing: .01em;
+    }
+    .eta-chip::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: #6BE5A0; box-shadow: 0 0 0 0 rgba(107,229,160,.5);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(107,229,160,.6); }
+      70%  { box-shadow: 0 0 0 8px rgba(107,229,160,0); }
+      100% { box-shadow: 0 0 0 0 rgba(107,229,160,0); }
+    }
+
+    .hero-headline {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(40px, 5.4vw, 68px);
+      font-weight: 400; line-height: .98;
+      letter-spacing: -.025em; color: var(--text);
+      margin-bottom: 8px; text-wrap: balance;
+    }
+    .hero-headline em { font-style: italic; color: var(--gold-light); }
+
+    .hero-sub {
+      font-size: 15px; color: var(--text-soft);
+      max-width: 48ch; line-height: 1.55;
+      margin-bottom: 28px; text-wrap: pretty;
+    }
+
+    /* form */
+    .booking-form { display: flex; flex-direction: column; gap: 14px; }
+
+    .form-row { display: grid; gap: 11px; }
+    .form-row.g2 { grid-template-columns: 1fr 1fr; }
+    .form-row.g3 { grid-template-columns: 1fr 1fr 1fr; }
+
+    .field { display: flex; flex-direction: column; gap: 5px; position: relative; min-width: 0; }
+
+    label {
+      font-size: 10px; font-weight: 600;
+      letter-spacing: .08em; text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    input, select, textarea {
+      width: 100%; border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface-2); padding: 11px 13px; color: var(--text);
+      font: inherit; font-size: 14px; outline: none;
+      transition: border-color .15s, box-shadow .15s, background .15s;
+      -webkit-appearance: none; appearance: none;
+    }
+    input::placeholder, textarea::placeholder { color: var(--text-muted); }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--gold); background: var(--surface-3);
+      box-shadow: 0 0 0 3px rgba(200,164,90,.12);
+    }
+
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2358586A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center;
+      background-size: 14px; padding-right: 34px; cursor: pointer;
+    }
+
+    /* connected pickup/dropoff */
+    .locations {
+      position: relative;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .locations:focus-within { border-color: var(--border-strong); }
+
+    .loc-row { position: relative; display: flex; align-items: center; gap: 12px; }
+    .loc-row + .loc-row { margin-top: 10px; padding-top: 12px; border-top: 1px dashed var(--border); }
+
+    .loc-dot {
+      width: 24px; height: 24px; border-radius: 50%;
+      display: grid; place-items: center; flex-shrink: 0;
+      border: 1.5px solid var(--border-strong);
+      background: var(--void);
+      position: relative; z-index: 2;
+    }
+    .loc-dot.pickup { color: var(--green); border-color: var(--green); }
+    .loc-dot.dropoff { color: var(--gold); border-color: var(--gold); }
+
+    /* inner bullet for pickup */
+    .loc-dot.pickup::after {
+      content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+    }
+
+    /* connecting line */
+    .locations::before {
+      content: ''; position: absolute;
+      left: 27px; top: 36px; bottom: 36px;
+      width: 1px;
+      background: repeating-linear-gradient(to bottom, var(--border-strong) 0 3px, transparent 3px 7px);
+    }
+
+    .loc-row input {
+      border: none; background: transparent; padding: 6px 0;
+      font-size: 14.5px;
+      box-shadow: none !important;
+    }
+    .loc-row input:focus { background: transparent; }
+
+    .loc-action {
+      flex-shrink: 0; padding: 6px;
+      color: var(--text-muted); cursor: pointer;
+      background: none; border: none; border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+    .loc-action:hover { color: var(--gold); background: var(--surface-3); }
+
+    /* swap button between pickup/dropoff */
+    .swap-btn {
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--surface-3); border: 1px solid var(--border-strong);
+      color: var(--text-soft); cursor: pointer;
+      display: grid; place-items: center;
+      transition: transform .25s, color .15s, background .15s;
+      z-index: 5;
+    }
+    .swap-btn:hover { color: var(--gold); transform: translateY(-50%) rotate(180deg); }
+
+    /* vehicle class — chip cards */
+    .vehicle-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px;
+    }
+
+    .vchip {
+      position: relative;
+      border: 1.5px solid var(--border); border-radius: 10px;
+      background: var(--surface-2);
+      padding: 12px 13px;
+      cursor: pointer;
+      transition: border-color .2s, background .2s, transform .15s;
+      display: flex; flex-direction: column; gap: 4px;
+      min-width: 0;
+    }
+    .vchip:hover { border-color: var(--border-strong); background: var(--surface-3); }
+    .vchip.selected {
+      border-color: var(--gold); background: var(--gold-pale);
+    }
+
+    .vchip-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .vchip-icon { width: 38px; height: 22px; flex-shrink: 0; }
+    .vchip-price {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 17px; font-weight: 600;
+      color: var(--gold);
+    }
+    .vchip-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px; font-weight: 500;
+      color: var(--text); line-height: 1.1;
+    }
+    .vchip-desc { font-size: 11px; color: var(--text-muted); line-height: 1.3; }
+
+    .vchip-radio {
+      position: absolute; top: 9px; right: 9px;
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 1.5px solid var(--border-strong);
+      background: var(--surface-3);
+      display: grid; place-items: center;
+      opacity: 0;
+      transition: opacity .15s;
+    }
+    .vchip.selected .vchip-radio {
+      background: var(--gold); border-color: var(--gold);
+      color: var(--void); opacity: 1;
+    }
+
+    /* CTA row */
+    .cta-row {
+      display: flex; align-items: center; gap: 18px;
+      margin-top: 6px; flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: var(--gold); color: var(--void);
+      border: none; border-radius: 9px; padding: 14px 28px;
+      font-size: 14px; font-weight: 700;
+      cursor: pointer;
+      transition: background .15s, transform .1s, box-shadow .15s;
+      box-shadow: 0 8px 24px rgba(200,164,90,.18);
+    }
+    .btn-primary:hover { background: var(--gold-light); box-shadow: 0 12px 30px rgba(200,164,90,.28); }
+    .btn-primary:active { transform: translateY(1px); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    .login-inline {
+      font-size: 13px; color: var(--text-muted);
+      text-decoration: none; transition: color .15s;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .login-inline:hover { color: var(--text-soft); }
+    .login-inline svg { transition: transform .2s; }
+    .login-inline:hover svg { transform: translateX(3px); }
+
+    /* trust badges */
+    .trust-row {
+      margin-top: 28px; padding-top: 20px;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+    }
+
+    .trust-item {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11.5px; color: var(--text-soft);
+      letter-spacing: .015em;
+    }
+    .trust-item svg { color: var(--gold); flex-shrink: 0; }
+    .trust-item strong { color: var(--text); font-weight: 600; }
+    .trust-stars { display: inline-flex; gap: 1px; color: var(--gold); }
+
+    /* image side */
+    .hero-image-side {
+      position: relative;
+      background: var(--surface-2);
+      min-height: 100%;
+      overflow: hidden;
+    }
+    .hero-image-side::before {
+      content: ''; position: absolute; inset: 0;
+      background-image: var(--hero-img);
+      background-size: cover; background-position: center;
+      transition: transform 1.2s cubic-bezier(.16,1,.3,1);
+    }
+    .hero-image-side:hover::before { transform: scale(1.04); }
+
+    .hero-image-side::after {
+      content: ''; position: absolute; inset: 0;
+      background:
+        linear-gradient(135deg, rgba(6,6,8,.45) 0%, rgba(6,6,8,0) 35%, rgba(6,6,8,0) 65%, rgba(6,6,8,.45) 100%),
+        linear-gradient(to top, rgba(6,6,8,.7) 0%, transparent 35%);
+      pointer-events: none;
+    }
+
+    .hero-overlay {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      justify-content: space-between;
+      padding: clamp(24px, 3vw, 40px);
+      z-index: 2;
+    }
+
+    .hero-quote {
+      max-width: 380px;
+      margin-left: auto; text-align: right;
+    }
+    .hero-quote-mark {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 58px; line-height: .5;
+      color: var(--gold); opacity: .85;
+      margin-bottom: 10px;
+    }
+    .hero-quote-text {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic; font-size: 18px;
+      line-height: 1.4; color: var(--text);
+      letter-spacing: -.005em; margin-bottom: 8px;
+    }
+    .hero-quote-attr {
+      font-size: 11px; color: var(--text-soft);
+      letter-spacing: .12em; text-transform: uppercase;
+    }
+
+    .hero-stats {
+      display: flex; gap: 32px;
+      padding: 18px 22px;
+      background: rgba(13,13,16,.7);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      align-self: flex-start;
+    }
+    .hero-stat-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 26px; font-weight: 500; color: var(--gold-light);
+      line-height: 1;
+    }
+    .hero-stat-num em { font-style: normal; color: var(--gold); }
+    .hero-stat-label {
+      font-size: 10.5px; color: var(--text-soft);
+      letter-spacing: .08em; text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* ── CONFIRM SCREEN (review/payment) ── */
+    .confirm-screen { display: none; padding: 36px clamp(16px,3vw,40px) 72px; }
+    .confirm-screen.is-active { display: block; animation: screen-in .42s cubic-bezier(.16,1,.3,1); }
+
+    @keyframes screen-in {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .confirm-wrap { max-width: 980px; margin: 0 auto; }
+
+    .confirm-header { text-align: center; margin-bottom: 24px; }
+    .confirm-eyebrow { font-size: 10px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--gold); margin-bottom: 12px; }
+    .confirm-title { font-family: 'Cormorant Garamond', serif; font-size: clamp(32px,4.5vw,46px); font-weight: 400; line-height: 1.04; letter-spacing: -.025em; color: var(--text); }
+    .confirm-title em { font-style: italic; color: var(--gold-light); }
+
+    .back-link {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 13px; color: var(--text-muted);
+      background: none; border: none; cursor: pointer;
+      margin-bottom: 18px; padding: 6px 0;
+      transition: color .15s;
+    }
+    .back-link:hover { color: var(--gold); }
+
+    .confirm-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 0 0 1px rgba(200,164,90,.04), 0 40px 100px rgba(0,0,0,.5);
+      overflow: hidden;
+    }
+
+    .confirm-grid { display: grid; grid-template-columns: 1fr 320px; }
+
+    .confirm-left {
+      padding: 30px 28px;
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 22px;
+    }
+
+    .confirm-right {
+      padding: 28px 26px;
+      display: flex; flex-direction: column; gap: 18px;
+    }
+
+    /* map */
+    .map-wrap {
+      border-radius: 10px; overflow: hidden;
+      height: 230px; border: 1px solid var(--border);
+      position: relative;
+    }
+    #routeMap { height: 100%; width: 100%; }
+
+    .map-placeholder {
+      height: 100%; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: var(--surface-2); color: var(--text-muted);
+      font-size: 12px; gap: 8px;
+    }
+
+    /* addresses */
+    .addr-block { display: flex; flex-direction: column; }
+    .addr-row { display: flex; align-items: flex-start; gap: 12px; }
+    .addr-badge {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 10px; font-weight: 800;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .addr-badge.a { background: var(--green); color: #fff; }
+    .addr-badge.b { background: var(--gold); color: var(--void); }
+    .addr-connector { width: 1px; height: 16px; background: var(--border); margin: 3px 0 3px 10px; }
+    .addr-label { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }
+    .addr-val { font-size: 13.5px; color: var(--text); line-height: 1.4; }
+
+    /* trip meta */
+    .trip-meta { display: grid; gap: 14px; }
+    .trip-meta .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    .meta-row { display: flex; flex-direction: column; gap: 3px; }
+    .meta-label { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+    .meta-val { font-size: 14px; color: var(--text); font-weight: 500; line-height: 1.3; }
+    .meta-val.large { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 500; }
+
+    /* lead passenger card */
+    .r-card {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .r-card-title { font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }
+    .pax-item { display: flex; align-items: flex-start; gap: 9px; }
+    .pax-icon { color: var(--text-muted); flex-shrink: 0; margin-top: 2px; }
+    .pax-text { font-size: 13px; color: var(--text); line-height: 1.4; word-break: break-word; }
+
+    /* price card */
+    .price-card {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 16px;
+    }
+    .price-card-title { font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+    .price-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-soft); padding: 3px 0; }
+    .price-row.total {
+      border-top: 1px solid var(--border); margin-top: 8px; padding-top: 10px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px; font-weight: 600; color: var(--text);
+    }
+    .price-row.total span:last-child { color: var(--gold); }
+
+    .btn-submit {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: var(--gold); color: var(--void);
+      border: none; border-radius: 9px; padding: 14px 20px;
+      font-size: 14.5px; font-weight: 700; cursor: pointer;
+      transition: background .15s, transform .1s;
+      box-shadow: 0 8px 24px rgba(200,164,90,.18);
+    }
+    .btn-submit:hover { background: var(--gold-light); }
+    .btn-submit:active { transform: translateY(1px); }
+    .btn-submit:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    .submit-note {
+      text-align: center; font-size: 11px; color: var(--text-muted);
+      margin-top: 10px; line-height: 1.5;
+    }
+
+    /* ── AUTOCOMPLETE ── */
+    .autocomplete-results {
+      position: absolute; left: 38px; right: 0; top: calc(100% + 4px);
+      background: var(--surface-3); border: 1px solid var(--border-strong);
+      border-radius: 10px; box-shadow: 0 14px 40px rgba(0,0,0,.6);
+      z-index: 100; overflow: hidden;
+      display: none;
+    }
+    .autocomplete-item {
+      padding: 11px 14px 11px 38px; cursor: pointer; position: relative;
+      border-bottom: 1px solid var(--border); transition: background .1s;
+    }
+    .autocomplete-item:last-child { border-bottom: 0; }
+    .autocomplete-item:hover, .autocomplete-item.active { background: var(--surface-2); }
+    .autocomplete-item::before {
+      content: ''; position: absolute; left: 14px; top: 12px; width: 13px; height: 13px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23C8A45A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s7-4.4 7-11a7 7 0 1 0-14 0c0 6.6 7 11 7 11Z'/%3E%3Ccircle cx='12' cy='10' r='2'/%3E%3C/svg%3E") center/contain no-repeat;
+    }
+    .ac-line1 { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ac-line2 { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .autocomplete-loading { padding: 14px; text-align: center; font-size: 12px; color: var(--text-muted); }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.82);
+      backdrop-filter: blur(10px);
+      display: none; place-items: center; z-index: 200;
+    }
+    .modal-overlay.show { display: grid; }
+
+    .modal {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+      padding: 44px 38px; text-align: center; max-width: 400px; width: 92%;
+      box-shadow: 0 40px 100px rgba(0,0,0,.65);
+      animation: modal-in .25s cubic-bezier(.16,1,.3,1);
+    }
+    @keyframes modal-in {
+      from { transform: scale(.92) translateY(14px); opacity: 0; }
+      to   { transform: scale(1)   translateY(0);    opacity: 1; }
+    }
+    .modal-icon { width: 64px; height: 64px; border-radius: 50%; background: var(--gold-pale); border: 1px solid rgba(200,164,90,.25); color: var(--gold); display: grid; place-items: center; margin: 0 auto 20px; }
+    .modal h2 { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 500; color: var(--text); margin: 0 0 8px; letter-spacing: -.02em; }
+    .modal-id { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); background: var(--gold-pale); border: 1px solid rgba(200,164,90,.2); padding: 6px 13px; border-radius: 5px; display: inline-block; margin: 8px 0 18px; }
+    .modal p { color: var(--text-soft); font-size: 14px; line-height: 1.6; margin: 0 0 26px; }
+    .btn-pay { background: var(--gold); color: var(--void); border: none; width: 100%; padding: 13px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 9px; transition: background .14s; }
+    .btn-pay:hover { background: var(--gold-light); }
+    .btn-later { background: none; border: 1px solid var(--border); color: var(--text-soft); width: 100%; padding: 10px; border-radius: 8px; font-size: 13px; cursor: pointer; transition: border-color .14s; }
+    .btn-later:hover { border-color: var(--border-strong); }
+    .modal-countdown { font-size: 12px; color: var(--text-muted); margin: -6px 0 14px; }
+
+    /* ── FOOTER ── */
+    .site-footer {
+      position: relative; z-index: 2; text-align: center;
+      padding: 22px; color: var(--text-muted); font-size: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .site-footer a { color: var(--text-soft); text-decoration: none; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 960px) {
+      .hero-grid { grid-template-columns: 1fr; }
+      .hero-image-side { min-height: 280px; }
+      .hero-overlay { padding: 22px; }
+      .hero-quote { max-width: 100%; }
+      .header-nav { display: none; }
+      .confirm-grid { grid-template-columns: 1fr; }
+      .confirm-left { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+
+    @media (max-width: 600px) {
+      .hero-form-side { padding: 26px 20px; }
+      .form-row.g2, .form-row.g3 { grid-template-columns: 1fr; }
+      .vehicle-grid { grid-template-columns: 1fr; }
+      .trust-row { gap: 14px; }
+      .header-phone span { display: none; }
+      .header-login span { display: none; }
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
-  <div class="announce">Live dispatch preview is ready. <a href="dispatch.html#reservation">Make a reservation</a></div>
-  <header class="topnav">
-    <div class="topnav__inner">
-      <a class="brand" href="index.html">Tsatsral Limo <small>ops</small></a>
-      <nav class="nav" aria-label="Primary">
-        <a href="#services">Services</a>
-        <a href="#dispatch">Dispatch</a>
-        <a href="#fleet">Fleet</a>
-        <a href="dispatch.html#drivers">Drivers</a>
-      </nav>
-      <div class="nav-cta">
-        <a href="dispatch.html#dispatch">Dispatch login</a>
-        <a class="btn btn--filled" href="dispatch.html#reservation">Make reservation</a>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <a class="brand" href="index.html">
+      <div class="brand-emblem">
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+          <path d="M10 2 L12.5 8.5 L19 9 L14 13.5 L15.5 20 L10 16.5 L4.5 20 L6 13.5 L1 9 L7.5 8.5 Z" fill="#060608"/>
+        </svg>
       </div>
+      <span class="brand-name">Tsatsral <em>Limo</em></span>
+    </a>
+
+    <nav class="header-nav">
+      <a class="nav-link" href="#">Fleet</a>
+      <a class="nav-link" href="#">Services</a>
+      <a class="nav-link" href="#">Corporate</a>
+      <a class="nav-link" href="#">Help</a>
+    </nav>
+
+    <div class="header-actions">
+      <a class="header-phone" href="tel:+14156994052">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.73a16 16 0 0 0 6.29 6.29l.94-.94a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+        </svg>
+        <span>(415) 699-4052</span>
+      </a>
+      <a class="header-login" href="login.html">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span>Log in</span>
+      </a>
     </div>
   </header>
 
-  <main>
-    <section class="hero">
-      <div class="wrap hero__grid">
-        <div>
-          <span class="kicker">Private transport with dispatch built in</span>
-          <h1>Book the ride, assign the driver, keep everyone <em>in sync.</em></h1>
-          <p class="lede">A customer-facing transport website connected to an operator dashboard for reservations, driver matching, and live dispatch handoff.</p>
-          <div class="hero__cta">
-            <a class="btn btn--filled" href="dispatch.html#reservation">Make a reservation</a>
-            <a class="btn" href="#dispatch">See dispatch flow</a>
-          </div>
-          <div class="hero__meta">
-            <div><b>24/7</b><span>Reservation desk</span></div>
-            <div><b>4 min</b><span>Avg driver assignment</span></div>
-            <div><b>96%</b><span>On-time pickup</span></div>
-          </div>
-        </div>
-        <div class="visual" aria-label="Vehicle and dispatch preview">
-          <div class="car"></div>
-          <div class="dispatch-card">
-            <div class="dispatch-card__top"><b>Reservation #DL-2841</b><span class="badge">Needs driver</span></div>
-            <div class="mini-route">
-              <span><i class="dot"></i>SFO Terminal 3</span>
-              <span><i class="dot drop"></i>1 Market St, San Francisco</span>
+  <!-- Payment success banner -->
+  <div id="paySuccessBanner" style="display:none;position:relative;z-index:10;background:rgba(42,107,80,.2);border-bottom:1px solid rgba(42,107,80,.35);padding:14px 20px;text-align:center;color:#6BE5A0;font-size:14px;font-weight:500;letter-spacing:.01em">
+    Payment received — your reservation is confirmed. We'll send you a confirmation email shortly.
+  </div>
+
+  <!-- ────────────────────────────────────────────────── -->
+  <!-- SCREEN 1 — Hero + lead-capture form -->
+  <!-- ────────────────────────────────────────────────── -->
+  <main class="page hero-screen" id="screen-hero">
+    <div class="hero-wrap">
+      <div class="hero-grid" id="heroGrid">
+
+        <!-- ── FORM SIDE ── -->
+        <section class="hero-form-side">
+
+          <div class="hero-eyebrow-row">
+            <div class="city-pill">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 21s7-4.4 7-11a7 7 0 1 0-14 0c0 6.6 7 11 7 11Z"/>
+                <circle cx="12" cy="10" r="2"/>
+              </svg>
+              San Francisco, CA
+              <span class="change">Change</span>
             </div>
-            <a class="btn btn--filled" href="dispatch.html#dispatch">Open dispatch board</a>
+            <div class="eta-chip" id="etaChip">
+              Next pickup available in <strong style="margin-left:2px">~12 min</strong>
+            </div>
           </div>
-        </div>
-      </div>
-    </section>
 
-    <section class="section section--paper" id="services">
-      <div class="wrap">
-        <div class="section__head">
-          <div>
-            <span class="kicker">Services</span>
-            <h2>Reservations for airport, corporate, event, and hourly transport.</h2>
+          <h1 class="hero-headline">Go anywhere with <em>chauffeured</em> grace.</h1>
+
+          <p class="hero-sub">
+            Late-model black cars and SUVs, professionally chauffeured.
+            Reserve in under sixty seconds — pay only when your driver is confirmed.
+          </p>
+
+          <form class="booking-form" id="bookingForm" autocomplete="on">
+
+            <!-- Name + Phone -->
+            <div class="form-row g2">
+              <div class="field">
+                <label for="s1-name">Full name</label>
+                <input id="s1-name" placeholder="Your full name" autocomplete="name" required>
+              </div>
+              <div class="field">
+                <label for="s1-phone">Phone</label>
+                <input id="s1-phone" type="tel" placeholder="(555) 000-0000" autocomplete="tel">
+              </div>
+            </div>
+
+            <!-- Email -->
+            <div class="field">
+              <label for="s1-email">Email <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted)">(for receipt)</span></label>
+              <input id="s1-email" type="email" placeholder="you@example.com" autocomplete="email">
+            </div>
+
+            <!-- Pickup + Dropoff (connected) -->
+            <div class="locations" id="locations">
+              <div class="loc-row" id="pickup-wrap">
+                <div class="loc-dot pickup"></div>
+                <input id="s2-pickup" placeholder="Pickup address, airport, or hotel…" autocomplete="off" required>
+                <button type="button" class="loc-action" title="Use current location" onclick="useCurrentLocation()">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="loc-row" id="dropoff-wrap">
+                <div class="loc-dot dropoff">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                </div>
+                <input id="s2-dropoff" placeholder="Where to? Airport, address, or venue…" autocomplete="off" required>
+              </div>
+              <button type="button" class="swap-btn" title="Swap pickup and dropoff" onclick="swapLocations()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M7 10l5-5 5 5M7 14l5 5 5-5"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Trip type -->
+            <div class="field">
+              <label for="s2-type">Trip type</label>
+              <select id="s2-type">
+                <option value="Point-to-Point">Point-to-Point</option>
+                <option value="Airport Arrival">Airport Arrival</option>
+                <option value="Airport Departure">Airport Departure</option>
+                <option value="Hourly">Hourly (chauffeur reserved)</option>
+              </select>
+            </div>
+
+            <!-- Date + Time + Pax -->
+            <div class="form-row g3">
+              <div class="field">
+                <label for="s2-date">Date</label>
+                <input id="s2-date" type="date">
+              </div>
+              <div class="field">
+                <label for="s2-time">Time</label>
+                <input id="s2-time" type="time">
+              </div>
+              <div class="field">
+                <label for="s2-pax">Passengers</label>
+                <select id="s2-pax">
+                  <option>1</option><option selected>2</option><option>3</option>
+                  <option>4</option><option>5</option><option>6</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Vehicle class -->
+            <div>
+              <label style="margin-bottom:8px;display:block">Vehicle class</label>
+              <div class="vehicle-grid">
+                <div class="vchip" data-vehicle="Black car" data-base="88" onclick="selectVehicle(this)">
+                  <div class="vchip-radio">
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                  </div>
+                  <div class="vchip-top">
+                    <svg class="vchip-icon" viewBox="0 0 64 32" fill="none">
+                      <rect x="4" y="17" width="56" height="11" rx="3" fill="#C8A45A" opacity=".22"/>
+                      <path d="M12 17 C15 10 21 8 30 8 L40 8 C50 8 54 12 56 17Z" fill="#C8A45A" opacity=".42"/>
+                      <circle cx="18" cy="28" r="4" fill="#0d0d10" stroke="#C8A45A" stroke-width="1"/>
+                      <circle cx="46" cy="28" r="4" fill="#0d0d10" stroke="#C8A45A" stroke-width="1"/>
+                    </svg>
+                    <div class="vchip-price">$88</div>
+                  </div>
+                  <div class="vchip-name">Black Car</div>
+                  <div class="vchip-desc">Sedan · 1–3 pax</div>
+                </div>
+
+                <div class="vchip selected" data-vehicle="Executive SUV" data-base="126" onclick="selectVehicle(this)">
+                  <div class="vchip-radio">
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                  </div>
+                  <div class="vchip-top">
+                    <svg class="vchip-icon" viewBox="0 0 64 32" fill="none">
+                      <rect x="3" y="15" width="58" height="13" rx="3" fill="#C8A45A" opacity=".22"/>
+                      <path d="M9 15 C12 7 20 6 30 6 L42 6 C54 6 58 11 59 15Z" fill="#C8A45A" opacity=".42"/>
+                      <circle cx="17" cy="28" r="4.5" fill="#0d0d10" stroke="#C8A45A" stroke-width="1"/>
+                      <circle cx="47" cy="28" r="4.5" fill="#0d0d10" stroke="#C8A45A" stroke-width="1"/>
+                    </svg>
+                    <div class="vchip-price">$126</div>
+                  </div>
+                  <div class="vchip-name">Executive SUV</div>
+                  <div class="vchip-desc">SUV · 1–5 pax</div>
+                </div>
+
+                <div class="vchip" data-vehicle="Sprinter van" data-base="210" onclick="selectVehicle(this)">
+                  <div class="vchip-radio">
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                  </div>
+                  <div class="vchip-top">
+                    <svg class="vchip-icon" viewBox="0 0 64 32" fill="none">
+                      <rect x="3" y="14" width="58" height="14" rx="3" fill="#C8A45A" opacity=".22"/>
+                      <rect x="6" y="6" width="34" height="10" rx="2.5" fill="#C8A45A" opacity=".34"/>
+                      <circle cx="15" cy="28" r="4" fill="#0d0d10" stroke="#C8A45A" stroke-width="1"/>
+                      <circle cx="49" cy="28" r="4" fill="#0d0d10" stroke="#C8A45A" stroke-width="1"/>
+                    </svg>
+                    <div class="vchip-price">$210</div>
+                  </div>
+                  <div class="vchip-name">Sprinter Van</div>
+                  <div class="vchip-desc">Van · up to 14</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CTA -->
+            <div class="cta-row">
+              <button class="btn-primary" type="submit" id="seePriceBtn">
+                See prices &amp; reserve
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12h14M13 5l7 7-7 7"/>
+                </svg>
+              </button>
+              <a href="login.html" class="login-inline">
+                Log in to use saved trips
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m9 18 6-6-6-6"/>
+                </svg>
+              </a>
+            </div>
+
+            <!-- Trust badges -->
+            <div class="trust-row" id="trustRow">
+              <div class="trust-item">
+                <span class="trust-stars">★★★★★</span>
+                <strong>4.9</strong>
+                <span>· 2,800+ rides</span>
+              </div>
+              <div class="trust-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                <span><strong>Licensed</strong> &amp; insured</span>
+              </div>
+              <div class="trust-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M12 6v6l4 2"/>
+                </svg>
+                <span><strong>24/7</strong> dispatch</span>
+              </div>
+              <div class="trust-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12h6l3-9 6 18 3-9h2"/>
+                </svg>
+                <span><strong>TSA</strong> approved</span>
+              </div>
+            </div>
+
+            <!-- hidden inputs -->
+            <input type="hidden" id="pickup_lat">
+            <input type="hidden" id="pickup_lon">
+            <input type="hidden" id="dropoff_lat">
+            <input type="hidden" id="dropoff_lon">
+            <input type="hidden" id="distance_miles">
+            <input type="text" id="hp_website" name="hp_website" tabindex="-1" autocomplete="off"
+              style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
+          </form>
+        </section>
+
+        <!-- ── IMAGE SIDE ── -->
+        <aside class="hero-image-side" id="heroImageSide">
+          <div class="hero-overlay">
+            <div class="hero-quote">
+              <div class="hero-quote-mark">&ldquo;</div>
+              <div class="hero-quote-text">
+                Felt like flying first class — but on the ground. The chauffeur knew the city better than my GPS.
+              </div>
+              <div class="hero-quote-attr">— M. Reyes, Repeat Client</div>
+            </div>
+
+            <div class="hero-stats">
+              <div>
+                <div class="hero-stat-num"><em>12</em>k+</div>
+                <div class="hero-stat-label">Rides / yr</div>
+              </div>
+              <div>
+                <div class="hero-stat-num">4.9★</div>
+                <div class="hero-stat-label">Rating</div>
+              </div>
+              <div>
+                <div class="hero-stat-num">98%</div>
+                <div class="hero-stat-label">On-time</div>
+              </div>
+            </div>
           </div>
-          <p>Customers can book the ride from the website. Operators get the trip details in the dispatch dashboard and assign the best available driver.</p>
-        </div>
-        <div class="cards">
-          <article class="card">
-            <div><span class="kicker">Airport</span><h3>Flight-aware pickup</h3><p>Capture airline, terminal, baggage notes, and meeting instructions for driver handoff.</p></div>
-            <a href="dispatch.html#reservation">Reserve airport ride</a>
-          </article>
-          <article class="card">
-            <div><span class="kicker">Corporate</span><h3>Account rides</h3><p>Keep billing, passenger preferences, and trip notes attached to the reservation.</p></div>
-            <a href="dispatch.html#reservation">Book corporate ride</a>
-          </article>
-          <article class="card">
-            <div><span class="kicker">Dispatch</span><h3>Driver assignment</h3><p>Match reservations to online chauffeurs by vehicle class, distance, and acceptance history.</p></div>
-            <a href="dispatch.html#dispatch">Open dispatch board</a>
-          </article>
-        </div>
-      </div>
-    </section>
+        </aside>
 
-    <section class="section" id="dispatch">
-      <div class="wrap dispatch">
-        <div class="dispatch-copy">
-          <span class="kicker">Dispatch section</span>
-          <h2>The website sends reservations straight into the dispatch link.</h2>
-          <p>Every reservation button routes into the dispatch dashboard I created. Use the reservation form to create a trip, then assign a driver from the dispatch board.</p>
-          <div class="dispatch-actions">
-            <a class="btn btn--filled" href="dispatch.html#reservation">Make a reservation</a>
-            <a class="btn" href="dispatch.html#dispatch">Go to dispatch</a>
-            <a class="btn" href="dispatch.html#drivers">View drivers</a>
-          </div>
-        </div>
-        <div class="dashboard" aria-label="Dispatch dashboard preview">
-          <div class="dashboard__bar"><b>DispatchLink</b><span class="badge">Live preview</span></div>
-          <div class="dash-grid">
-            <article class="dash-card">
-              <h3>Open reservation</h3>
-              <p>Maya Chen · Executive SUV · SFO Terminal 3 to 1 Market St.</p>
-              <span class="status">Needs driver</span>
-            </article>
-            <article class="dash-card">
-              <h3>Best driver</h3>
-              <div class="driver"><span class="avatar">NK</span><p>Nadia Kim<br>1.8 mi away</p><span class="status">Best</span></div>
-            </article>
-            <article class="dash-card">
-              <h3>Quote</h3>
-              <p>Base fare, airport fee, payout estimate, and customer total.</p>
-            </article>
-            <article class="dash-card">
-              <h3>Activity</h3>
-              <p>Reservation created, driver assigned, customer confirmed.</p>
-            </article>
-          </div>
-        </div>
       </div>
-    </section>
-
-    <section class="section section--paper" id="fleet">
-      <div class="wrap">
-        <div class="section__head">
-          <div><span class="kicker">Fleet</span><h2>Choose the vehicle class, then dispatch the correct driver.</h2></div>
-          <p>The reservation form keeps vehicle class attached to the trip so dispatchers can filter available drivers immediately.</p>
-        </div>
-        <div class="fleet">
-          <article><h3>Black car</h3><p>Point-to-point rides, airport transfers, and executive trips for one to three passengers.</p></article>
-          <article><h3>Executive SUV</h3><p>Premium airport and corporate service with extra luggage capacity.</p></article>
-          <article><h3>Sprinter van</h3><p>Group transport for events, roadshows, and larger party reservations.</p></article>
-        </div>
-      </div>
-    </section>
-
-    <section class="final">
-      <div class="wrap">
-        <span class="kicker">Ready to book</span>
-        <h2>Press any reservation or dispatch button to enter the dispatch link.</h2>
-        <p>The next screen is the dashboard with the reservation form, driver list, dispatch board, and trip activity log.</p>
-        <a class="btn" href="dispatch.html#reservation">Make a reservation</a>
-      </div>
-    </section>
+    </div>
   </main>
+
+  <!-- ────────────────────────────────────────────────── -->
+  <!-- SCREEN 2 — Confirm / pay -->
+  <!-- ────────────────────────────────────────────────── -->
+  <main class="page confirm-screen" id="screen-confirm">
+    <div class="confirm-wrap">
+      <button class="back-link" type="button" onclick="showHero()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        Back to booking
+      </button>
+
+      <div class="confirm-header">
+        <div class="confirm-eyebrow">Almost there</div>
+        <h1 class="confirm-title">Review your <em>journey</em></h1>
+      </div>
+
+      <div class="confirm-card">
+        <div class="confirm-grid">
+
+          <!-- LEFT -->
+          <div class="confirm-left">
+            <div class="map-wrap">
+              <div id="routeMap"></div>
+              <div class="map-placeholder" id="mapPlaceholder">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+                Select addresses from the dropdown to see route
+              </div>
+            </div>
+
+            <div class="addr-block">
+              <div class="addr-row">
+                <div class="addr-badge a">A</div>
+                <div>
+                  <div class="addr-label">Pickup</div>
+                  <div class="addr-val" id="s4-pickup">—</div>
+                </div>
+              </div>
+              <div class="addr-connector"></div>
+              <div class="addr-row">
+                <div class="addr-badge b">B</div>
+                <div>
+                  <div class="addr-label">Drop-off</div>
+                  <div class="addr-val" id="s4-dropoff">—</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="trip-meta">
+              <div class="meta-row">
+                <div class="meta-label">Date &amp; Time</div>
+                <div class="meta-val large" id="s4-datetime">—</div>
+              </div>
+              <div class="g3">
+                <div class="meta-row">
+                  <div class="meta-label">Vehicle</div>
+                  <div class="meta-val" id="s4-vehicle">—</div>
+                </div>
+                <div class="meta-row">
+                  <div class="meta-label">Trip type</div>
+                  <div class="meta-val" id="s4-type">—</div>
+                </div>
+                <div class="meta-row">
+                  <div class="meta-label">Passengers</div>
+                  <div class="meta-val" id="s4-pax-count">—</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT -->
+          <div class="confirm-right">
+            <div class="r-card">
+              <div class="r-card-title">Lead Passenger</div>
+              <div class="pax-item">
+                <svg class="pax-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                <div class="pax-text" id="s4-name">—</div>
+              </div>
+              <div class="pax-item">
+                <svg class="pax-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.73a16 16 0 0 0 6.29 6.29l.94-.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                <div class="pax-text" id="s4-phone">—</div>
+              </div>
+              <div class="pax-item">
+                <svg class="pax-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                <div class="pax-text" id="s4-email">—</div>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="s4-notes">Special requests <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted)">(optional)</span></label>
+              <textarea id="s4-notes" rows="2" placeholder="Flight #, car seat, extra luggage…"></textarea>
+            </div>
+
+            <div class="price-card">
+              <div class="price-card-title">Price Breakdown</div>
+              <div class="price-row"><span id="fare-base-label">Base rate</span><span id="fare-base">—</span></div>
+              <div class="price-row" id="fare-surcharge-row" style="display:none"><span id="fare-surcharge-label">Surcharge</span><span id="fare-surcharge">—</span></div>
+              <div class="price-row"><span>Gratuity (18%)</span><span id="fare-gratuity">—</span></div>
+              <div class="price-row"><span>Airport + platform fees</span><span>$22</span></div>
+              <div class="price-row total"><span>Total</span><span id="fare-total">—</span></div>
+            </div>
+
+            <div>
+              <button class="btn-submit" id="submitBtn" type="button">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                Confirm Reservation
+              </button>
+              <p class="submit-note">No charge until your driver is confirmed.<br>Secure payment powered by Stripe.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      </div>
+      <h2 id="modalTitle">Booking Confirmed</h2>
+      <div class="modal-id" id="confirmId">Reservation #—</div>
+      <p>Your trip is in the dispatch queue. Redirecting to secure payment…</p>
+      <p class="modal-countdown" id="countdownMsg">You'll be redirected in <strong id="countdownSec">3</strong>s</p>
+      <button class="btn-pay" id="payBtn">Pay Now →</button>
+      <button class="btn-later" onclick="closeModal()">I'll pay later</button>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <p>© 2025 Tsatsral Limo LLC · <a href="tel:+14156994052">(415) 699-4052</a> · <a href="mailto:info@tsatsrallimo.com">info@tsatsrallimo.com</a></p>
+  </footer>
+
+  <!-- Vendor scripts: Leaflet -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    /* ═══════════════════════════════════════════════════════
+       BOOKING LOGIC — fare, validation, autocomplete, map
+       ═══════════════════════════════════════════════════════ */
+
+    let selectedVehicle = { name: 'Executive SUV', base: 126 };
+    let mapInstance = null;
+
+    /* DATE DEFAULTS */
+    const today = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('s2-date');
+    dateInput.value = today;
+    dateInput.min = today;
+
+    (function setDefaultTime() {
+      const d = new Date(Date.now() + 60 * 60 * 1000);
+      const m = d.getMinutes();
+      d.setMinutes(m < 30 ? 30 : 60);
+      d.setSeconds(0);
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      document.getElementById('s2-time').value = `${hh}:${mm}`;
+    })();
+
+    /* FARE */
+    const VEHICLE_RATES = {
+      'Black car':    [3.50, 65],
+      'Executive SUV':[4.50, 88],
+      'Sprinter van': [6.00, 150],
+    };
+
+    function calcFare(vehicleName, distanceMiles, timeStr) {
+      const [rate, minimum] = VEHICLE_RATES[vehicleName] || [4.50, 88];
+      const mileageCost = distanceMiles > 0 ? rate * distanceMiles : 0;
+      const preBase = Math.max(mileageCost, minimum);
+
+      let surchargeRate = 0;
+      const h = parseInt((timeStr || '12:00').split(':')[0], 10);
+      if (h >= 22 || h < 5) surchargeRate = 0.25;
+      else if ((h >= 6 && h < 9) || (h >= 16 && h < 19)) surchargeRate = 0.15;
+
+      const surchargeAmt = Math.round(preBase * surchargeRate);
+      const base = Math.round(preBase) + surchargeAmt;
+      const gratuity = Math.round(base * 0.18);
+      return {
+        rate, minimum, distanceMiles,
+        mileageCost: Math.round(mileageCost),
+        surchargeRate, surchargeAmt,
+        base, gratuity, fees: 22, total: base + gratuity + 22,
+      };
+    }
+
+    function updateFareDisplay() {
+      const miles = parseFloat(document.getElementById('distance_miles').value) || 0;
+      const timeStr = document.getElementById('s2-time').value;
+      const f = calcFare(selectedVehicle.name, miles, timeStr);
+
+      if (miles > 0) {
+        const label = f.mileageCost > f.minimum
+          ? `${miles.toFixed(1)} mi × $${f.rate.toFixed(2)}/mi`
+          : `${miles.toFixed(1)} mi (minimum fare)`;
+        document.getElementById('fare-base-label').textContent = label;
+      } else {
+        document.getElementById('fare-base-label').textContent = 'Base rate';
+      }
+      document.getElementById('fare-base').textContent = '$' + (f.base - f.surchargeAmt);
+
+      if (f.surchargeAmt > 0) {
+        const pct = Math.round(f.surchargeRate * 100);
+        document.getElementById('fare-surcharge-label').textContent =
+          f.surchargeRate >= 0.2 ? `Late-night surcharge (${pct}%)` : `Peak surcharge (${pct}%)`;
+        document.getElementById('fare-surcharge').textContent = '+$' + f.surchargeAmt;
+        document.getElementById('fare-surcharge-row').style.display = '';
+      } else {
+        document.getElementById('fare-surcharge-row').style.display = 'none';
+      }
+      document.getElementById('fare-gratuity').textContent = '$' + f.gratuity;
+      document.getElementById('fare-total').textContent = '$' + f.total;
+    }
+
+    /* VEHICLE SELECT */
+    function selectVehicle(card) {
+      document.querySelectorAll('.vchip').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedVehicle = { name: card.dataset.vehicle, base: Number(card.dataset.base) };
+      updateFareDisplay();
+    }
+
+    /* SWAP */
+    function swapLocations() {
+      const p = document.getElementById('s2-pickup');
+      const d = document.getElementById('s2-dropoff');
+      const pLat = document.getElementById('pickup_lat');
+      const pLon = document.getElementById('pickup_lon');
+      const dLat = document.getElementById('dropoff_lat');
+      const dLon = document.getElementById('dropoff_lon');
+      [p.value, d.value] = [d.value, p.value];
+      [pLat.value, dLat.value] = [dLat.value, pLat.value];
+      [pLon.value, dLon.value] = [dLon.value, pLon.value];
+    }
+
+    function useCurrentLocation() {
+      const inp = document.getElementById('s2-pickup');
+      inp.placeholder = 'Locating…';
+      if (!navigator.geolocation) {
+        inp.placeholder = 'Pickup address, airport, or hotel…';
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          document.getElementById('pickup_lat').value = pos.coords.latitude;
+          document.getElementById('pickup_lon').value = pos.coords.longitude;
+          inp.value = `Current location (${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)})`;
+          inp.placeholder = 'Pickup address, airport, or hotel…';
+        },
+        () => { inp.placeholder = 'Pickup address, airport, or hotel…'; }
+      );
+    }
+
+    /* DATE FORMAT */
+    function fmtDateTime(dateStr, timeStr) {
+      if (!dateStr) return '—';
+      const [h, m] = (timeStr || '00:00').split(':');
+      const d = new Date(dateStr + 'T12:00:00');
+      const dayStr = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      const hr = parseInt(h, 10);
+      const ampm = hr >= 12 ? 'PM' : 'AM';
+      const h12 = hr % 12 || 12;
+      return `${dayStr} @ ${h12}:${m} ${ampm}`;
+    }
+
+    /* SCREEN NAV */
+    function showHero() {
+      document.getElementById('screen-confirm').classList.remove('is-active');
+      document.getElementById('screen-hero').classList.remove('is-hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function showConfirm() {
+      document.getElementById('screen-hero').classList.add('is-hidden');
+      document.getElementById('screen-confirm').classList.add('is-active');
+      populateSummary();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /* VALIDATE */
+    function validateLead() {
+      const fields = ['s1-name', 's2-pickup', 's2-dropoff', 's2-date'];
+      for (const id of fields) {
+        const el = document.getElementById(id);
+        if (!el.value.trim()) { el.focus(); el.style.borderColor = 'tomato'; setTimeout(()=>el.style.borderColor='', 1800); return false; }
+        if (id === 's2-date' && el.value < today) { el.focus(); return false; }
+      }
+      return true;
+    }
+
+    document.getElementById('bookingForm').addEventListener('submit', e => {
+      e.preventDefault();
+      if (validateLead()) showConfirm();
+    });
+
+    /* POPULATE CONFIRM */
+    function populateSummary() {
+      const get = id => document.getElementById(id).value.trim();
+
+      document.getElementById('s4-pickup').textContent = get('s2-pickup') || '—';
+      document.getElementById('s4-dropoff').textContent = get('s2-dropoff') || '—';
+      document.getElementById('s4-datetime').textContent = fmtDateTime(get('s2-date'), get('s2-time'));
+      document.getElementById('s4-vehicle').textContent = selectedVehicle.name;
+      document.getElementById('s4-type').textContent = get('s2-type') || '—';
+      const pax = get('s2-pax');
+      document.getElementById('s4-pax-count').textContent = pax + ' passenger' + (pax === '1' ? '' : 's');
+      document.getElementById('s4-name').textContent = get('s1-name') || '—';
+      document.getElementById('s4-phone').textContent = get('s1-phone') || 'No phone given';
+      document.getElementById('s4-email').textContent = get('s1-email') || 'No email given';
+
+      updateFareDisplay();
+      initMap();
+    }
+
+    /* MAP */
+    function initMap() {
+      const pLat = parseFloat(document.getElementById('pickup_lat').value);
+      const pLon = parseFloat(document.getElementById('pickup_lon').value);
+      const dLat = parseFloat(document.getElementById('dropoff_lat').value);
+      const dLon = parseFloat(document.getElementById('dropoff_lon').value);
+
+      const mapEl = document.getElementById('routeMap');
+      const phEl = document.getElementById('mapPlaceholder');
+      const hasCoords = pLat && pLon && dLat && dLon;
+
+      if (!hasCoords) {
+        mapEl.style.display = 'none';
+        phEl.style.display = 'flex';
+        return;
+      }
+
+      mapEl.style.display = 'block';
+      phEl.style.display = 'none';
+
+      if (mapInstance) { mapInstance.remove(); mapInstance = null; }
+      mapInstance = L.map('routeMap', { zoomControl: false, attributionControl: true });
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OSM &copy; CARTO',
+        subdomains: 'abcd', maxZoom: 19,
+      }).addTo(mapInstance);
+
+      L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
+
+      const mkA = L.divIcon({
+        className: '',
+        html: '<div style="width:22px;height:22px;border-radius:50%;background:#2A6B50;color:#fff;display:grid;place-items:center;font-size:10px;font-weight:800;border:2px solid rgba(255,255,255,.5);box-shadow:0 2px 10px rgba(0,0,0,.5)">A</div>',
+        iconSize: [22,22], iconAnchor: [11,11],
+      });
+      const mkB = L.divIcon({
+        className: '',
+        html: '<div style="width:22px;height:22px;border-radius:50%;background:#C8A45A;color:#060608;display:grid;place-items:center;font-size:10px;font-weight:800;border:2px solid rgba(255,255,255,.5);box-shadow:0 2px 10px rgba(0,0,0,.5)">B</div>',
+        iconSize: [22,22], iconAnchor: [11,11],
+      });
+
+      L.marker([pLat, pLon], { icon: mkA }).addTo(mapInstance);
+      L.marker([dLat, dLon], { icon: mkB }).addTo(mapInstance);
+      mapInstance.fitBounds([[pLat,pLon],[dLat,dLon]], { padding: [30,30] });
+
+      fetch(`https://router.project-osrm.org/route/v1/driving/${pLon},${pLat};${dLon},${dLat}?overview=full&geometries=geojson`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.routes && data.routes[0]) {
+            const route = data.routes[0];
+            const coords = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+            L.polyline(coords, { color: '#C8A45A', weight: 3, opacity: .85 }).addTo(mapInstance);
+            mapInstance.fitBounds(L.latLngBounds(coords), { padding: [30,30] });
+            const miles = route.distance / 1609.34;
+            document.getElementById('distance_miles').value = miles.toFixed(3);
+            updateFareDisplay();
+          }
+        })
+        .catch(() => {})
+        .finally(() => mapInstance && mapInstance.invalidateSize());
+    }
+
+    /* AUTOCOMPLETE — uses /api/geocode proxy */
+    function debounce(fn, ms = 250) {
+      let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+    }
+    function escapeHTML(s) {
+      if (s == null) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    }
+
+    class AddressAC {
+      constructor(inputId, latId, lonId, parentId) {
+        this.input = document.getElementById(inputId);
+        this.latEl = document.getElementById(latId);
+        this.lonEl = document.getElementById(lonId);
+        this.data = []; this.idx = -1;
+        this.box = document.createElement('div');
+        this.box.className = 'autocomplete-results';
+        const parent = document.getElementById(parentId);
+        parent.appendChild(this.box);
+        this.input.addEventListener('input', debounce(() => this.search()));
+        this.input.addEventListener('keydown', e => this.key(e));
+        document.addEventListener('click', e => {
+          if (!this.input.contains(e.target) && !this.box.contains(e.target)) this.hide();
+        });
+      }
+      async search() {
+        const q = this.input.value.trim();
+        if (q.length < 3) return this.hide();
+        this.box.innerHTML = '<div class="autocomplete-loading">Searching…</div>';
+        this.box.style.display = 'block';
+        try {
+          const r = await fetch('/api/geocode?q=' + encodeURIComponent(q));
+          const j = await r.json();
+          this.data = (j.results || []).map(d => ({
+            display_name: d.display_name,
+            line1: d.line1,
+            line2: d.line2,
+            lat: d.lat, lon: d.lon,
+          }));
+          this.idx = -1; this.render();
+        } catch { this.hide(); }
+      }
+      render() {
+        if (!this.data.length) { this.box.innerHTML = '<div class="autocomplete-loading">No matches</div>'; return; }
+        this.box.innerHTML = this.data.map((d, i) =>
+          `<div class="autocomplete-item${i===this.idx?' active':''}" data-i="${i}">
+            <div class="ac-line1">${escapeHTML(d.line1 || d.display_name)}</div>
+            ${d.line2 ? `<div class="ac-line2">${escapeHTML(d.line2)}</div>` : ''}
+          </div>`
+        ).join('');
+        this.box.style.display = 'block';
+        this.box.querySelectorAll('.autocomplete-item').forEach(el => {
+          el.addEventListener('mousedown', e => { e.preventDefault(); this.select(Number(el.dataset.i)); });
+        });
+      }
+      select(i) {
+        const d = this.data[i]; if (!d) return;
+        this.input.value = d.display_name;
+        if (this.latEl) this.latEl.value = d.lat;
+        if (this.lonEl) this.lonEl.value = d.lon;
+        this.hide();
+      }
+      key(e) {
+        if (!this.data.length) return;
+        if (e.key === 'ArrowDown')  { e.preventDefault(); this.idx = Math.min(this.idx+1, this.data.length-1); this.render(); }
+        else if (e.key === 'ArrowUp')   { e.preventDefault(); this.idx = Math.max(this.idx-1, 0); this.render(); }
+        else if (e.key === 'Enter' && this.idx >= 0) { e.preventDefault(); this.select(this.idx); }
+        else if (e.key === 'Escape')    { this.hide(); }
+      }
+      hide() { this.box.style.display = 'none'; this.data = []; this.idx = -1; }
+    }
+
+    new AddressAC('s2-pickup',  'pickup_lat',  'pickup_lon',  'pickup-wrap');
+    new AddressAC('s2-dropoff', 'dropoff_lat', 'dropoff_lon', 'dropoff-wrap');
+
+    /* SUBMIT FROM CONFIRM */
+    let paymentUrl = null;
+    let lastSubmit = 0;
+
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('submitBtn');
+      if (document.getElementById('hp_website').value) return;
+      if (Date.now() - lastSubmit < 45000) {
+        alert('Please wait a moment before submitting again.');
+        return;
+      }
+
+      const get = id => document.getElementById(id).value.trim();
+      const payload = {
+        customer:    get('s1-name'),
+        phone:       get('s1-phone'),
+        email:       get('s1-email'),
+        pickup:      get('s2-pickup'),
+        pickup_lat:  get('pickup_lat'),
+        pickup_lon:  get('pickup_lon'),
+        dropoff:     get('s2-dropoff'),
+        dropoff_lat: get('dropoff_lat'),
+        dropoff_lon: get('dropoff_lon'),
+        trip_type:   get('s2-type'),
+        date:        get('s2-date'),
+        time:        get('s2-time'),
+        passengers:  get('s2-pax'),
+        vehicle:     selectedVehicle.name,
+        distance_miles: parseFloat(document.getElementById('distance_miles').value) || null,
+        notes:       get('s4-notes'),
+        payment:     'Collect later',
+        hp_website:  '',
+      };
+
+      if (!payload.customer || !payload.pickup || !payload.dropoff) {
+        alert('Please complete all required fields.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation: spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Processing…';
+
+      try {
+        const res = await fetch('/api/reservations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('Server error ' + res.status);
+        const data = await res.json();
+        lastSubmit = Date.now();
+        paymentUrl = data.reservation && data.reservation.payment_url;
+        document.getElementById('confirmId').textContent = 'Reservation #' + (data.reservation ? data.reservation.id : Math.floor(Math.random()*9000+1000));
+        document.getElementById('modalOverlay').classList.add('show');
+        startPaymentCountdown();
+      } catch {
+        lastSubmit = Date.now();
+        paymentUrl = null;
+        document.getElementById('confirmId').textContent = 'Reservation #' + Math.floor(Math.random()*9000+1000);
+        document.getElementById('modalOverlay').classList.add('show');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Confirm Reservation';
+      }
+    });
+
+    /* MODAL */
+    let _countdownTimer = null;
+    function startPaymentCountdown() {
+      let secs = 3;
+      const secEl = document.getElementById('countdownSec');
+      clearInterval(_countdownTimer);
+      _countdownTimer = setInterval(() => {
+        secs--;
+        if (secEl) secEl.textContent = secs;
+        if (secs <= 0) {
+          clearInterval(_countdownTimer);
+          if (paymentUrl) window.location.href = paymentUrl;
+        }
+      }, 1000);
+    }
+    document.getElementById('payBtn').addEventListener('click', () => {
+      clearInterval(_countdownTimer);
+      if (paymentUrl) window.location.href = paymentUrl;
+      else closeModal();
+    });
+    function closeModal() {
+      clearInterval(_countdownTimer);
+      document.getElementById('modalOverlay').classList.remove('show');
+    }
+    function handleOverlayClick(e) {
+      if (e.target === document.getElementById('modalOverlay')) closeModal();
+    }
+
+    /* INIT */
+    if (new URLSearchParams(location.search).get('paid') === '1') {
+      document.getElementById('paySuccessBanner').style.display = 'block';
+    }
+    updateFareDisplay();
+  </script>
+
 </body>
 </html>

@@ -457,7 +457,7 @@ async def startup_event():
 # --- ROUTES ---
 @app.get("/login")
 def login_page():
-    return FileResponse(BASE_DIR / "index" / "login.html")
+    return FileResponse(BASE_DIR / "login.html")
 
 
 @app.post("/login")
@@ -541,14 +541,14 @@ def logout(session_token: Optional[str] = Cookie(default=None)):
 
 @app.get("/")
 def home():
-    return FileResponse(BASE_DIR / "index" / "booking.html")
+    return FileResponse(BASE_DIR / "index.html")
 
 
 @app.get("/driver")
 def driver_location_page(session_token: Optional[str] = Cookie(default=None)):
     if not _session_valid(session_token):
         return RedirectResponse(url="/login", status_code=302)
-    return FileResponse(BASE_DIR / "index" / "driver.html")
+    return FileResponse(BASE_DIR / "driver.html")
 
 
 @app.get("/dispatch")
@@ -556,13 +556,13 @@ def driver_location_page(session_token: Optional[str] = Cookie(default=None)):
 def dispatch_page(session_token: Optional[str] = Cookie(default=None)):
     if not _session_valid(session_token):
         return RedirectResponse(url="/login", status_code=302)
-    return FileResponse(BASE_DIR / "index" / "dispatch.html")
+    return FileResponse(BASE_DIR / "dispatch.html")
 
 
 @app.get("/booking")
 @app.get("/booking.html")
 def booking_page():
-    return FileResponse(BASE_DIR / "index" / "booking.html")
+    return FileResponse(BASE_DIR / "index.html")
 
 
 @app.get("/about")
@@ -591,8 +591,10 @@ def services_page():
 
 @app.get("/index")
 @app.get("/index.html")
+@app.get("/demo")
+@app.get("/demo.html")
 def landing_page():
-    return FileResponse(BASE_DIR / "index.html")
+    return FileResponse(BASE_DIR / "demo.html")
 
 
 @app.get("/payment/{res_id}")
