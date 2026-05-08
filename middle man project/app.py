@@ -568,25 +568,25 @@ def booking_page():
 @app.get("/about")
 @app.get("/about.html")
 def about_page():
-    return FileResponse(BASE_DIR / "tsatsral-limo-llc" / "about.html")
+    return FileResponse(BASE_DIR.parent / "about.html")
 
 
 @app.get("/blog")
 @app.get("/blog.html")
 def blog_page():
-    return FileResponse(BASE_DIR / "tsatsral-limo-llc" / "blog.html")
+    return FileResponse(BASE_DIR.parent / "blog.html")
 
 
 @app.get("/contact")
 @app.get("/contact.html")
 def contact_page():
-    return FileResponse(BASE_DIR / "tsatsral-limo-llc" / "contact.html")
+    return FileResponse(BASE_DIR.parent / "contact.html")
 
 
 @app.get("/services")
 @app.get("/services.html")
 def services_page():
-    return FileResponse(BASE_DIR / "tsatsral-limo-llc" / "services.html")
+    return FileResponse(BASE_DIR.parent / "services.html")
 
 
 @app.get("/index")
@@ -594,7 +594,7 @@ def services_page():
 @app.get("/demo")
 @app.get("/demo.html")
 def landing_page():
-    return FileResponse(BASE_DIR / "tsatsral-limo-llc" / "demo.html")
+    return FileResponse(BASE_DIR.parent / "demo.html")
 
 
 @app.get("/payment/{res_id}")
