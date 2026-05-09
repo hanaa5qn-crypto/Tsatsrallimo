@@ -1,1906 +1,2355 @@
 <!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>DispatchLink — Operator Dashboard</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css"
+      integrity="sha384-RkASv+6KfBMW9eknReJIJ6b3UnjKOKC5bOUaNgIY778NFbQ8MtWq9Lr/khUgqtTt"
+      crossorigin="anonymous"
+    />
 
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>DispatchLink — Operator Dashboard</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css"
-    integrity="sha384-RkASv+6KfBMW9eknReJIJ6b3UnjKOKC5bOUaNgIY778NFbQ8MtWq9Lr/khUgqtTt" crossorigin="anonymous">
+    <!-- ── CSS Styles ── -->
+    <style>
+      :root {
+        /* Colors */
+        --bg: #f6f7f4;
+        --panel: #ffffff;
+        --ink: #18201d;
+        --soft: #5d6761;
+        --muted: #8a948e;
+        --line: #dfe4de;
+        --line-strong: #c7d0c8;
+        --green: #176b4d;
+        --green-2: #e3f4ec;
+        --blue: #235c9f;
+        --blue-2: #e7f0fb;
+        --amber: #9a610f;
+        --amber-2: #fff2d8;
+        --red: #9d2e2e;
 
-  <!-- ── CSS Styles ── -->
-  <style>
-    :root {
-      /* Colors */
-      --bg: #f6f7f4;
-      --panel: #ffffff;
-      --ink: #18201d;
-      --soft: #5d6761;
-      --muted: #8a948e;
-      --line: #dfe4de;
-      --line-strong: #c7d0c8;
-      --green: #176b4d;
-      --green-2: #e3f4ec;
-      --blue: #235c9f;
-      --blue-2: #e7f0fb;
-      --amber: #9a610f;
-      --amber-2: #fff2d8;
-      --red: #9d2e2e;
+        /* Effects */
+        --shadow: 0 18px 55px rgba(24, 32, 29, 0.09);
+        --radius: 8px;
 
-      /* Effects */
-      --shadow: 0 18px 55px rgba(24, 32, 29, .09);
-      --radius: 8px;
-
-      /* Typography */
-      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    }
-
-    * {
-      box-sizing: border-box
-    }
-
-    html,
-    body {
-      margin: 0
-    }
-
-    body {
-      background: var(--bg);
-      color: var(--ink);
-      font-family: var(--font);
-      line-height: 1.45;
-      -webkit-font-smoothing: antialiased
-    }
-
-    button,
-    input,
-    select,
-    textarea {
-      font: inherit
-    }
-
-    button {
-      cursor: pointer
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none
-    }
-
-    /* ── Shell ── */
-    .shell {
-      min-height: 100vh;
-      display: grid;
-      grid-template-columns: 248px 1fr
-    }
-
-    .sidebar {
-      background: #111917;
-      color: #eef5f0;
-      padding: 22px 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-      position: sticky;
-      top: 0;
-      height: 100vh;
-      overflow-y: auto
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 750;
-      letter-spacing: -.02em;
-      font-size: 20px
-    }
-
-    .mark {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #38b478, #d6f5b8);
-      display: grid;
-      place-items: center;
-      color: #10201a;
-      font-weight: 900
-    }
-
-    .nav {
-      display: grid;
-      gap: 6px
-    }
-
-    .nav a {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      border-radius: 8px;
-      color: #b8c5bd;
-      font-size: 14px
-    }
-
-    .nav a.active,
-    .nav a:hover {
-      background: #22302c;
-      color: #fff
-    }
-
-    .nav svg,
-    .mini svg,
-    .btn svg {
-      width: 17px;
-      height: 17px;
-      stroke: currentColor;
-      stroke-width: 2;
-      fill: none;
-      stroke-linecap: round;
-      stroke-linejoin: round
-    }
-
-    .sidebar-footer {
-      margin-top: auto;
-      border: 1px solid rgba(255, 255, 255, .1);
-      border-radius: 8px;
-      padding: 14px;
-      background: rgba(255, 255, 255, .04)
-    }
-
-    .sidebar-footer a {
-      display: block;
-      color: #38b478;
-      font-size: 13px;
-      font-weight: 650;
-      margin-top: 6px
-    }
-
-    .sidebar-footer b {
-      display: block;
-      font-size: 13px;
-      margin-bottom: 4px
-    }
-
-    .sidebar-footer span {
-      font-size: 12px;
-      color: #b8c5bd
-    }
-
-    /* ── Main ── */
-    .main {
-      min-width: 0
-    }
-
-    .topbar {
-      height: 68px;
-      background: rgba(246, 247, 244, .92);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid var(--line);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 clamp(18px, 3vw, 34px);
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      gap: 12px
-    }
-
-    .search {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 9px 12px;
-      min-width: min(380px, 42vw);
-      color: var(--muted)
-    }
-
-    .search input {
-      border: 0;
-      outline: 0;
-      background: transparent;
-      width: 100%;
-      color: var(--ink)
-    }
-
-    .actions {
-      display: flex;
-      align-items: center;
-      gap: 10px
-    }
-
-    .btn {
-      border: 1px solid var(--line-strong);
-      background: var(--panel);
-      color: var(--ink);
-      border-radius: 8px;
-      padding: 10px 13px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 650;
-      font-size: 14px
-    }
-
-    .btn.primary {
-      background: var(--green);
-      border-color: var(--green);
-      color: white
-    }
-
-    .btn:active {
-      transform: translateY(1px)
-    }
-
-    /* ── Content ── */
-    .content {
-      padding: 28px clamp(18px, 3vw, 34px) 42px;
-      display: grid;
-      gap: 22px
-    }
-
-    /* ── Hero row ── */
-    .hero {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 400px;
-      gap: 22px
-    }
-
-    .hero-copy {
-      background: linear-gradient(135deg, #fff 0%, #eef7f2 100%);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 26px;
-      box-shadow: var(--shadow);
-      min-height: 230px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between
-    }
-
-    .eyebrow {
-      font: 700 11px/1 var(--mono);
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      color: var(--green);
-      margin-bottom: 12px
-    }
-
-    h1 {
-      font-size: clamp(26px, 3vw, 40px);
-      line-height: 1.05;
-      letter-spacing: -.035em;
-      margin: 0 0 10px
-    }
-
-    .lede {
-      font-size: 16px;
-      color: var(--soft);
-      margin: 0
-    }
-
-    .metrics {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 24px
-    }
-
-    .metric {
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, .7);
-      border-radius: 8px;
-      padding: 12px
-    }
-
-    .metric b {
-      display: block;
-      font-size: 22px;
-      letter-spacing: -.03em
-    }
-
-    .metric span {
-      display: block;
-      color: var(--soft);
-      font-size: 12px;
-      margin-top: 2px
-    }
-
-    /* ── Map ── */
-    .live-map {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-      position: relative;
-      overflow: hidden;
-      min-height: 300px;
-      box-shadow: var(--shadow)
-    }
-
-    #map {
-      position: absolute;
-      inset: 0;
-      z-index: 1
-    }
-
-    .leaflet-div-icon {
-      background: transparent;
-      border: none
-    }
-
-    .route-icon {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      border: 2.5px solid white;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, .35)
-    }
-
-    .route-icon.pickup {
-      background: var(--green)
-    }
-
-    .route-icon.dropoff {
-      background: var(--blue)
-    }
-
-    .driver-dot {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: #38b478;
-      border: 2.5px solid #fff;
-      box-shadow: 0 0 0 4px rgba(56, 180, 120, .25), 0 2px 10px rgba(0,0,0,.2);
-      animation: pulse-driver 2.2s ease infinite
-    }
-
-    @keyframes pulse-driver {
-      0%, 100% { box-shadow: 0 0 0 4px rgba(56, 180, 120, .2), 0 2px 10px rgba(0,0,0,.15) }
-      50%       { box-shadow: 0 0 0 8px rgba(56, 180, 120, .08), 0 2px 14px rgba(0,0,0,.1) }
-    }
-
-    .map-label {
-      background: rgba(17, 25, 23, .88);
-      color: #eef5f0;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 5px;
-      white-space: nowrap;
-      pointer-events: none;
-      box-shadow: 0 2px 6px rgba(0,0,0,.2)
-    }
-
-    #routeInfoBadge {
-      display: none;
-      position: absolute; top: 12px; right: 12px; z-index: 10;
-      background: rgba(255,255,255,.92);
-      backdrop-filter: blur(4px);
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      padding: 5px 13px;
-      font-size: 12px; font-weight: 700;
-      color: var(--green);
-      pointer-events: none;
-      box-shadow: 0 2px 8px rgba(0,0,0,.1)
-    }
-
-    .leaflet-popup-content-wrapper {
-      border-radius: 8px !important;
-      font-size: 12.5px !important;
-      box-shadow: 0 6px 20px rgba(0,0,0,.15) !important
-    }
-
-    .map-panel {
-      position: absolute;
-      left: 12px;
-      bottom: 12px;
-      background: rgba(255, 255, 255, .88);
-      backdrop-filter: blur(6px);
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      padding: 7px 13px;
-      z-index: 10;
-      color: var(--ink);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      pointer-events: none;
-      max-width: calc(100% - 24px)
-    }
-
-    .map-panel b {
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap
-    }
-
-    .map-panel span {
-      font-size: 11px;
-      color: var(--muted);
-      white-space: nowrap
-    }
-
-    .drivers-online {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--green)
-    }
-
-    .online-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #38b478;
-      flex-shrink: 0;
-      animation: pulse-dot 1.8s ease infinite
-    }
-
-    @keyframes pulse-dot {
-
-      0%,
-      100% {
-        opacity: 1
+        /* Typography */
+        --font:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial,
+          sans-serif;
+        --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
       }
 
-      50% {
-        opacity: .4
-      }
-    }
-
-    /* ── Dispatch board ── */
-    .board-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-      padding: 16px
-    }
-
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: var(--shadow)
-    }
-
-    .panel-head {
-      padding: 18px 20px;
-      border-bottom: 1px solid var(--line);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px
-    }
-
-    .panel-head h2 {
-      font-size: 18px;
-      margin: 0;
-      letter-spacing: -.02em
-    }
-
-    .panel-head p {
-      margin: 4px 0 0;
-      color: var(--soft);
-      font-size: 13px
-    }
-
-    .status {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border-radius: 999px;
-      padding: 5px 9px;
-      font-size: 12px;
-      font-weight: 700
-    }
-
-    .status.green {
-      background: var(--green-2);
-      color: var(--green)
-    }
-
-    .status.blue {
-      background: var(--blue-2);
-      color: var(--blue)
-    }
-
-    .status.amber {
-      background: var(--amber-2);
-      color: var(--amber)
-    }
-
-    .status.red {
-      background: #ffebeb;
-      color: var(--red)
-    }
-
-    .tabs {
-      display: flex;
-      gap: 6px;
-      background: #eef1ee;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 4px
-    }
-
-    .tab {
-      border: 0;
-      background: transparent;
-      border-radius: 6px;
-      padding: 8px 11px;
-      font-size: 13px;
-      font-weight: 750;
-      color: var(--soft)
-    }
-
-    .tab.active {
-      background: white;
-      color: var(--ink);
-      box-shadow: 0 1px 2px rgba(0, 0, 0, .05)
-    }
-
-    /* ── Trip & Driver cards ── */
-    .trip-card,
-    .driver-card {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 14px;
-      background: #fff;
-      display: grid;
-      gap: 11px
-    }
-
-    .trip-card.assigned {
-      border-color: rgba(23, 107, 77, .35);
-      background: #fbfffd
-    }
-
-    .trip-card.selected {
-      border-color: var(--green);
-      box-shadow: 0 0 0 3px rgba(23, 107, 77, .14);
-      background: var(--green-2)
-    }
-
-    .card-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 12px
-    }
-
-    .card-top b {
-      font-size: 15px
-    }
-
-    .meta {
-      font-size: 12px;
-      color: var(--soft);
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap
-    }
-
-    .route {
-      display: grid;
-      gap: 7px;
-      font-size: 13px;
-      color: #2e3833
-    }
-
-    .route div {
-      display: flex;
-      gap: 9px;
-      align-items: flex-start
-    }
-
-    .dot {
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      background: var(--green);
-      margin-top: 5px;
-      flex: 0 0 auto
-    }
-
-    .dot.drop {
-      background: var(--blue)
-    }
-
-    .driver-row {
-      display: grid;
-      grid-template-columns: 42px 1fr auto;
-      gap: 10px;
-      align-items: center
-    }
-
-    .avatar {
-      width: 42px;
-      height: 42px;
-      border-radius: 8px;
-      background: #e7eee9;
-      display: grid;
-      place-items: center;
-      font-weight: 850;
-      color: var(--green)
-    }
-
-    .driver-row b {
-      display: block;
-      font-size: 14px
-    }
-
-    .driver-row span {
-      display: block;
-      font-size: 12px;
-      color: var(--soft)
-    }
-
-    .mini {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 8px 10px;
-      background: #fbfcfb;
-      font-size: 12px;
-      font-weight: 750
-    }
-
-    /* ── Assign ── */
-    .assign-section {
-      margin-top: 10px;
-      display: grid;
-      gap: 8px
-    }
-
-    .assign-row {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap
-    }
-
-    .driver-search-container {
-      position: relative
-    }
-
-    .driver-search-input {
-      width: 100%;
-      font-size: 12px;
-      padding: 6px 10px;
-      border-radius: 6px;
-      border: 1px solid var(--line);
-      background: #fdfdfd;
-      outline: none
-    }
-
-    .driver-search-input:focus {
-      border-color: var(--green)
-    }
-
-    .driver-search-results {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: white;
-      border: 1px solid var(--line-strong);
-      border-radius: 6px;
-      box-shadow: var(--shadow);
-      z-index: 30;
-      max-height: 120px;
-      overflow-y: auto;
-      display: none;
-      margin-top: 4px
-    }
-
-    .driver-search-item {
-      padding: 6px 10px;
-      font-size: 12px;
-      cursor: pointer;
-      border-bottom: 1px solid var(--line)
-    }
-
-    .driver-search-item:last-child {
-      border-bottom: 0
-    }
-
-    .driver-search-item:hover {
-      background: var(--bg)
-    }
-
-    .rec-label {
-      font-size: 10px;
-      font-weight: 800;
-      text-transform: uppercase;
-      color: var(--muted);
-      letter-spacing: .05em;
-      margin-bottom: -4px
-    }
-
-    .trip-notes {
-      font-size: 12px;
-      color: var(--amber);
-      background: var(--amber-2);
-      border: 1px solid rgba(154, 97, 15, .15);
-      border-radius: 6px;
-      padding: 6px 9px;
-      line-height: 1.4
-    }
-
-    /* ── Timeline ── */
-    .timeline {
-      padding: 16px 20px 20px;
-      display: grid;
-      gap: 12px
-    }
-
-    .event {
-      display: grid;
-      grid-template-columns: 86px 1fr;
-      gap: 14px;
-      align-items: start
-    }
-
-    .time {
-      font: 700 12px/1.3 var(--mono);
-      color: var(--muted)
-    }
-
-    .event-body {
-      border-left: 2px solid var(--line);
-      padding-left: 14px;
-      color: var(--soft);
-      font-size: 13px
-    }
-
-    .event-body b {
-      display: block;
-      color: var(--ink);
-      font-size: 14px;
-      margin-bottom: 2px
-    }
-
-    /* ── Drivers panel ── */
-    .drivers-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-      padding: 16px
-    }
-
-    /* ── New Trip Modal ── */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, .55);
-      backdrop-filter: blur(4px);
-      display: none;
-      place-items: center;
-      z-index: 200
-    }
-
-    .modal-overlay.show {
-      display: grid
-    }
-
-    .modal {
-      background: white;
-      border-radius: 12px;
-      padding: 0;
-      max-width: 560px;
-      width: 94%;
-      max-height: 90vh;
-      overflow-y: auto;
-      box-shadow: 0 32px 80px rgba(0, 0, 0, .22);
-      animation: modal-in .2s ease
-    }
-
-    @keyframes modal-in {
-      from {
-        transform: scale(.95) translateY(10px);
-        opacity: 0
+      * {
+        box-sizing: border-box;
       }
 
-      to {
-        transform: scale(1) translateY(0);
-        opacity: 1
+      html,
+      body {
+        margin: 0;
       }
-    }
 
-    .modal-head {
-      padding: 20px 24px 16px;
-      border-bottom: 1px solid var(--line);
-      display: flex;
-      align-items: center;
-      justify-content: space-between
-    }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font);
+        line-height: 1.45;
+        -webkit-font-smoothing: antialiased;
+      }
 
-    .modal-head h2 {
-      font-size: 17px;
-      margin: 0;
-      letter-spacing: -.02em
-    }
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
 
-    .modal-close {
-      border: 0;
-      background: none;
-      color: var(--muted);
-      padding: 6px;
-      border-radius: 6px;
-      line-height: 1;
-      font-size: 20px
-    }
+      button {
+        cursor: pointer;
+      }
 
-    .modal-close:hover {
-      background: var(--bg);
-      color: var(--ink)
-    }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
 
-    .modal-form {
-      padding: 20px 24px;
-      display: grid;
-      gap: 13px
-    }
-
-    .field {
-      display: grid;
-      gap: 6px;
-      position: relative
-    }
-
-    label {
-      font-size: 11px;
-      font-weight: 800;
-      color: #38423d;
-      letter-spacing: .04em;
-      text-transform: uppercase
-    }
-
-    input,
-    select,
-    textarea {
-      width: 100%;
-      border: 1px solid var(--line-strong);
-      border-radius: 8px;
-      background: #fbfcfb;
-      padding: 10px 12px;
-      color: var(--ink);
-      outline: none;
-      font-size: 14px
-    }
-
-    input:focus,
-    select:focus,
-    textarea:focus {
-      border-color: var(--green);
-      box-shadow: 0 0 0 3px rgba(23, 107, 77, .11)
-    }
-
-    .two {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px
-    }
-
-    .three {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 12px
-    }
-
-    .quote-block {
-      background: #f5f7f5;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 14px;
-      display: grid;
-      gap: 8px;
-      margin: 0 24px
-    }
-
-    .quote-row {
-      display: flex;
-      justify-content: space-between;
-      color: var(--soft);
-      font-size: 14px
-    }
-
-    .quote-row.total {
-      border-top: 1px solid var(--line);
-      padding-top: 8px;
-      color: var(--ink);
-      font-weight: 800;
-      font-size: 17px
-    }
-
-    .modal-footer {
-      padding: 16px 24px 24px
-    }
-
-    /* ── Autocomplete ── */
-    .autocomplete-results {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: white;
-      border: 1px solid var(--line-strong);
-      border-radius: 8px;
-      box-shadow: 0 8px 28px rgba(0, 0, 0, .1);
-      z-index: 100;
-      overflow: hidden;
-      display: none;
-      margin-top: 4px
-    }
-
-    .autocomplete-item {
-      padding: 9px 12px 9px 34px;
-      cursor: pointer;
-      border-bottom: 1px solid var(--line);
-      position: relative
-    }
-
-    .autocomplete-item:last-child { border-bottom: 0 }
-    .autocomplete-item:hover, .autocomplete-item.active { background: var(--bg) }
-
-    .autocomplete-item::before {
-      content: '';
-      position: absolute;
-      left: 11px;
-      top: 11px;
-      width: 10px;
-      height: 10px;
-      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a948e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s7-4.4 7-11a7 7 0 1 0-14 0c0 6.6 7 11 7 11Z'/%3E%3Ccircle cx='12' cy='10' r='2'/%3E%3C/svg%3E") center/contain no-repeat
-    }
-
-    .ac-line1 { font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
-    .ac-line2 { font-size: 11px; color: var(--muted); margin-top: 1px }
-    .autocomplete-loading { padding: 10px 12px; font-size: 12px; color: var(--muted) }
-
-    /* ── Toast ── */
-    .toast {
-      position: fixed;
-      right: 22px;
-      bottom: 22px;
-      background: #111917;
-      color: #fff;
-      border-radius: 8px;
-      padding: 14px 16px;
-      box-shadow: var(--shadow);
-      display: none;
-      max-width: 320px;
-      z-index: 300
-    }
-
-    .toast.show {
-      display: block
-    }
-
-    .toast b {
-      display: block;
-      margin-bottom: 2px
-    }
-
-    .toast span {
-      color: #c8d5cf;
-      font-size: 13px
-    }
-
-    /* ── Flatpickr tweak ── */
-    .flatpickr-day.selected,
-    .flatpickr-day.selected:hover {
-      background: var(--green) !important;
-      border-color: var(--green) !important
-    }
-
-
-    @media (max-width: 1100px) {
+      /* ── Shell ── */
       .shell {
-        grid-template-columns: 1fr;
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 248px 1fr;
       }
 
       .sidebar {
-        position: relative;
-        height: auto;
-        flex-direction: row;
-        align-items: center;
-        overflow: auto;
+        background: #111917;
+        color: #eef5f0;
+        padding: 22px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
       }
 
-      .sidebar-footer {
-        display: none;
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 750;
+        letter-spacing: -0.02em;
+        font-size: 20px;
+      }
+
+      .mark {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #38b478, #d6f5b8);
+        display: grid;
+        place-items: center;
+        color: #10201a;
+        font-weight: 900;
       }
 
       .nav {
+        display: grid;
+        gap: 6px;
+      }
+
+      .nav a {
         display: flex;
-      }
-
-      .hero {
-        grid-template-columns: 1fr;
-      }
-
-      .live-map {
-        min-height: 240px;
-      }
-
-      .board-row {
-        grid-template-columns: 1fr 1fr;
-      }
-
-      .drivers-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    /* ── Driver management ── */
-    .driver-card-footer {
-      border-top: 1px solid var(--line);
-      padding-top: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px
-    }
-
-    .driver-delete, .driver-edit {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      border-radius: 6px;
-      padding: 5px 10px;
-      background: transparent;
-      font-size: 12px;
-      font-weight: 650;
-      transition: background .14s, color .14s, border-color .14s
-    }
-
-    .driver-delete {
-      border: 1px solid rgba(157, 46, 46, .18);
-      color: var(--muted)
-    }
-
-    .driver-delete:hover {
-      background: #fff2f2;
-      border-color: rgba(157, 46, 46, .4);
-      color: var(--red)
-    }
-
-    .driver-edit {
-      border: 1px solid var(--line);
-      color: var(--soft)
-    }
-
-    .driver-edit:hover {
-      background: var(--bg);
-      border-color: var(--muted);
-      color: var(--ink)
-    }
-
-    .driver-delete svg, .driver-edit svg {
-      stroke: currentColor;
-      stroke-width: 2;
-      fill: none;
-      stroke-linecap: round;
-      stroke-linejoin: round
-    }
-
-    /* Confirm delete modal — compact warning style */
-    .modal-warning-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      background: #fee2e2;
-      display: grid;
-      place-items: center;
-      flex-shrink: 0
-    }
-
-    .modal-warning-icon svg {
-      stroke: var(--red);
-      stroke-width: 2;
-      fill: none;
-      stroke-linecap: round;
-      stroke-linejoin: round
-    }
-
-    .btn.destructive {
-      background: var(--red);
-      border-color: var(--red);
-      color: white
-    }
-
-    .btn.destructive:hover {
-      background: #8b2626
-    }
-
-    /* ── Archive / close button on trip cards ── */
-    .card-close {
-      border: 0;
-      background: none;
-      color: var(--muted);
-      border-radius: 4px;
-      padding: 2px 5px;
-      font-size: 15px;
-      line-height: 1;
-      cursor: pointer;
-      flex-shrink: 0
-    }
-    .card-close:hover { background: #fee2e2; color: var(--red) }
-
-    .card-invoice {
-      border: 1px solid var(--line);
-      background: none;
-      color: var(--soft);
-      border-radius: 4px;
-      padding: 2px 8px;
-      font-size: 11px;
-      font-weight: 650;
-      cursor: pointer;
-      flex-shrink: 0;
-      letter-spacing: .2px
-    }
-    .card-invoice:hover { background: var(--bg); color: var(--ink); border-color: var(--muted) }
-
-    .clear-all-btn {
-      border: 1px solid var(--line-strong);
-      background: var(--panel);
-      color: var(--soft);
-      border-radius: 6px;
-      padding: 5px 10px;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      display: none
-    }
-    .clear-all-btn:hover { background: #fee2e2; border-color: rgba(157,46,46,.3); color: var(--red) }
-    .clear-all-btn.show { display: inline-flex; align-items: center; gap: 5px }
-
-    /* ── Online/offline toggle ── */
-    .driver-status-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border-radius: 999px;
-      padding: 5px 11px;
-      font-size: 12px;
-      font-weight: 700;
-      border: 1px solid;
-      background: transparent;
-      transition: background .14s, color .14s, border-color .14s
-    }
-    .driver-status-toggle.is-online {
-      background: var(--green-2);
-      color: var(--green);
-      border-color: rgba(23, 107, 77, .22)
-    }
-    .driver-status-toggle.is-online:hover {
-      background: #c8e6d5
-    }
-    .driver-status-toggle.is-offline {
-      background: #f0f2f1;
-      color: var(--muted);
-      border-color: var(--line-strong)
-    }
-    .driver-status-toggle.is-offline:hover {
-      background: #e1e4e2
-    }
-    .driver-status-toggle.is-busy {
-      background: var(--blue-2);
-      color: var(--blue);
-      border-color: rgba(35, 92, 159, .2);
-      cursor: default
-    }
-    .driver-status-toggle:disabled {
-      cursor: default;
-      opacity: 1
-    }
-    .toggle-pip {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      flex-shrink: 0
-    }
-    .driver-status-toggle.is-online .toggle-pip { background: var(--green) }
-    .driver-status-toggle.is-offline .toggle-pip { background: var(--muted) }
-    .driver-status-toggle.is-busy .toggle-pip { background: var(--blue) }
-
-    .driver-card.is-offline {
-      opacity: 0.68;
-      background: #f7f8f7
-    }
-
-    @media (max-width: 720px) {
-      .topbar {
-        height: auto;
-        flex-direction: column;
-        align-items: stretch;
-        padding: 12px 16px;
+        align-items: center;
         gap: 10px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        color: #b8c5bd;
+        font-size: 14px;
+      }
+
+      .nav a.active,
+      .nav a:hover {
+        background: #22302c;
+        color: #fff;
+      }
+
+      .nav svg,
+      .mini svg,
+      .btn svg {
+        width: 17px;
+        height: 17px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .sidebar-footer {
+        margin-top: auto;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 14px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .sidebar-footer a {
+        display: block;
+        color: #38b478;
+        font-size: 13px;
+        font-weight: 650;
+        margin-top: 6px;
+      }
+
+      .sidebar-footer b {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+
+      .sidebar-footer span {
+        font-size: 12px;
+        color: #b8c5bd;
+      }
+
+      /* ── Main ── */
+      .main {
+        min-width: 0;
+      }
+
+      .topbar {
+        height: 68px;
+        background: rgba(246, 247, 244, 0.92);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 clamp(18px, 3vw, 34px);
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        gap: 12px;
       }
 
       .search {
-        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 9px 12px;
+        min-width: min(380px, 42vw);
+        color: var(--muted);
+      }
+
+      .search input {
+        border: 0;
+        outline: 0;
+        background: transparent;
         width: 100%;
+        color: var(--ink);
       }
 
       .actions {
-        justify-content: space-between;
+        display: flex;
+        align-items: center;
+        gap: 10px;
       }
 
+      .btn {
+        border: 1px solid var(--line-strong);
+        background: var(--panel);
+        color: var(--ink);
+        border-radius: 8px;
+        padding: 10px 13px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 650;
+        font-size: 14px;
+      }
+
+      .btn.primary {
+        background: var(--green);
+        border-color: var(--green);
+        color: white;
+      }
+
+      .btn:active {
+        transform: translateY(1px);
+      }
+
+      /* ── Content ── */
       .content {
-        padding: 16px 14px 32px;
+        padding: 28px clamp(18px, 3vw, 34px) 42px;
+        display: grid;
+        gap: 22px;
+      }
+
+      /* ── Hero row ── */
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 400px;
+        gap: 22px;
       }
 
       .hero-copy {
-        padding: 18px;
+        background: linear-gradient(135deg, #fff 0%, #eef7f2 100%);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 26px;
+        box-shadow: var(--shadow);
+        min-height: 230px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
       }
 
-      .metrics,
-      .board-row,
-      .two,
-      .three,
-      .drivers-grid {
-        grid-template-columns: 1fr;
+      .eyebrow {
+        font: 700 11px/1 var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--green);
+        margin-bottom: 12px;
       }
 
-      .sidebar {
+      h1 {
+        font-size: clamp(26px, 3vw, 40px);
+        line-height: 1.05;
+        letter-spacing: -0.035em;
+        margin: 0 0 10px;
+      }
+
+      .lede {
+        font-size: 16px;
+        color: var(--soft);
+        margin: 0;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 24px;
+      }
+
+      .metric {
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.7);
+        border-radius: 8px;
+        padding: 12px;
+      }
+
+      .metric b {
+        display: block;
+        font-size: 22px;
+        letter-spacing: -0.03em;
+      }
+
+      .metric span {
+        display: block;
+        color: var(--soft);
+        font-size: 12px;
+        margin-top: 2px;
+      }
+
+      /* ── Map ── */
+      .live-map {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        position: relative;
+        overflow: hidden;
+        min-height: 300px;
+        box-shadow: var(--shadow);
+      }
+
+      #map {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+      }
+
+      .leaflet-div-icon {
+        background: transparent;
+        border: none;
+      }
+
+      .route-icon {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 2.5px solid white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      }
+
+      .route-icon.pickup {
+        background: var(--green);
+      }
+
+      .route-icon.dropoff {
+        background: var(--blue);
+      }
+
+      .driver-dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #38b478;
+        border: 2.5px solid #fff;
+        box-shadow:
+          0 0 0 4px rgba(56, 180, 120, 0.25),
+          0 2px 10px rgba(0, 0, 0, 0.2);
+        animation: pulse-driver 2.2s ease infinite;
+      }
+
+      @keyframes pulse-driver {
+        0%,
+        100% {
+          box-shadow:
+            0 0 0 4px rgba(56, 180, 120, 0.2),
+            0 2px 10px rgba(0, 0, 0, 0.15);
+        }
+        50% {
+          box-shadow:
+            0 0 0 8px rgba(56, 180, 120, 0.08),
+            0 2px 14px rgba(0, 0, 0, 0.1);
+        }
+      }
+
+      .map-label {
+        background: rgba(17, 25, 23, 0.88);
+        color: #eef5f0;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 5px;
+        white-space: nowrap;
+        pointer-events: none;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      }
+
+      #routeInfoBadge {
+        display: none;
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 10;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(4px);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 5px 13px;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--green);
+        pointer-events: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .leaflet-popup-content-wrapper {
+        border-radius: 8px !important;
+        font-size: 12.5px !important;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+      }
+
+      .map-panel {
+        position: absolute;
+        left: 12px;
+        bottom: 12px;
+        background: rgba(255, 255, 255, 0.88);
+        backdrop-filter: blur(6px);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 7px 13px;
+        z-index: 10;
+        color: var(--ink);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        pointer-events: none;
+        max-width: calc(100% - 24px);
+      }
+
+      .map-panel b {
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .map-panel span {
+        font-size: 11px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      .drivers-online {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--green);
+      }
+
+      .online-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #38b478;
+        flex-shrink: 0;
+        animation: pulse-dot 1.8s ease infinite;
+      }
+
+      @keyframes pulse-dot {
+        0%,
+        100% {
+          opacity: 1;
+        }
+
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      /* ── Dispatch board ── */
+      .board-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        padding: 16px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+      }
+
+      .panel-head {
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+      }
+
+      .panel-head h2 {
+        font-size: 18px;
+        margin: 0;
+        letter-spacing: -0.02em;
+      }
+
+      .panel-head p {
+        margin: 4px 0 0;
+        color: var(--soft);
+        font-size: 13px;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 5px 9px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .status.green {
+        background: var(--green-2);
+        color: var(--green);
+      }
+
+      .status.blue {
+        background: var(--blue-2);
+        color: var(--blue);
+      }
+
+      .status.amber {
+        background: var(--amber-2);
+        color: var(--amber);
+      }
+
+      .status.red {
+        background: #ffebeb;
+        color: var(--red);
+      }
+
+      .tabs {
+        display: flex;
+        gap: 6px;
+        background: #eef1ee;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 4px;
+      }
+
+      .tab {
+        border: 0;
+        background: transparent;
+        border-radius: 6px;
+        padding: 8px 11px;
+        font-size: 13px;
+        font-weight: 750;
+        color: var(--soft);
+      }
+
+      .tab.active {
+        background: white;
+        color: var(--ink);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      }
+
+      /* ── Trip & Driver cards ── */
+      .trip-card,
+      .driver-card {
+        border: 1px solid var(--line);
+        border-radius: 8px;
         padding: 14px;
+        background: #fff;
+        display: grid;
+        gap: 11px;
       }
 
-      .nav a span {
+      .trip-card.assigned {
+        border-color: rgba(23, 107, 77, 0.35);
+        background: #fbfffd;
+      }
+
+      .trip-card.selected {
+        border-color: var(--green);
+        box-shadow: 0 0 0 3px rgba(23, 107, 77, 0.14);
+        background: var(--green-2);
+      }
+
+      .card-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .card-top b {
+        font-size: 15px;
+      }
+
+      .meta {
+        font-size: 12px;
+        color: var(--soft);
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .route {
+        display: grid;
+        gap: 7px;
+        font-size: 13px;
+        color: #2e3833;
+      }
+
+      .route div {
+        display: flex;
+        gap: 9px;
+        align-items: flex-start;
+      }
+
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--green);
+        margin-top: 5px;
+        flex: 0 0 auto;
+      }
+
+      .dot.drop {
+        background: var(--blue);
+      }
+
+      .driver-row {
+        display: grid;
+        grid-template-columns: 42px 1fr auto;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        background: #e7eee9;
+        display: grid;
+        place-items: center;
+        font-weight: 850;
+        color: var(--green);
+      }
+
+      .driver-row b {
+        display: block;
+        font-size: 14px;
+      }
+
+      .driver-row span {
+        display: block;
+        font-size: 12px;
+        color: var(--soft);
+      }
+
+      .mini {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 10px;
+        background: #fbfcfb;
+        font-size: 12px;
+        font-weight: 750;
+      }
+
+      /* ── Assign ── */
+      .assign-section {
+        margin-top: 10px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .assign-row {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .driver-search-container {
+        position: relative;
+      }
+
+      .driver-search-input {
+        width: 100%;
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--line);
+        background: #fdfdfd;
+        outline: none;
+      }
+
+      .driver-search-input:focus {
+        border-color: var(--green);
+      }
+
+      .driver-search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid var(--line-strong);
+        border-radius: 6px;
+        box-shadow: var(--shadow);
+        z-index: 30;
+        max-height: 120px;
+        overflow-y: auto;
+        display: none;
+        margin-top: 4px;
+      }
+
+      .driver-search-item {
+        padding: 6px 10px;
+        font-size: 12px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .driver-search-item:last-child {
+        border-bottom: 0;
+      }
+
+      .driver-search-item:hover {
+        background: var(--bg);
+      }
+
+      .rec-label {
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: var(--muted);
+        letter-spacing: 0.05em;
+        margin-bottom: -4px;
+      }
+
+      .trip-notes {
+        font-size: 12px;
+        color: var(--amber);
+        background: var(--amber-2);
+        border: 1px solid rgba(154, 97, 15, 0.15);
+        border-radius: 6px;
+        padding: 6px 9px;
+        line-height: 1.4;
+      }
+
+      /* ── Timeline ── */
+      .timeline {
+        padding: 16px 20px 20px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .event {
+        display: grid;
+        grid-template-columns: 86px 1fr;
+        gap: 14px;
+        align-items: start;
+      }
+
+      .time {
+        font: 700 12px/1.3 var(--mono);
+        color: var(--muted);
+      }
+
+      .event-body {
+        border-left: 2px solid var(--line);
+        padding-left: 14px;
+        color: var(--soft);
+        font-size: 13px;
+      }
+
+      .event-body b {
+        display: block;
+        color: var(--ink);
+        font-size: 14px;
+        margin-bottom: 2px;
+      }
+
+      /* ── Drivers panel ── */
+      .drivers-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        padding: 16px;
+      }
+
+      /* ── New Trip Modal ── */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(4px);
+        display: none;
+        place-items: center;
+        z-index: 200;
+      }
+
+      .modal-overlay.show {
+        display: grid;
+      }
+
+      .modal {
+        background: white;
+        border-radius: 12px;
+        padding: 0;
+        max-width: 560px;
+        width: 94%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 32px 80px rgba(0, 0, 0, 0.22);
+        animation: modal-in 0.2s ease;
+      }
+
+      @keyframes modal-in {
+        from {
+          transform: scale(0.95) translateY(10px);
+          opacity: 0;
+        }
+
+        to {
+          transform: scale(1) translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .modal-head {
+        padding: 20px 24px 16px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .modal-head h2 {
+        font-size: 17px;
+        margin: 0;
+        letter-spacing: -0.02em;
+      }
+
+      .modal-close {
+        border: 0;
+        background: none;
+        color: var(--muted);
+        padding: 6px;
+        border-radius: 6px;
+        line-height: 1;
+        font-size: 20px;
+      }
+
+      .modal-close:hover {
+        background: var(--bg);
+        color: var(--ink);
+      }
+
+      .modal-form {
+        padding: 20px 24px;
+        display: grid;
+        gap: 13px;
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+        position: relative;
+      }
+
+      label {
+        font-size: 11px;
+        font-weight: 800;
+        color: #38423d;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: #fbfcfb;
+        padding: 10px 12px;
+        color: var(--ink);
+        outline: none;
+        font-size: 14px;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--green);
+        box-shadow: 0 0 0 3px rgba(23, 107, 77, 0.11);
+      }
+
+      .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .three {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+      }
+
+      .quote-block {
+        background: #f5f7f5;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px;
+        display: grid;
+        gap: 8px;
+        margin: 0 24px;
+      }
+
+      .quote-row {
+        display: flex;
+        justify-content: space-between;
+        color: var(--soft);
+        font-size: 14px;
+      }
+
+      .quote-row.total {
+        border-top: 1px solid var(--line);
+        padding-top: 8px;
+        color: var(--ink);
+        font-weight: 800;
+        font-size: 17px;
+      }
+
+      .modal-footer {
+        padding: 16px 24px 24px;
+      }
+
+      /* ── Autocomplete ── */
+      .autocomplete-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
+        z-index: 100;
+        overflow: hidden;
+        display: none;
+        margin-top: 4px;
+      }
+
+      .autocomplete-item {
+        padding: 9px 12px 9px 34px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--line);
+        position: relative;
+      }
+
+      .autocomplete-item:last-child {
+        border-bottom: 0;
+      }
+      .autocomplete-item:hover,
+      .autocomplete-item.active {
+        background: var(--bg);
+      }
+
+      .autocomplete-item::before {
+        content: "";
+        position: absolute;
+        left: 11px;
+        top: 11px;
+        width: 10px;
+        height: 10px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a948e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s7-4.4 7-11a7 7 0 1 0-14 0c0 6.6 7 11 7 11Z'/%3E%3Ccircle cx='12' cy='10' r='2'/%3E%3C/svg%3E")
+          center/contain no-repeat;
+      }
+
+      .ac-line1 {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ink);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ac-line2 {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 1px;
+      }
+      .autocomplete-loading {
+        padding: 10px 12px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      /* ── Toast ── */
+      .toast {
+        position: fixed;
+        right: 22px;
+        bottom: 22px;
+        background: #111917;
+        color: #fff;
+        border-radius: 8px;
+        padding: 14px 16px;
+        box-shadow: var(--shadow);
+        display: none;
+        max-width: 320px;
+        z-index: 300;
+      }
+
+      .toast.show {
+        display: block;
+      }
+
+      .toast b {
+        display: block;
+        margin-bottom: 2px;
+      }
+
+      .toast span {
+        color: #c8d5cf;
+        font-size: 13px;
+      }
+
+      /* ── Flatpickr tweak ── */
+      .flatpickr-day.selected,
+      .flatpickr-day.selected:hover {
+        background: var(--green) !important;
+        border-color: var(--green) !important;
+      }
+
+      @media (max-width: 1100px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: relative;
+          height: auto;
+          flex-direction: row;
+          align-items: center;
+          overflow: auto;
+        }
+
+        .sidebar-footer {
+          display: none;
+        }
+
+        .nav {
+          display: flex;
+        }
+
+        .hero {
+          grid-template-columns: 1fr;
+        }
+
+        .live-map {
+          min-height: 240px;
+        }
+
+        .board-row {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .drivers-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ── Driver management ── */
+      .driver-card-footer {
+        border-top: 1px solid var(--line);
+        padding-top: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .driver-delete,
+      .driver-edit {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border-radius: 6px;
+        padding: 5px 10px;
+        background: transparent;
+        font-size: 12px;
+        font-weight: 650;
+        transition:
+          background 0.14s,
+          color 0.14s,
+          border-color 0.14s;
+      }
+
+      .driver-delete {
+        border: 1px solid rgba(157, 46, 46, 0.18);
+        color: var(--muted);
+      }
+
+      .driver-delete:hover {
+        background: #fff2f2;
+        border-color: rgba(157, 46, 46, 0.4);
+        color: var(--red);
+      }
+
+      .driver-edit {
+        border: 1px solid var(--line);
+        color: var(--soft);
+      }
+
+      .driver-edit:hover {
+        background: var(--bg);
+        border-color: var(--muted);
+        color: var(--ink);
+      }
+
+      .driver-delete svg,
+      .driver-edit svg {
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      /* Confirm delete modal — compact warning style */
+      .modal-warning-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: #fee2e2;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+
+      .modal-warning-icon svg {
+        stroke: var(--red);
+        stroke-width: 2;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .btn.destructive {
+        background: var(--red);
+        border-color: var(--red);
+        color: white;
+      }
+
+      .btn.destructive:hover {
+        background: #8b2626;
+      }
+
+      /* ── Archive / close button on trip cards ── */
+      .card-close {
+        border: 0;
+        background: none;
+        color: var(--muted);
+        border-radius: 4px;
+        padding: 2px 5px;
+        font-size: 15px;
+        line-height: 1;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .card-close:hover {
+        background: #fee2e2;
+        color: var(--red);
+      }
+
+      .card-invoice {
+        border: 1px solid var(--line);
+        background: none;
+        color: var(--soft);
+        border-radius: 4px;
+        padding: 2px 8px;
+        font-size: 11px;
+        font-weight: 650;
+        cursor: pointer;
+        flex-shrink: 0;
+        letter-spacing: 0.2px;
+      }
+      .card-invoice:hover {
+        background: var(--bg);
+        color: var(--ink);
+        border-color: var(--muted);
+      }
+
+      .clear-all-btn {
+        border: 1px solid var(--line-strong);
+        background: var(--panel);
+        color: var(--soft);
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
         display: none;
       }
-    }
-  </style>
-</head>
+      .clear-all-btn:hover {
+        background: #fee2e2;
+        border-color: rgba(157, 46, 46, 0.3);
+        color: var(--red);
+      }
+      .clear-all-btn.show {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
 
-<body>
-  <div class="shell">
-    <aside class="sidebar">
-      <div class="brand"><span class="mark">D</span> DispatchLink</div>
-      <nav class="nav" aria-label="Main navigation">
-        <a class="active" href="#dispatch">
-          <svg viewBox="0 0 24 24">
-            <path d="M12 21s7-4.4 7-11a7 7 0 1 0-14 0c0 6.6 7 11 7 11Z" />
-            <path d="M12 10h.01" />
-          </svg>
-          <span>Dispatch</span>
-        </a>
-        <a href="#drivers">
-          <svg viewBox="0 0 24 24">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
-          <span>Drivers</span>
-        </a>
-        <a href="#timeline">
-          <svg viewBox="0 0 24 24">
-            <path d="M3 12h4l3 8 4-16 3 8h4" />
-          </svg>
-          <span>Activity</span>
-        </a>
-      </nav>
-      <div class="sidebar-footer">
-        <b id="sidebarUserName">Loading…</b>
-        <span id="sidebarUserRole" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#38b478"></span>
-        <span id="sidebarUserEmail" style="margin-top:2px;word-break:break-all"></span>
-        <a href="/" target="_blank">Customer booking page →</a>
-        <a href="/driver" target="_blank" style="margin-top:8px;color:#e4f9a8">📍 Share my location →</a>
-        <a href="/logout" id="logoutLink"
-           style="margin-top:10px;color:#e07070;font-weight:700;border-top:1px solid rgba(255,255,255,.08);padding-top:10px">
-          Sign out →
-        </a>
-      </div>
-    </aside>
+      /* ── Online/offline toggle ── */
+      .driver-status-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 5px 11px;
+        font-size: 12px;
+        font-weight: 700;
+        border: 1px solid;
+        background: transparent;
+        transition:
+          background 0.14s,
+          color 0.14s,
+          border-color 0.14s;
+      }
+      .driver-status-toggle.is-online {
+        background: var(--green-2);
+        color: var(--green);
+        border-color: rgba(23, 107, 77, 0.22);
+      }
+      .driver-status-toggle.is-online:hover {
+        background: #c8e6d5;
+      }
+      .driver-status-toggle.is-offline {
+        background: #f0f2f1;
+        color: var(--muted);
+        border-color: var(--line-strong);
+      }
+      .driver-status-toggle.is-offline:hover {
+        background: #e1e4e2;
+      }
+      .driver-status-toggle.is-busy {
+        background: var(--blue-2);
+        color: var(--blue);
+        border-color: rgba(35, 92, 159, 0.2);
+        cursor: default;
+      }
+      .driver-status-toggle:disabled {
+        cursor: default;
+        opacity: 1;
+      }
+      .toggle-pip {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .driver-status-toggle.is-online .toggle-pip {
+        background: var(--green);
+      }
+      .driver-status-toggle.is-offline .toggle-pip {
+        background: var(--muted);
+      }
+      .driver-status-toggle.is-busy .toggle-pip {
+        background: var(--blue);
+      }
 
-    <main class="main">
-      <header class="topbar">
-        <div class="search">
-          <svg viewBox="0 0 24 24" width="17" height="17">
-            <path d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" stroke="currentColor"
-              stroke-width="2" fill="none" stroke-linecap="round" />
-          </svg>
-          <input aria-label="Search reservations" placeholder="Search trips, customers, drivers" id="searchInput">
-        </div>
-        <div class="actions">
-          <a href="/driver" target="_blank" class="btn" style="text-decoration:none">
-            <svg viewBox="0 0 24 24"><path d="M12 21s7-4.4 7-11a7 7 0 1 0-14 0c0 6.6 7 11 7 11Z"/><circle cx="12" cy="10" r="2"/></svg>
-            Share Location
-          </a>
-          <button class="btn" onclick="openNewTrip()">
+      .driver-card.is-offline {
+        opacity: 0.68;
+        background: #f7f8f7;
+      }
+
+      @media (max-width: 720px) {
+        .topbar {
+          height: auto;
+          flex-direction: column;
+          align-items: stretch;
+          padding: 12px 16px;
+          gap: 10px;
+        }
+
+        .search {
+          min-width: 0;
+          width: 100%;
+        }
+
+        .actions {
+          justify-content: space-between;
+        }
+
+        .content {
+          padding: 16px 14px 32px;
+        }
+
+        .hero-copy {
+          padding: 18px;
+        }
+
+        .metrics,
+        .board-row,
+        .two,
+        .three,
+        .drivers-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          padding: 14px;
+        }
+
+        .nav a span {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand"><span class="mark">D</span> DispatchLink</div>
+        <nav class="nav" aria-label="Main navigation">
+          <a class="active" href="#dispatch">
             <svg viewBox="0 0 24 24">
-              <path d="M12 5v14M5 12h14" />
+              <path d="M12 21s7-4.4 7-11a7 7 0 1 0-14 0c0 6.6 7 11 7 11Z" />
+              <path d="M12 10h.01" />
             </svg>
-            New Trip
+            <span>Dispatch</span>
+          </a>
+          <a href="#drivers">
+            <svg viewBox="0 0 24 24">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <span>Drivers</span>
+          </a>
+          <a href="#timeline">
+            <svg viewBox="0 0 24 24">
+              <path d="M3 12h4l3 8 4-16 3 8h4" />
+            </svg>
+            <span>Activity</span>
+          </a>
+        </nav>
+        <div class="sidebar-footer">
+          <b id="sidebarUserName">Loading…</b>
+          <span
+            id="sidebarUserRole"
+            style="
+              font-size: 11px;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              color: #38b478;
+            "
+          ></span>
+          <span
+            id="sidebarUserEmail"
+            style="margin-top: 2px; word-break: break-all"
+          ></span>
+          <a href="/" target="_blank">Customer booking page →</a>
+          <a
+            href="/driver"
+            target="_blank"
+            style="margin-top: 8px; color: #e4f9a8"
+            >📍 Share my location →</a
+          >
+          <a
+            href="/logout"
+            id="logoutLink"
+            style="
+              margin-top: 10px;
+              color: #e07070;
+              font-weight: 700;
+              border-top: 1px solid rgba(255, 255, 255, 0.08);
+              padding-top: 10px;
+            "
+          >
+            Sign out →
+          </a>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div class="search">
+            <svg viewBox="0 0 24 24" width="17" height="17">
+              <path
+                d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z"
+                stroke="currentColor"
+                stroke-width="2"
+                fill="none"
+                stroke-linecap="round"
+              />
+            </svg>
+            <input
+              aria-label="Search reservations"
+              placeholder="Search trips, customers, drivers"
+              id="searchInput"
+            />
+          </div>
+          <div class="actions">
+            <a
+              href="/driver"
+              target="_blank"
+              class="btn"
+              style="text-decoration: none"
+            >
+              <svg viewBox="0 0 24 24">
+                <path d="M12 21s7-4.4 7-11a7 7 0 1 0-14 0c0 6.6 7 11 7 11Z" />
+                <circle cx="12" cy="10" r="2" />
+              </svg>
+              Share Location
+            </a>
+            <button class="btn" onclick="openNewTrip()">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              New Trip
+            </button>
+          </div>
+        </header>
+
+        <section class="content">
+          <!-- Hero row: metrics + map -->
+          <div class="hero">
+            <div class="hero-copy">
+              <div>
+                <div class="eyebrow">Operator dashboard</div>
+                <h1>Dispatch board</h1>
+                <p class="lede">
+                  Real-time trip management and driver tracking.
+                </p>
+              </div>
+              <div class="metrics">
+                <div class="metric">
+                  <b id="metricTrips">0</b><span>Trips today</span>
+                </div>
+                <div class="metric">
+                  <b id="metricDrivers">0</b><span>Drivers online</span>
+                </div>
+                <div class="metric"><b>4m</b><span>Avg assignment</span></div>
+                <div class="metric"><b>96%</b><span>On-time pickup</span></div>
+              </div>
+            </div>
+            <div class="live-map" aria-label="Live driver map">
+              <div id="map"></div>
+              <div id="routeInfoBadge"></div>
+              <div class="map-panel">
+                <div class="drivers-online">
+                  <span class="online-dot"></span>
+                  <span id="onlineCount">0 online</span>
+                </div>
+                <span id="mapSub">Waiting for driver positions…</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dispatch board -->
+          <section class="panel" id="dispatch">
+            <div class="panel-head">
+              <div>
+                <h2>Trips</h2>
+                <p>
+                  Reservations in queue — assign drivers and track progress.
+                </p>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px">
+                <div class="tabs" role="tablist" id="dispatchTabs">
+                  <button
+                    class="tab active"
+                    data-filter="Needs driver"
+                    type="button"
+                  >
+                    Open
+                  </button>
+                  <button class="tab" data-filter="Assigned" type="button">
+                    Assigned
+                  </button>
+                  <button class="tab" data-filter="In Progress" type="button">
+                    In Progress
+                  </button>
+                  <button class="tab" data-filter="Completed" type="button">
+                    Completed
+                  </button>
+                  <button class="tab" data-filter="Cancelled" type="button">
+                    Cancelled
+                  </button>
+                </div>
+                <button
+                  class="clear-all-btn"
+                  id="clearAllBtn"
+                  onclick="clearAllTrips()"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="12"
+                    height="12"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    fill="none"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                  </svg>
+                  Clear all
+                </button>
+              </div>
+            </div>
+            <div class="board-row" id="dispatchBoard"></div>
+          </section>
+
+          <!-- Drivers -->
+          <section class="panel" id="drivers">
+            <div class="panel-head">
+              <div>
+                <h2>Drivers</h2>
+                <p>Ranked by availability, vehicle, and acceptance rate.</p>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px">
+                <span class="status blue">Auto-match ready</span>
+                <button
+                  class="btn primary"
+                  onclick="openAddDriver()"
+                  style="padding: 8px 13px; font-size: 13px"
+                >
+                  <svg viewBox="0 0 24 24">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  Add Driver
+                </button>
+              </div>
+            </div>
+            <div class="drivers-grid" id="driverBoard"></div>
+          </section>
+
+          <!-- Timeline -->
+          <section class="panel" id="timeline">
+            <div class="panel-head">
+              <div>
+                <h2>Trip activity</h2>
+                <p id="timelineSub">Select a trip to view operational logs.</p>
+              </div>
+            </div>
+            <div
+              id="noteInputContainer"
+              style="
+                padding: 14px 20px;
+                border-bottom: 1px solid var(--line);
+                display: none;
+              "
+            >
+              <div style="display: flex; gap: 10px">
+                <input
+                  id="newNote"
+                  placeholder="Add internal note…"
+                  style="padding: 8px 12px; font-size: 13px"
+                />
+                <button
+                  class="btn primary"
+                  onclick="postNote()"
+                  style="padding: 8px 14px; white-space: nowrap"
+                >
+                  Post
+                </button>
+              </div>
+            </div>
+            <div class="timeline" id="timelineList">
+              <div
+                style="
+                  padding: 40px;
+                  color: var(--muted);
+                  text-align: center;
+                  font-size: 14px;
+                "
+              >
+                No trip selected.
+              </div>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <!-- New Trip Modal -->
+    <div
+      class="modal-overlay"
+      id="modalOverlay"
+      onclick="handleModalClick(event)"
+    >
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modalTitle"
+      >
+        <div class="modal-head">
+          <h2 id="modalTitle">New reservation</h2>
+          <button
+            class="modal-close"
+            onclick="closeNewTrip()"
+            aria-label="Close"
+          >
+            ✕
           </button>
         </div>
-      </header>
-
-      <section class="content">
-        <!-- Hero row: metrics + map -->
-        <div class="hero">
-          <div class="hero-copy">
-            <div>
-              <div class="eyebrow">Operator dashboard</div>
-              <h1>Dispatch board</h1>
-              <p class="lede">Real-time trip management and driver tracking.</p>
-            </div>
-            <div class="metrics">
-              <div class="metric"><b id="metricTrips">0</b><span>Trips today</span></div>
-              <div class="metric"><b id="metricDrivers">0</b><span>Drivers online</span></div>
-              <div class="metric"><b>4m</b><span>Avg assignment</span></div>
-              <div class="metric"><b>96%</b><span>On-time pickup</span></div>
-            </div>
-          </div>
-          <div class="live-map" aria-label="Live driver map">
-            <div id="map"></div>
-            <div id="routeInfoBadge"></div>
-            <div class="map-panel">
-              <div class="drivers-online">
-                <span class="online-dot"></span>
-                <span id="onlineCount">0 online</span>
-              </div>
-              <span id="mapSub">Waiting for driver positions…</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Dispatch board -->
-        <section class="panel" id="dispatch">
-          <div class="panel-head">
-            <div>
-              <h2>Trips</h2>
-              <p>Reservations in queue — assign drivers and track progress.</p>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px">
-              <div class="tabs" role="tablist" id="dispatchTabs">
-                <button class="tab active" data-filter="Needs driver" type="button">Open</button>
-                <button class="tab" data-filter="Assigned" type="button">Assigned</button>
-                <button class="tab" data-filter="In Progress" type="button">In Progress</button>
-                <button class="tab" data-filter="Completed" type="button">Completed</button>
-                <button class="tab" data-filter="Cancelled" type="button">Cancelled</button>
-              </div>
-              <button class="clear-all-btn" id="clearAllBtn" onclick="clearAllTrips()">
-                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                Clear all
-              </button>
-            </div>
-          </div>
-          <div class="board-row" id="dispatchBoard"></div>
-        </section>
-
-        <!-- Drivers -->
-        <section class="panel" id="drivers">
-          <div class="panel-head">
-            <div>
-              <h2>Drivers</h2>
-              <p>Ranked by availability, vehicle, and acceptance rate.</p>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px">
-              <span class="status blue">Auto-match ready</span>
-              <button class="btn primary" onclick="openAddDriver()" style="padding:8px 13px;font-size:13px">
-                <svg viewBox="0 0 24 24">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                Add Driver
-              </button>
-            </div>
-          </div>
-          <div class="drivers-grid" id="driverBoard"></div>
-        </section>
-
-        <!-- Timeline -->
-        <section class="panel" id="timeline">
-          <div class="panel-head">
-            <div>
-              <h2>Trip activity</h2>
-              <p id="timelineSub">Select a trip to view operational logs.</p>
-            </div>
-          </div>
-          <div id="noteInputContainer" style="padding:14px 20px;border-bottom:1px solid var(--line);display:none">
-            <div style="display:flex;gap:10px">
-              <input id="newNote" placeholder="Add internal note…" style="padding:8px 12px;font-size:13px">
-              <button class="btn primary" onclick="postNote()" style="padding:8px 14px;white-space:nowrap">Post</button>
-            </div>
-          </div>
-          <div class="timeline" id="timelineList">
-            <div style="padding:40px;color:var(--muted);text-align:center;font-size:14px">No trip selected.</div>
-          </div>
-        </section>
-      </section>
-    </main>
-  </div>
-
-  <!-- New Trip Modal -->
-  <div class="modal-overlay" id="modalOverlay" onclick="handleModalClick(event)">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <div class="modal-head">
-        <h2 id="modalTitle">New reservation</h2>
-        <button class="modal-close" onclick="closeNewTrip()" aria-label="Close">✕</button>
-      </div>
-      <form class="modal-form" id="reservationForm">
-        <div class="field">
-          <label for="customer">Customer name</label>
-          <input id="customer" name="customer" placeholder="Enter customer name" required>
-        </div>
-        <div class="two">
+        <form class="modal-form" id="reservationForm">
           <div class="field">
-            <label for="phone">Phone</label>
-            <input id="phone" name="phone" placeholder="(555) 000-0000">
+            <label for="customer">Customer name</label>
+            <input
+              id="customer"
+              name="customer"
+              placeholder="Enter customer name"
+              required
+            />
+          </div>
+          <div class="two">
+            <div class="field">
+              <label for="phone">Phone</label>
+              <input id="phone" name="phone" placeholder="(555) 000-0000" />
+            </div>
+            <div class="field">
+              <label for="email">Email</label>
+              <input
+                id="email"
+                name="email"
+                placeholder="customer@example.com"
+              />
+            </div>
           </div>
           <div class="field">
-            <label for="email">Email</label>
-            <input id="email" name="email" placeholder="customer@example.com">
-          </div>
-        </div>
-        <div class="field">
-          <label for="pickup">Pickup</label>
-          <input id="pickup" name="pickup" placeholder="Enter pickup address" required autocomplete="off">
-          <input type="hidden" id="pickup_lat" name="pickup_lat">
-          <input type="hidden" id="pickup_lon" name="pickup_lon">
-        </div>
-        <div class="field">
-          <label for="dropoff">Dropoff</label>
-          <input id="dropoff" name="dropoff" placeholder="Enter dropoff address" required autocomplete="off">
-          <input type="hidden" id="dropoff_lat" name="dropoff_lat">
-          <input type="hidden" id="dropoff_lon" name="dropoff_lon">
-        </div>
-        <div class="field">
-          <label for="trip_type">Trip type</label>
-          <select id="trip_type" name="trip_type">
-            <option value="Hourly">Hourly</option>
-            <option value="Airport Arrival">Airport Arrival</option>
-            <option value="Airport Departure">Airport Departure</option>
-            <option value="Point-to-Point">Point-to-Point</option>
-          </select>
-        </div>
-        <div class="three">
-          <div class="field">
-            <label for="m_date">Date</label>
-            <input id="m_date" name="date" type="date" required>
+            <label for="pickup">Pickup</label>
+            <input
+              id="pickup"
+              name="pickup"
+              placeholder="Enter pickup address"
+              required
+              autocomplete="off"
+            />
+            <input type="hidden" id="pickup_lat" name="pickup_lat" />
+            <input type="hidden" id="pickup_lon" name="pickup_lon" />
           </div>
           <div class="field">
-            <label for="m_time">Time</label>
-            <input id="m_time" name="time" type="time" required>
+            <label for="dropoff">Dropoff</label>
+            <input
+              id="dropoff"
+              name="dropoff"
+              placeholder="Enter dropoff address"
+              required
+              autocomplete="off"
+            />
+            <input type="hidden" id="dropoff_lat" name="dropoff_lat" />
+            <input type="hidden" id="dropoff_lon" name="dropoff_lon" />
           </div>
           <div class="field">
-            <label for="passengers">Pax</label>
-            <select id="passengers" name="passengers">
-              <option>1</option>
-              <option selected>2</option>
-              <option>3</option>
-              <option>4</option>
-              <option>5</option>
-              <option>6</option>
+            <label for="trip_type">Trip type</label>
+            <select id="trip_type" name="trip_type">
+              <option value="Hourly">Hourly</option>
+              <option value="Airport Arrival">Airport Arrival</option>
+              <option value="Airport Departure">Airport Departure</option>
+              <option value="Point-to-Point">Point-to-Point</option>
             </select>
           </div>
-        </div>
-        <div class="two">
-          <div class="field">
-            <label for="vehicle">Vehicle class</label>
-            <select id="vehicle" name="vehicle">
-              <option value="Black car" data-base="88">Black car</option>
-              <option value="Executive SUV" data-base="126" selected>Executive SUV</option>
-              <option value="Sprinter van" data-base="210">Sprinter van</option>
-            </select>
+          <div class="three">
+            <div class="field">
+              <label for="m_date">Date</label>
+              <input id="m_date" name="date" type="date" required />
+            </div>
+            <div class="field">
+              <label for="m_time">Time</label>
+              <input id="m_time" name="time" type="time" required />
+            </div>
+            <div class="field">
+              <label for="passengers">Pax</label>
+              <select id="passengers" name="passengers">
+                <option>1</option>
+                <option selected>2</option>
+                <option>3</option>
+                <option>4</option>
+                <option>5</option>
+                <option>6</option>
+              </select>
+            </div>
+          </div>
+          <div class="two">
+            <div class="field">
+              <label for="vehicle">Vehicle class</label>
+              <select id="vehicle" name="vehicle">
+                <option value="Black car" data-base="88">Black car</option>
+                <option value="Executive SUV" data-base="126" selected>
+                  Executive SUV
+                </option>
+                <option value="Sprinter van" data-base="210">
+                  Sprinter van
+                </option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="payment">Payment</label>
+              <select id="payment" name="payment">
+                <option>Card on file</option>
+                <option>Invoice account</option>
+                <option>Collect later</option>
+              </select>
+            </div>
           </div>
           <div class="field">
-            <label for="payment">Payment</label>
-            <select id="payment" name="payment">
-              <option>Card on file</option>
-              <option>Invoice account</option>
-              <option>Collect later</option>
-            </select>
+            <label for="notes">Trip notes</label>
+            <textarea
+              id="notes"
+              name="notes"
+              rows="2"
+              placeholder="Additional trip details…"
+            ></textarea>
+          </div>
+        </form>
+        <div class="quote-block" aria-live="polite">
+          <div class="quote-row">
+            <span>Base fare</span><b id="baseFare">$126</b>
+          </div>
+          <div class="quote-row">
+            <span>Airport + platform fees</span><b>$22</b>
+          </div>
+          <div class="quote-row">
+            <span>Driver payout estimate</span><b id="driverPay">$104</b>
+          </div>
+          <div class="quote-row total">
+            <span>Customer total</span><b id="totalFare">$148</b>
           </div>
         </div>
-        <div class="field">
-          <label for="notes">Trip notes</label>
-          <textarea id="notes" name="notes" rows="2" placeholder="Additional trip details…"></textarea>
+        <div class="modal-footer">
+          <button
+            class="btn primary"
+            type="submit"
+            form="reservationForm"
+            style="width: 100%; padding: 12px; justify-content: center"
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            Create reservation
+          </button>
         </div>
-      </form>
-      <div class="quote-block" aria-live="polite">
-        <div class="quote-row"><span>Base fare</span><b id="baseFare">$126</b></div>
-        <div class="quote-row"><span>Airport + platform fees</span><b>$22</b></div>
-        <div class="quote-row"><span>Driver payout estimate</span><b id="driverPay">$104</b></div>
-        <div class="quote-row total"><span>Customer total</span><b id="totalFare">$148</b></div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn primary" type="submit" form="reservationForm"
-          style="width:100%;padding:12px;justify-content:center">
-          <svg viewBox="0 0 24 24">
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-          Create reservation
-        </button>
       </div>
     </div>
-  </div>
 
-  <!-- Add Driver Modal -->
-  <div class="modal-overlay" id="addDriverOverlay" onclick="handleAddDriverClick(event)">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="addDriverTitle">
-      <div class="modal-head">
-        <h2 id="addDriverTitle">Add driver</h2>
-        <button class="modal-close" onclick="closeAddDriver()" aria-label="Close">✕</button>
+    <!-- Add Driver Modal -->
+    <div
+      class="modal-overlay"
+      id="addDriverOverlay"
+      onclick="handleAddDriverClick(event)"
+    >
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="addDriverTitle"
+      >
+        <div class="modal-head">
+          <h2 id="addDriverTitle">Add driver</h2>
+          <button
+            class="modal-close"
+            onclick="closeAddDriver()"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <form class="modal-form" id="addDriverForm">
+          <div class="field">
+            <label for="driverName">Full name</label>
+            <input
+              id="driverName"
+              name="name"
+              placeholder="e.g. Alex Smith"
+              required
+            />
+          </div>
+          <div class="two">
+            <div class="field">
+              <label for="driverEmail">Email</label>
+              <input
+                id="driverEmail"
+                name="email"
+                type="email"
+                placeholder="driver@example.com"
+                required
+              />
+            </div>
+            <div class="field">
+              <label for="driverPhone">Phone</label>
+              <input
+                id="driverPhone"
+                name="phone"
+                type="tel"
+                placeholder="4155550100"
+                required
+              />
+            </div>
+          </div>
+          <div class="two">
+            <div class="field">
+              <label for="driverVehicle">Vehicle class</label>
+              <select id="driverVehicle" name="vehicle" required>
+                <option value="Black car">Black car</option>
+                <option value="Executive SUV" selected>Executive SUV</option>
+                <option value="Sprinter van">Sprinter van</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="driverStatus">Status</label>
+              <select id="driverStatus" name="status">
+                <option value="Online" selected>Online</option>
+                <option value="Offline">Offline</option>
+              </select>
+            </div>
+          </div>
+        </form>
+        <div class="modal-footer">
+          <button
+            class="btn primary"
+            type="submit"
+            form="addDriverForm"
+            style="width: 100%; padding: 12px; justify-content: center"
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            Add to roster
+          </button>
+        </div>
       </div>
-      <form class="modal-form" id="addDriverForm">
-        <div class="field">
-          <label for="driverName">Full name</label>
-          <input id="driverName" name="name" placeholder="e.g. Alex Smith" required>
+    </div>
+
+    <!-- Delete Driver Confirmation Modal -->
+    <div class="modal-overlay" id="deleteConfirmOverlay">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        style="max-width: 420px"
+      >
+        <div class="modal-head" style="border-bottom-color: #fee2e2">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <div class="modal-warning-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path
+                  d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+                />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+            <h2 style="font-size: 16px; margin: 0">Remove driver?</h2>
+          </div>
+          <button
+            class="modal-close"
+            onclick="cancelDeleteDriver()"
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
-        <div class="two">
+        <div class="modal-form" style="padding: 20px 24px 4px">
+          <p
+            style="
+              margin: 0;
+              color: var(--soft);
+              font-size: 14px;
+              line-height: 1.65;
+            "
+          >
+            You're about to remove
+            <b id="deleteDriverName" style="color: var(--ink)"></b> from the
+            roster. Any active trips will be returned to the dispatch queue.
+            This cannot be undone.
+          </p>
+        </div>
+        <div class="modal-footer" style="display: flex; gap: 10px">
+          <button
+            class="btn"
+            onclick="cancelDeleteDriver()"
+            style="flex: 1; justify-content: center"
+          >
+            Cancel
+          </button>
+          <button
+            class="btn destructive"
+            onclick="doDeleteDriver()"
+            style="flex: 1; justify-content: center; gap: 7px"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+              <path d="M9 6V4h6v2" />
+            </svg>
+            Yes, remove
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Driver Modal -->
+    <div
+      class="modal-overlay"
+      id="editDriverOverlay"
+      onclick="handleEditDriverClick(event)"
+    >
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="editDriverTitle"
+      >
+        <div class="modal-head">
+          <h2 id="editDriverTitle">Edit driver</h2>
+          <button
+            class="modal-close"
+            onclick="closeEditDriver()"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <form class="modal-form" id="editDriverForm">
+          <input type="hidden" id="editDriverId" />
           <div class="field">
-            <label for="driverEmail">Email</label>
-            <input id="driverEmail" name="email" type="email" placeholder="driver@example.com" required>
+            <label for="editDriverName">Full name</label>
+            <input
+              id="editDriverName"
+              name="name"
+              placeholder="e.g. Alex Smith"
+              required
+            />
+          </div>
+          <div class="two">
+            <div class="field">
+              <label for="editDriverEmail">Email</label>
+              <input
+                id="editDriverEmail"
+                name="email"
+                type="email"
+                placeholder="driver@example.com"
+              />
+            </div>
+            <div class="field">
+              <label for="editDriverPhone">Phone</label>
+              <input
+                id="editDriverPhone"
+                name="phone"
+                type="tel"
+                placeholder="4155550100"
+                required
+              />
+            </div>
           </div>
           <div class="field">
-            <label for="driverPhone">Phone</label>
-            <input id="driverPhone" name="phone" type="tel" placeholder="4155550100" required>
-          </div>
-        </div>
-        <div class="two">
-          <div class="field">
-            <label for="driverVehicle">Vehicle class</label>
-            <select id="driverVehicle" name="vehicle" required>
+            <label for="editDriverVehicle">Vehicle class</label>
+            <select id="editDriverVehicle" name="vehicle" required>
               <option value="Black car">Black car</option>
-              <option value="Executive SUV" selected>Executive SUV</option>
+              <option value="Executive SUV">Executive SUV</option>
               <option value="Sprinter van">Sprinter van</option>
             </select>
           </div>
-          <div class="field">
-            <label for="driverStatus">Status</label>
-            <select id="driverStatus" name="status">
-              <option value="Online" selected>Online</option>
-              <option value="Offline">Offline</option>
-            </select>
-          </div>
-        </div>
-      </form>
-      <div class="modal-footer">
-        <button class="btn primary" type="submit" form="addDriverForm"
-          style="width:100%;padding:12px;justify-content:center">
-          <svg viewBox="0 0 24 24">
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-          Add to roster
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Delete Driver Confirmation Modal -->
-  <div class="modal-overlay" id="deleteConfirmOverlay">
-    <div class="modal" role="dialog" aria-modal="true" style="max-width:420px">
-      <div class="modal-head" style="border-bottom-color:#fee2e2">
-        <div style="display:flex;align-items:center;gap:12px">
-          <div class="modal-warning-icon">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-              <line x1="12" y1="9" x2="12" y2="13" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
+        </form>
+        <div class="modal-footer">
+          <button
+            class="btn primary"
+            type="submit"
+            form="editDriverForm"
+            style="width: 100%; padding: 12px; justify-content: center"
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="M20 6 9 17l-5-5" />
             </svg>
-          </div>
-          <h2 style="font-size:16px;margin:0">Remove driver?</h2>
+            Save changes
+          </button>
         </div>
-        <button class="modal-close" onclick="cancelDeleteDriver()" aria-label="Close">✕</button>
-      </div>
-      <div class="modal-form" style="padding:20px 24px 4px">
-        <p style="margin:0;color:var(--soft);font-size:14px;line-height:1.65">
-          You're about to remove <b id="deleteDriverName" style="color:var(--ink)"></b> from the roster.
-          Any active trips will be returned to the dispatch queue. This cannot be undone.
-        </p>
-      </div>
-      <div class="modal-footer" style="display:flex;gap:10px">
-        <button class="btn" onclick="cancelDeleteDriver()" style="flex:1;justify-content:center">Cancel</button>
-        <button class="btn destructive" onclick="doDeleteDriver()" style="flex:1;justify-content:center;gap:7px">
-          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"
-            stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-            <path d="M10 11v6" />
-            <path d="M14 11v6" />
-            <path d="M9 6V4h6v2" />
-          </svg>
-          Yes, remove
-        </button>
       </div>
     </div>
-  </div>
 
-  <!-- Edit Driver Modal -->
-  <div class="modal-overlay" id="editDriverOverlay" onclick="handleEditDriverClick(event)">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editDriverTitle">
-      <div class="modal-head">
-        <h2 id="editDriverTitle">Edit driver</h2>
-        <button class="modal-close" onclick="closeEditDriver()" aria-label="Close">✕</button>
-      </div>
-      <form class="modal-form" id="editDriverForm">
-        <input type="hidden" id="editDriverId">
-        <div class="field">
-          <label for="editDriverName">Full name</label>
-          <input id="editDriverName" name="name" placeholder="e.g. Alex Smith" required>
-        </div>
-        <div class="two">
-          <div class="field">
-            <label for="editDriverEmail">Email</label>
-            <input id="editDriverEmail" name="email" type="email" placeholder="driver@example.com">
-          </div>
-          <div class="field">
-            <label for="editDriverPhone">Phone</label>
-            <input id="editDriverPhone" name="phone" type="tel" placeholder="4155550100" required>
-          </div>
-        </div>
-        <div class="field">
-          <label for="editDriverVehicle">Vehicle class</label>
-          <select id="editDriverVehicle" name="vehicle" required>
-            <option value="Black car">Black car</option>
-            <option value="Executive SUV">Executive SUV</option>
-            <option value="Sprinter van">Sprinter van</option>
-          </select>
-        </div>
-      </form>
-      <div class="modal-footer">
-        <button class="btn primary" type="submit" form="editDriverForm"
-          style="width:100%;padding:12px;justify-content:center">
-          <svg viewBox="0 0 24 24">
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-          Save changes
-        </button>
-      </div>
+    <div class="toast" id="toast">
+      <b id="toastTitle">Done</b><span id="toastBody"></span>
     </div>
-  </div>
 
-  <div class="toast" id="toast"><b id="toastTitle">Done</b><span id="toastBody"></span></div>
+    <!-- Vendor scripts: Leaflet and Flatpickr (moved to end for faster render) -->
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"
+      integrity="sha384-5JqMv4L/Xa0hfvtF06qboNdhvuYXUku9ZrhZh3bSk8VXF0A/RuSLHpLsSV9Zqhl6"
+      crossorigin="anonymous"
+    ></script>
 
-  <!-- Vendor scripts: Leaflet and Flatpickr (moved to end for faster render) -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"
-    integrity="sha384-5JqMv4L/Xa0hfvtF06qboNdhvuYXUku9ZrhZh3bSk8VXF0A/RuSLHpLsSV9Zqhl6" crossorigin="anonymous"></script>
+    <script>
+      // ── Helpers ──
+      function escapeHTML(str) {
+        if (str == null) return "";
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
 
-  <script>
-    // ── Helpers ──
-    function escapeHTML(str) {
-      if (str == null) return '';
-      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-    }
+      // ── State ──
+      let reservationsData = [];
+      let driversData = [];
+      let selectedTripId = null;
+      let currentFilter = "Needs driver";
+      let searchQuery = "";
+      let driverMarkers = {}; // driver_id → Leaflet marker
 
-    // ── State ──
-    let reservationsData = [];
-    let driversData = [];
-    let selectedTripId = null;
-    let currentFilter = 'Needs driver';
-    let searchQuery = '';
-    let driverMarkers = {};  // driver_id → Leaflet marker
+      // ── Flatpickr ──
+      flatpickr("#m_date", {
+        defaultDate: "today",
+        dateFormat: "Y-m-d",
+        altInput: true,
+        altFormat: "F j, Y",
+      });
+      flatpickr("#m_time", {
+        enableTime: true,
+        noCalendar: true,
+        dateFormat: "H:i",
+        defaultDate: "14:30",
+        altInput: true,
+        altFormat: "h:i K",
+      });
 
-    // ── Flatpickr ──
-    flatpickr('#m_date', { defaultDate: 'today', dateFormat: 'Y-m-d', altInput: true, altFormat: 'F j, Y' });
-    flatpickr('#m_time', { enableTime: true, noCalendar: true, dateFormat: 'H:i', defaultDate: '14:30', altInput: true, altFormat: 'h:i K' });
+      // ── Map ──
+      const map = L.map("map", {
+        zoomControl: false,
+        attributionControl: false,
+      }).setView([37.7749, -122.4194], 12);
+      L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+        { maxZoom: 19, subdomains: "abcd" },
+      ).addTo(map);
+      L.control.zoom({ position: "bottomright" }).addTo(map);
 
-    // ── Map ──
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([37.7749, -122.4194], 12);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd' }).addTo(map);
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+      const routeIcon = (cls) =>
+        L.divIcon({
+          className: "",
+          html: `<div class="route-icon ${cls}"></div>`,
+          iconSize: [14, 14],
+          iconAnchor: [7, 7],
+        });
 
-    const routeIcon = (cls) => L.divIcon({ className: '', html: `<div class="route-icon ${cls}"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
+      let currentRouteLayer = null;
+      let currentRouteMarkers = [];
 
-    let currentRouteLayer = null;
-    let currentRouteMarkers = [];
-
-    function makeDriverIcon(name) {
-      const initials = (name || '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-      return L.divIcon({
-        className: '',
-        html: `<div style="position:relative;width:16px;height:16px">
+      function makeDriverIcon(name) {
+        const initials = (name || "?")
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase();
+        return L.divIcon({
+          className: "",
+          html: `<div style="position:relative;width:16px;height:16px">
           <div class="driver-dot"></div>
           <div class="map-label" style="position:absolute;bottom:22px;left:50%;transform:translateX(-50%)">${escapeHTML(initials)}</div>
         </div>`,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
-      });
-    }
-
-    function animateLine(polyline) {
-      const path = polyline._path;
-      if (!path) return;
-      const len = path.getTotalLength();
-      path.style.strokeDasharray = len;
-      path.style.strokeDashoffset = len;
-      requestAnimationFrame(() => {
-        path.style.transition = 'stroke-dashoffset 1.3s cubic-bezier(0.4,0,0.2,1)';
-        path.style.strokeDashoffset = '0';
-      });
-    }
-
-    function updateDriverMarker(driverId, lat, lon, name) {
-      if (driverMarkers[driverId]) {
-        driverMarkers[driverId].setLatLng([lat, lon]);
-      } else {
-        const marker = L.marker([lat, lon], { icon: makeDriverIcon(name) })
-          .addTo(map)
-          .bindTooltip(escapeHTML(name), { permanent: false, direction: 'top', offset: [0, -10] });
-        driverMarkers[driverId] = marker;
+          iconSize: [16, 16],
+          iconAnchor: [8, 8],
+        });
       }
-    }
 
-    function removeDriverMarker(driverId) {
-      if (driverMarkers[driverId]) {
-        map.removeLayer(driverMarkers[driverId]);
-        delete driverMarkers[driverId];
+      function animateLine(polyline) {
+        const path = polyline._path;
+        if (!path) return;
+        const len = path.getTotalLength();
+        path.style.strokeDasharray = len;
+        path.style.strokeDashoffset = len;
+        requestAnimationFrame(() => {
+          path.style.transition =
+            "stroke-dashoffset 1.3s cubic-bezier(0.4,0,0.2,1)";
+          path.style.strokeDashoffset = "0";
+        });
       }
-    }
 
-    async function geocode(address) {
-      if (!address) return null;
-      try {
-        const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`);
-        const data = await r.json();
-        if (data?.length) return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-      } catch (e) { }
-      return null;
-    }
-
-    async function drawRoute(trip) {
-      if (currentRouteLayer) { map.removeLayer(currentRouteLayer); currentRouteLayer = null; }
-      currentRouteMarkers.forEach(m => map.removeLayer(m));
-      currentRouteMarkers = [];
-      document.getElementById('routeInfoBadge').style.display = 'none';
-
-      let start = trip.pickup_lat && trip.pickup_lon
-        ? [parseFloat(trip.pickup_lat), parseFloat(trip.pickup_lon)]
-        : await geocode(trip.pickup);
-      let end = trip.dropoff_lat && trip.dropoff_lon
-        ? [parseFloat(trip.dropoff_lat), parseFloat(trip.dropoff_lon)]
-        : await geocode(trip.dropoff);
-
-      if (!start || !end) return;
-
-      const m1 = L.marker(start, { icon: routeIcon('pickup') }).addTo(map).bindPopup(`<b>Pickup</b><br>${escapeHTML(trip.pickup)}`);
-      const m2 = L.marker(end,   { icon: routeIcon('dropoff') }).addTo(map).bindPopup(`<b>Dropoff</b><br>${escapeHTML(trip.dropoff)}`);
-      currentRouteMarkers.push(m1, m2);
-
-      try {
-        const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`);
-        const data = await r.json();
-        if (data.routes?.length) {
-          const route = data.routes[0];
-          const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
-          currentRouteLayer = L.polyline(coords, { color: '#176b4d', weight: 5, opacity: 0.75 }).addTo(map);
-          animateLine(currentRouteLayer);
-          map.fitBounds(currentRouteLayer.getBounds(), { padding: [44, 44] });
-          const miles = (route.distance / 1609.34).toFixed(1);
-          const mins  = Math.round(route.duration / 60);
-          const badge = document.getElementById('routeInfoBadge');
-          badge.textContent = `${miles} mi · ${mins} min`;
-          badge.style.display = 'block';
+      function updateDriverMarker(driverId, lat, lon, name) {
+        if (driverMarkers[driverId]) {
+          driverMarkers[driverId].setLatLng([lat, lon]);
         } else {
+          const marker = L.marker([lat, lon], { icon: makeDriverIcon(name) })
+            .addTo(map)
+            .bindTooltip(escapeHTML(name), {
+              permanent: false,
+              direction: "top",
+              offset: [0, -10],
+            });
+          driverMarkers[driverId] = marker;
+        }
+      }
+
+      function removeDriverMarker(driverId) {
+        if (driverMarkers[driverId]) {
+          map.removeLayer(driverMarkers[driverId]);
+          delete driverMarkers[driverId];
+        }
+      }
+
+      async function geocode(address) {
+        if (!address) return null;
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
+          );
+          const data = await r.json();
+          if (data?.length)
+            return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        } catch (e) {}
+        return null;
+      }
+
+      async function drawRoute(trip) {
+        if (currentRouteLayer) {
+          map.removeLayer(currentRouteLayer);
+          currentRouteLayer = null;
+        }
+        currentRouteMarkers.forEach((m) => map.removeLayer(m));
+        currentRouteMarkers = [];
+        document.getElementById("routeInfoBadge").style.display = "none";
+
+        let start =
+          trip.pickup_lat && trip.pickup_lon
+            ? [parseFloat(trip.pickup_lat), parseFloat(trip.pickup_lon)]
+            : await geocode(trip.pickup);
+        let end =
+          trip.dropoff_lat && trip.dropoff_lon
+            ? [parseFloat(trip.dropoff_lat), parseFloat(trip.dropoff_lon)]
+            : await geocode(trip.dropoff);
+
+        if (!start || !end) return;
+
+        const m1 = L.marker(start, { icon: routeIcon("pickup") })
+          .addTo(map)
+          .bindPopup(`<b>Pickup</b><br>${escapeHTML(trip.pickup)}`);
+        const m2 = L.marker(end, { icon: routeIcon("dropoff") })
+          .addTo(map)
+          .bindPopup(`<b>Dropoff</b><br>${escapeHTML(trip.dropoff)}`);
+        currentRouteMarkers.push(m1, m2);
+
+        try {
+          const r = await fetch(
+            `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`,
+          );
+          const data = await r.json();
+          if (data.routes?.length) {
+            const route = data.routes[0];
+            const coords = route.geometry.coordinates.map((c) => [c[1], c[0]]);
+            currentRouteLayer = L.polyline(coords, {
+              color: "#176b4d",
+              weight: 5,
+              opacity: 0.75,
+            }).addTo(map);
+            animateLine(currentRouteLayer);
+            map.fitBounds(currentRouteLayer.getBounds(), { padding: [44, 44] });
+            const miles = (route.distance / 1609.34).toFixed(1);
+            const mins = Math.round(route.duration / 60);
+            const badge = document.getElementById("routeInfoBadge");
+            badge.textContent = `${miles} mi · ${mins} min`;
+            badge.style.display = "block";
+          } else {
+            map.fitBounds(L.latLngBounds([start, end]), { padding: [44, 44] });
+          }
+        } catch (e) {
           map.fitBounds(L.latLngBounds([start, end]), { padding: [44, 44] });
         }
-      } catch (e) {
-        map.fitBounds(L.latLngBounds([start, end]), { padding: [44, 44] });
       }
-    }
 
-    // ── WebSocket ──
-    let socket;
-    function connectWebSocket() {
-      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      socket = new WebSocket(`${proto}//${location.host}/ws/dispatch`);
+      // ── WebSocket ──
+      let socket;
+      function connectWebSocket() {
+        const proto = location.protocol === "https:" ? "wss:" : "ws:";
+        socket = new WebSocket(`${proto}//${location.host}/ws/dispatch`);
 
-      socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'UPDATE') {
-          fetchReservations();
-          fetchDrivers();
-          if (data.message) {
-            showToast('Live Update', data.message);
+        socket.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.type === "UPDATE") {
+            fetchReservations();
+            fetchDrivers();
+            if (data.message) {
+              showToast("Live Update", data.message);
+            }
+          } else if (data.type === "DRIVER_LOCATION") {
+            const { driver_id, lat, lon, name, status } = data;
+            if (status === "Offline") {
+              removeDriverMarker(driver_id);
+            } else if (lat != null && lon != null) {
+              updateDriverMarker(driver_id, lat, lon, name);
+            }
+            updateMapPanel();
           }
-        } else if (data.type === 'DRIVER_LOCATION') {
-          const { driver_id, lat, lon, name, status } = data;
-          if (status === 'Offline') {
-            removeDriverMarker(driver_id);
-          } else if (lat != null && lon != null) {
-            updateDriverMarker(driver_id, lat, lon, name);
+        };
+
+        socket.onclose = (e) => {
+          if (e.code === 4001) {
+            location.href = "/login";
+            return;
           }
-          updateMapPanel();
-        }
-      };
-
-      socket.onclose = (e) => { if (e.code === 4001) { location.href = '/login'; return; } setTimeout(connectWebSocket, 3000); };
-      socket.onerror = () => socket.close();
-    }
-
-    function updateMapPanel() {
-      const count = Object.keys(driverMarkers).length;
-      document.getElementById('onlineCount').textContent = count + ' online';
-      document.getElementById('mapSub').textContent = count
-        ? `${count} driver${count > 1 ? 's' : ''} sharing location`
-        : 'Waiting for driver positions…';
-    }
-
-    // ── Data fetching ──
-    async function fetchReservations() {
-      try {
-        const r = await fetch('/api/reservations');
-        if (r.status === 401) { location.href = '/login'; return; }
-        const data = await r.json();
-        reservationsData = data.reservations;
-        renderBoard();
-        updateMetrics();
-        if (selectedTripId) renderTimeline();
-      } catch (e) { console.error('Failed to fetch reservations', e); }
-    }
-
-    async function fetchDrivers() {
-      try {
-        const r = await fetch('/api/drivers');
-        if (r.status === 401) { location.href = '/login'; return; }
-        const data = await r.json();
-        driversData = data.drivers;
-        renderDrivers();
-        renderBoard();
-        updateMetrics();
-      } catch (e) { console.error('Failed to fetch drivers', e); }
-    }
-
-    function updateMetrics() {
-      document.getElementById('metricTrips').textContent = reservationsData.length;
-      document.getElementById('metricDrivers').textContent = driversData.filter(d => d.status === 'Online').length;
-    }
-
-    // ── Board rendering ──
-    function renderBoard() {
-      const board = document.getElementById('dispatchBoard');
-      let filtered = reservationsData.filter(r => {
-        if (currentFilter === 'Assigned') {
-          return r.status === 'Assigned' || r.status === 'Pending confirmation';
-        }
-        if (currentFilter === 'In Progress') {
-          return r.status === 'In Progress';
-        }
-        return r.status === currentFilter;
-      });
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        filtered = filtered.filter(r =>
-          r.customer.toLowerCase().includes(q) ||
-          r.pickup.toLowerCase().includes(q) ||
-          r.dropoff.toLowerCase().includes(q) ||
-          (r.phone && r.phone.includes(q))
-        );
+          setTimeout(connectWebSocket, 3000);
+        };
+        socket.onerror = () => socket.close();
       }
-      if (!filtered.length) {
-        board.innerHTML = '<div style="padding:40px;color:var(--soft);text-align:center;grid-column:1/-1;font-size:14px">No trips match.</div>';
-        return;
+
+      function updateMapPanel() {
+        const count = Object.keys(driverMarkers).length;
+        document.getElementById("onlineCount").textContent = count + " online";
+        document.getElementById("mapSub").textContent = count
+          ? `${count} driver${count > 1 ? "s" : ""} sharing location`
+          : "Waiting for driver positions…";
       }
-      board.innerHTML = '';
-      filtered.forEach(r => {
-        const card = document.createElement('article');
-        card.className = `trip-card ${r.status === 'Assigned' || r.status === 'In Progress' ? 'assigned' : ''} ${selectedTripId === r.id ? 'selected' : ''}`;
-        card.onclick = () => selectTrip(r.id);
 
-        let timeStr = `${r.date} ${r.time}`;
-        try { timeStr = new Date(`${r.date}T${r.time}`).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }); } catch (e) { }
+      // ── Data fetching ──
+      async function fetchReservations() {
+        try {
+          const r = await fetch("/api/reservations");
+          if (r.status === 401) {
+            location.href = "/login";
+            return;
+          }
+          const data = await r.json();
+          reservationsData = data.reservations;
+          renderBoard();
+          updateMetrics();
+          if (selectedTripId) renderTimeline();
+        } catch (e) {
+          console.error("Failed to fetch reservations", e);
+        }
+      }
 
-        const driverInitials = r.assigned_driver ? r.assigned_driver.split(' ').map(n => n[0]).join('') : '??';
+      async function fetchDrivers() {
+        try {
+          const r = await fetch("/api/drivers");
+          if (r.status === 401) {
+            location.href = "/login";
+            return;
+          }
+          const data = await r.json();
+          driversData = data.drivers;
+          renderDrivers();
+          renderBoard();
+          updateMetrics();
+        } catch (e) {
+          console.error("Failed to fetch drivers", e);
+        }
+      }
 
-        const isResolved = r.status === 'Completed' || r.status === 'Cancelled';
-        card.innerHTML = `
+      function updateMetrics() {
+        document.getElementById("metricTrips").textContent =
+          reservationsData.length;
+        document.getElementById("metricDrivers").textContent =
+          driversData.filter((d) => d.status === "Online").length;
+      }
+
+      // ── Board rendering ──
+      function renderBoard() {
+        const board = document.getElementById("dispatchBoard");
+        let filtered = reservationsData.filter((r) => {
+          if (currentFilter === "Assigned") {
+            return (
+              r.status === "Assigned" || r.status === "Pending confirmation"
+            );
+          }
+          if (currentFilter === "In Progress") {
+            return r.status === "In Progress";
+          }
+          return r.status === currentFilter;
+        });
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          filtered = filtered.filter(
+            (r) =>
+              r.customer.toLowerCase().includes(q) ||
+              r.pickup.toLowerCase().includes(q) ||
+              r.dropoff.toLowerCase().includes(q) ||
+              (r.phone && r.phone.includes(q)),
+          );
+        }
+        if (!filtered.length) {
+          board.innerHTML =
+            '<div style="padding:40px;color:var(--soft);text-align:center;grid-column:1/-1;font-size:14px">No trips match.</div>';
+          return;
+        }
+        board.innerHTML = "";
+        filtered.forEach((r) => {
+          const card = document.createElement("article");
+          card.className = `trip-card ${r.status === "Assigned" || r.status === "In Progress" ? "assigned" : ""} ${selectedTripId === r.id ? "selected" : ""}`;
+          card.onclick = () => selectTrip(r.id);
+
+          let timeStr = `${r.date} ${r.time}`;
+          try {
+            timeStr = new Date(`${r.date}T${r.time}`).toLocaleString([], {
+              weekday: "short",
+              hour: "numeric",
+              minute: "2-digit",
+            });
+          } catch (e) {}
+
+          const driverInitials = r.assigned_driver
+            ? r.assigned_driver
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+            : "??";
+
+          const isResolved =
+            r.status === "Completed" || r.status === "Cancelled";
+          card.innerHTML = `
         <div class="card-top">
           <div><b>${escapeHTML(r.customer)}</b>
             <div class="meta">
@@ -1909,36 +2358,53 @@
               <span style="font-size:9px;background:var(--bg);border:1px solid var(--line);color:var(--soft);padding:1px 4px;border-radius:3px">${escapeHTML(r.trip_type)}</span>
             </div>
             <div class="meta" style="margin-top:4px; color:var(--green)">
-              ${r.phone ? `<span>📞 ${escapeHTML(r.phone)}</span>` : ''}
-              ${r.email ? `<span>✉️ ${escapeHTML(r.email)}</span>` : ''}
+              ${r.phone ? `<span>📞 ${escapeHTML(r.phone)}</span>` : ""}
+              ${r.email ? `<span>✉️ ${escapeHTML(r.email)}</span>` : ""}
             </div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:6px">
-            <span class="status ${r.status === 'Needs driver' ? 'amber' : r.status === 'Assigned' ? 'green' : r.status === 'In Progress' ? 'blue' : r.status === 'Cancelled' ? 'red' : 'blue'}">${escapeHTML(r.status)}</span>
-            ${r.status === 'Completed' ? `<button class="card-invoice" title="View invoice" onclick="event.stopPropagation();window.open('/invoice/${r.id}','_blank')">Invoice</button>` : ''}
-            ${isResolved ? `<button class="card-close" title="Close trip" onclick="event.stopPropagation();archiveTrip(${r.id})">✕</button>` : ''}
+            <span class="status ${r.status === "Needs driver" ? "amber" : r.status === "Assigned" ? "green" : r.status === "In Progress" ? "blue" : r.status === "Cancelled" ? "red" : "blue"}">${escapeHTML(r.status)}</span>
+            ${r.status === "Completed" ? `<button class="card-invoice" title="View invoice" onclick="event.stopPropagation();window.open('/invoice/${r.id}','_blank')">Invoice</button>` : ""}
+            ${isResolved ? `<button class="card-close" title="Close trip" onclick="event.stopPropagation();archiveTrip(${r.id})">✕</button>` : ""}
           </div>
         </div>
         <div class="route">
           <div><span class="dot"></span><span>${escapeHTML(r.pickup)}</span></div>
           <div><span class="dot drop"></span><span>${escapeHTML(r.dropoff)}</span></div>
         </div>
-        ${r.notes ? `<div class="trip-notes">✦ ${escapeHTML(r.notes)}</div>` : ''}
-        ${r.status === 'Needs driver' ? `
+        ${r.notes ? `<div class="trip-notes">✦ ${escapeHTML(r.notes)}</div>` : ""}
+        ${
+          r.status === "Needs driver"
+            ? `
           <div class="assign-section" onclick="event.stopPropagation()">
-            ${driversData.filter(d => d.status === 'Online').length ? `
+            ${
+              driversData.filter((d) => d.status === "Online").length
+                ? `
               <div class="rec-label">Recommended</div>
               <div class="assign-row">
-                ${driversData.filter(d => d.status === 'Online').slice(0, 2).map(d => `<button class="mini" type="button" onclick="assignDriver(${r.id}, ${d.id})">Assign ${escapeHTML(d.name.split(' ')[0])}</button>`).join('')}
+                ${driversData
+                  .filter((d) => d.status === "Online")
+                  .slice(0, 2)
+                  .map(
+                    (d) =>
+                      `<button class="mini" type="button" onclick="assignDriver(${r.id}, ${d.id})">Assign ${escapeHTML(d.name.split(" ")[0])}</button>`,
+                  )
+                  .join("")}
               </div>
-            ` : '<div class="meta" style="color:var(--amber)">No drivers available</div>'}
+            `
+                : '<div class="meta" style="color:var(--amber)">No drivers available</div>'
+            }
             <div class="driver-search-container">
               <input class="driver-search-input" placeholder="Search drivers…" oninput="filterDriversForTrip(this, ${r.id})">
               <div class="driver-search-results" id="driverResults-${r.id}"></div>
             </div>
             <button class="mini" style="margin-top:8px; color:var(--red); border-color:rgba(157,46,46,.2)" onclick="if(confirm('Cancel this trip?')) cancelTrip(${r.id})">Cancel Trip</button>
-          </div>` : ''}
-        ${r.status === 'Pending confirmation' ? `
+          </div>`
+            : ""
+        }
+        ${
+          r.status === "Pending confirmation"
+            ? `
           <div class="driver-row" style="margin-top:10px;border-top:1px solid var(--line);padding-top:12px">
             <span class="avatar" style="background:var(--blue-2);color:var(--blue)">${escapeHTML(driverInitials)}</span>
             <div><b>${escapeHTML(r.assigned_driver)}</b><span>SMS sent · Awaiting reply…</span></div>
@@ -1946,8 +2412,12 @@
               <span class="status blue" style="font-size:11px">Waiting</span>
               <button class="mini" style="color:var(--red); border-color:rgba(157,46,46,.2)" onclick="event.stopPropagation(); if(confirm('Cancel this trip?')) cancelTrip(${r.id})">Cancel</button>
             </div>
-          </div>` : ''}
-        ${r.status === 'Assigned' ? `
+          </div>`
+            : ""
+        }
+        ${
+          r.status === "Assigned"
+            ? `
           <div class="driver-row" style="margin-top:10px;border-top:1px solid var(--line);padding-top:12px">
             <span class="avatar">${escapeHTML(driverInitials)}</span>
             <div><b>${escapeHTML(r.assigned_driver)}</b><span>Confirmed · Ready to dispatch</span></div>
@@ -1955,70 +2425,111 @@
               <button class="mini" type="button" style="color:var(--red); border-color:rgba(157,46,46,.2)" onclick="event.stopPropagation(); if(confirm('Cancel this trip?')) cancelTrip(${r.id})">Cancel</button>
               <button class="mini" type="button" onclick="event.stopPropagation();startTrip(${r.id})">Start Trip</button>
             </div>
-          </div>` : ''}
-        ${r.status === 'In Progress' ? `
+          </div>`
+            : ""
+        }
+        ${
+          r.status === "In Progress"
+            ? `
           <div class="driver-row" style="margin-top:10px;border-top:1px solid var(--line);padding-top:12px">
             <span class="avatar" style="background:var(--blue-2);color:var(--blue)">${escapeHTML(driverInitials)}</span>
             <div><b>${escapeHTML(r.assigned_driver)}</b><span>En route · Passenger notified</span></div>
             <div style="display:flex; gap:6px">
               <button class="mini" type="button" onclick="event.stopPropagation();completeTrip(${r.id})">Complete</button>
             </div>
-          </div>` : ''}
+          </div>`
+            : ""
+        }
       `;
-        board.appendChild(card);
-      });
-    }
-
-    function filterDriversForTrip(input, tripId) {
-      const q = input.value.toLowerCase().trim();
-      const res = document.getElementById(`driverResults-${tripId}`);
-      if (!q) { res.style.display = 'none'; return; }
-      const matches = driversData.filter(d => d.name.toLowerCase().includes(q));
-      res.innerHTML = matches.length
-        ? matches.map(d => `<div class="driver-search-item" onclick="assignDriver(${tripId}, ${d.id})"><b>${escapeHTML(d.name)}</b> · ${escapeHTML(d.vehicle)} · <span style="color:${d.status === 'Online' ? 'var(--green)' : 'var(--amber)'}">${escapeHTML(d.status)}</span></div>`).join('')
-        : '<div class="driver-search-item">No drivers found</div>';
-      res.style.display = 'block';
-    }
-
-    document.addEventListener('click', () => document.querySelectorAll('.driver-search-results').forEach(el => el.style.display = 'none'));
-
-    function renderDrivers() {
-      const board = document.getElementById('driverBoard');
-      board.innerHTML = '';
-      if (!driversData.length) {
-        board.innerHTML = '<div style="padding:40px;color:var(--soft);text-align:center;grid-column:1/-1;font-size:14px">No drivers on roster. Add one above.</div>';
-        return;
+          board.appendChild(card);
+        });
       }
-      driversData.forEach(d => {
-        const card = document.createElement('article');
-        card.className = `driver-card${d.status === 'Offline' ? ' is-offline' : ''}`;
-        const hasLocation = !!driverMarkers[d.id];
-        const activeTrip = reservationsData.find(r => r.assigned_driver === d.name && (r.status === 'Assigned' || r.status === 'Pending confirmation'));
-        const safeName = d.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        const toggleClass = d.status === 'Online' ? 'is-online' : d.status === 'Busy' ? 'is-busy' : 'is-offline';
-        const toggleLabel = d.status === 'Online' ? 'Online' : d.status === 'Busy' ? 'On Trip' : 'Offline';
-        const isBusy = d.status === 'Busy';
 
-        card.innerHTML = `
+      function filterDriversForTrip(input, tripId) {
+        const q = input.value.toLowerCase().trim();
+        const res = document.getElementById(`driverResults-${tripId}`);
+        if (!q) {
+          res.style.display = "none";
+          return;
+        }
+        const matches = driversData.filter((d) =>
+          d.name.toLowerCase().includes(q),
+        );
+        res.innerHTML = matches.length
+          ? matches
+              .map(
+                (d) =>
+                  `<div class="driver-search-item" onclick="assignDriver(${tripId}, ${d.id})"><b>${escapeHTML(d.name)}</b> · ${escapeHTML(d.vehicle)} · <span style="color:${d.status === "Online" ? "var(--green)" : "var(--amber)"}">${escapeHTML(d.status)}</span></div>`,
+              )
+              .join("")
+          : '<div class="driver-search-item">No drivers found</div>';
+        res.style.display = "block";
+      }
+
+      document.addEventListener("click", () =>
+        document
+          .querySelectorAll(".driver-search-results")
+          .forEach((el) => (el.style.display = "none")),
+      );
+
+      function renderDrivers() {
+        const board = document.getElementById("driverBoard");
+        board.innerHTML = "";
+        if (!driversData.length) {
+          board.innerHTML =
+            '<div style="padding:40px;color:var(--soft);text-align:center;grid-column:1/-1;font-size:14px">No drivers on roster. Add one above.</div>';
+          return;
+        }
+        driversData.forEach((d) => {
+          const card = document.createElement("article");
+          card.className = `driver-card${d.status === "Offline" ? " is-offline" : ""}`;
+          const hasLocation = !!driverMarkers[d.id];
+          const activeTrip = reservationsData.find(
+            (r) =>
+              r.assigned_driver === d.name &&
+              (r.status === "Assigned" || r.status === "Pending confirmation"),
+          );
+          const safeName = d.name.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+          const toggleClass =
+            d.status === "Online"
+              ? "is-online"
+              : d.status === "Busy"
+                ? "is-busy"
+                : "is-offline";
+          const toggleLabel =
+            d.status === "Online"
+              ? "Online"
+              : d.status === "Busy"
+                ? "On Trip"
+                : "Offline";
+          const isBusy = d.status === "Busy";
+
+          card.innerHTML = `
         <div class="driver-row">
-          <span class="avatar">${escapeHTML(d.name.split(' ').map(n => n[0]).join('').slice(0, 2))}</span>
+          <span class="avatar">${escapeHTML(
+            d.name
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .slice(0, 2),
+          )}</span>
           <div>
             <b>${escapeHTML(d.name)}</b>
-            <span>${escapeHTML(d.vehicle)}${hasLocation ? ' · 📍 live' : ''}</span>
-            ${activeTrip ? `<div style="font-size:11px; color:var(--blue); margin-top:2px">↳ Trip #${activeTrip.id}: ${escapeHTML(activeTrip.pickup.split(',')[0])}</div>` : ''}
+            <span>${escapeHTML(d.vehicle)}${hasLocation ? " · 📍 live" : ""}</span>
+            ${activeTrip ? `<div style="font-size:11px; color:var(--blue); margin-top:2px">↳ Trip #${activeTrip.id}: ${escapeHTML(activeTrip.pickup.split(",")[0])}</div>` : ""}
           </div>
-          <span class="status ${d.status === 'Online' ? 'green' : d.status === 'Busy' ? 'blue' : 'amber'}">
-            ${d.status === 'Online' ? 'Ready' : d.status === 'Busy' ? 'On Trip' : 'Offline'}
+          <span class="status ${d.status === "Online" ? "green" : d.status === "Busy" ? "blue" : "amber"}">
+            ${d.status === "Online" ? "Ready" : d.status === "Busy" ? "On Trip" : "Offline"}
           </span>
         </div>
         <div class="meta">
-          ${d.phone ? `<span>📞 ${escapeHTML(d.phone)}</span>` : ''}
-          ${d.email ? `<span>✉️ ${escapeHTML(d.email)}</span>` : ''}
+          ${d.phone ? `<span>📞 ${escapeHTML(d.phone)}</span>` : ""}
+          ${d.email ? `<span>✉️ ${escapeHTML(d.email)}</span>` : ""}
         </div>
         <div class="driver-card-footer">
           <button class="driver-status-toggle ${toggleClass}"
                   onclick="toggleDriverStatus(${d.id}, '${escapeHTML(d.status)}')"
-                  ${isBusy ? 'disabled title="Driver is on an active trip"' : ''}>
+                  ${isBusy ? 'disabled title="Driver is on an active trip"' : ""}>
             <span class="toggle-pip"></span>
             ${toggleLabel}
           </button>
@@ -2038,418 +2549,545 @@
           </button>
         </div>
       `;
-        board.appendChild(card);
-      });
-    }
-
-    function selectTrip(id) {
-      selectedTripId = id;
-      document.getElementById('noteInputContainer').style.display = 'block';
-      const trip = reservationsData.find(r => r.id === id);
-      if (trip) drawRoute(trip);
-      renderBoard();
-      renderTimeline();
-    }
-
-    function renderTimeline() {
-      const list = document.getElementById('timelineList');
-      const trip = reservationsData.find(r => r.id === selectedTripId);
-      if (!trip) return;
-      document.getElementById('timelineSub').textContent = `Activity for ${trip.customer}'s trip (#${trip.id})`;
-      if (!trip.events?.length) {
-        list.innerHTML = '<div style="padding:40px;color:var(--muted);text-align:center;font-size:14px">No activity recorded.</div>';
-        return;
+          board.appendChild(card);
+        });
       }
-      list.innerHTML = trip.events.map(e => `
+
+      function selectTrip(id) {
+        selectedTripId = id;
+        document.getElementById("noteInputContainer").style.display = "block";
+        const trip = reservationsData.find((r) => r.id === id);
+        if (trip) drawRoute(trip);
+        renderBoard();
+        renderTimeline();
+      }
+
+      function renderTimeline() {
+        const list = document.getElementById("timelineList");
+        const trip = reservationsData.find((r) => r.id === selectedTripId);
+        if (!trip) return;
+        document.getElementById("timelineSub").textContent =
+          `Activity for ${trip.customer}'s trip (#${trip.id})`;
+        if (!trip.events?.length) {
+          list.innerHTML =
+            '<div style="padding:40px;color:var(--muted);text-align:center;font-size:14px">No activity recorded.</div>';
+          return;
+        }
+        list.innerHTML = trip.events
+          .map(
+            (e) => `
       <div class="event">
         <div class="time">${escapeHTML(e.time)}</div>
         <div class="event-body"><b>${escapeHTML(e.title)}</b>${escapeHTML(e.body)}</div>
-      </div>`).join('');
-    }
+      </div>`,
+          )
+          .join("");
+      }
 
-    // ── Archive trips ──
-    window.archiveTrip = async (id) => {
-      try {
-        const r = await fetch(`/api/reservations/${id}/archive`, { method: 'POST' });
-        if (!r.ok) throw new Error('Failed to close trip');
-        fetchReservations();
-      } catch (err) { showToast('Error', err.message); }
-    };
+      // ── Archive trips ──
+      window.archiveTrip = async (id) => {
+        try {
+          const r = await fetch(`/api/reservations/${id}/archive`, {
+            method: "POST",
+          });
+          if (!r.ok) throw new Error("Failed to close trip");
+          fetchReservations();
+        } catch (err) {
+          showToast("Error", err.message);
+        }
+      };
 
-    window.clearAllTrips = async () => {
-      if (!confirm(`Clear all ${currentFilter} trips from the board?`)) return;
-      try {
-        const r = await fetch('/api/reservations/archive-all', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: currentFilter })
+      window.clearAllTrips = async () => {
+        if (!confirm(`Clear all ${currentFilter} trips from the board?`))
+          return;
+        try {
+          const r = await fetch("/api/reservations/archive-all", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: currentFilter }),
+          });
+          if (!r.ok) throw new Error("Failed to clear trips");
+          showToast(
+            "Cleared",
+            `All ${currentFilter} trips removed from board.`,
+          );
+          fetchReservations();
+        } catch (err) {
+          showToast("Error", err.message);
+        }
+      };
+
+      // ── Tabs & search ──
+      document.querySelectorAll("#dispatchTabs .tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          document
+            .querySelectorAll("#dispatchTabs .tab")
+            .forEach((t) => t.classList.remove("active"));
+          tab.classList.add("active");
+          currentFilter = tab.dataset.filter;
+          const showClear =
+            currentFilter === "Completed" || currentFilter === "Cancelled";
+          document
+            .getElementById("clearAllBtn")
+            .classList.toggle("show", showClear);
+          renderBoard();
         });
-        if (!r.ok) throw new Error('Failed to clear trips');
-        showToast('Cleared', `All ${currentFilter} trips removed from board.`);
-        fetchReservations();
-      } catch (err) { showToast('Error', err.message); }
-    };
+      });
 
-    // ── Tabs & search ──
-    document.querySelectorAll('#dispatchTabs .tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('#dispatchTabs .tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        currentFilter = tab.dataset.filter;
-        const showClear = currentFilter === 'Completed' || currentFilter === 'Cancelled';
-        document.getElementById('clearAllBtn').classList.toggle('show', showClear);
+      document.getElementById("searchInput").addEventListener("input", (e) => {
+        searchQuery = e.target.value;
         renderBoard();
       });
-    });
 
-    document.getElementById('searchInput').addEventListener('input', e => {
-      searchQuery = e.target.value;
-      renderBoard();
-    });
-
-    // ── Actions ──
-    window.assignDriver = async (id, driverId) => {
-      try {
-        const r = await fetch(`/api/reservations/${id}/assign`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ driver_id: driverId })
-        });
-        if (!r.ok) {
-          let detail = 'Assignment failed';
-          try { const body = await r.json(); detail = body.detail || body.message || JSON.stringify(body); } catch (_) { detail = await r.text(); }
-          throw new Error(detail);
-        }
-        const data = await r.json();
-        if (data.message_sid === 'TWILIO_NOT_CONFIGURED') throw new Error('Twilio not configured');
-        showToast('Driver notified', 'Assigning chauffeur…');
-      } catch (e) { showToast('Error', e.message); }
-    };
-
-    window.completeTrip = async (id) => {
-      try {
-        const r = await fetch(`/api/reservations/${id}/complete`, { method: 'POST' });
-        if (!r.ok) throw new Error('Completion failed');
-        showToast('Trip completed', 'Reservation moved to history.');
-      } catch (e) { showToast('Error', e.message); }
-    };
-
-    window.cancelTrip = async (id) => {
-      try {
-        const r = await fetch(`/api/reservations/${id}/cancel`, { method: 'POST' });
-        if (!r.ok) throw new Error('Cancellation failed');
-        showToast('Trip cancelled', 'Reservation marked as cancelled.');
-      } catch (e) { showToast('Error', e.message); }
-    };
-
-    window.postNote = async () => {
-      const text = document.getElementById('newNote').value.trim();
-      if (!text || !selectedTripId) return;
-      try {
-        const r = await fetch(`/api/reservations/${selectedTripId}/notes`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text })
-        });
-        if (!r.ok) throw new Error('Failed to post note');
-        document.getElementById('newNote').value = '';
-      } catch (e) { showToast('Error', e.message); }
-    };
-
-    // ── New Trip Modal ──
-    function openNewTrip() {
-      document.getElementById('modalOverlay').classList.add('show');
-      setTimeout(() => document.getElementById('customer').focus(), 100);
-    }
-
-    function closeNewTrip() {
-      document.getElementById('modalOverlay').classList.remove('show');
-    }
-
-    function handleModalClick(e) {
-      if (e.target === document.getElementById('modalOverlay')) closeNewTrip();
-    }
-
-    // Close on Escape
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNewTrip(); });
-
-    // Quote
-    const vehicleEl = document.getElementById('vehicle');
-    function updateQuote() {
-      const base = Number(vehicleEl.options[vehicleEl.selectedIndex].dataset.base) || 126;
-      const total = base + 22;
-      document.getElementById('baseFare').textContent = '$' + base;
-      document.getElementById('driverPay').textContent = '$' + Math.round(total * .7);
-      document.getElementById('totalFare').textContent = '$' + total;
-    }
-    vehicleEl.addEventListener('change', updateQuote);
-    updateQuote();
-
-    // Form submit
-    document.getElementById('reservationForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const payload = Object.fromEntries(new FormData(e.target).entries());
-      try {
-        const r = await fetch('/api/reservations', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-        });
-        if (!r.ok) throw new Error('API error');
-        const result = await r.json();
-        closeNewTrip();
-        showToast('Reservation created', `Trip #${result.reservation.id} added to dispatch board.`);
-        e.target.reset();
-        updateQuote();
-      } catch (err) {
-        showToast('Error', 'Backend may be offline. Check server.');
-      }
-    });
-
-    // Address autocomplete in modal
-    function debounce(fn, ms = 280) {
-      let t;
-      return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
-    }
-
-    class AddressAutocomplete {
-      constructor(input, latEl, lonEl) {
-        this.input = input; this.latEl = latEl; this.lonEl = lonEl;
-        this.data = []; this.activeIdx = -1;
-        this.box = document.createElement('div');
-        this.box.className = 'autocomplete-results';
-        input.parentNode.appendChild(this.box);
-        input.addEventListener('input', debounce(() => this.search()));
-        input.addEventListener('keydown', e => this.onKey(e));
-        document.addEventListener('click', ev => { if (!input.contains(ev.target) && !this.box.contains(ev.target)) this.hide(); });
-      }
-      async search() {
-        const q = this.input.value.trim();
-        if (q.length < 3) return this.hide();
-        this.box.innerHTML = '<div class="autocomplete-loading">Searching…</div>';
-        this.box.style.display = 'block';
+      // ── Actions ──
+      window.assignDriver = async (id, driverId) => {
         try {
-          const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
-          const json = await r.json();
-          this.data = json.results || [];
-          this.activeIdx = -1;
-          this.render();
-        } catch (e) { this.hide(); }
-      }
-      render() {
-        if (!this.data.length) return this.hide();
-        this.box.innerHTML = this.data.map((d, i) => `
-          <div class="autocomplete-item${i === this.activeIdx ? ' active' : ''}">
-            <div class="ac-line1">${escapeHTML(d.line1 || d.display_name)}</div>
-            ${d.line2 ? `<div class="ac-line2">${escapeHTML(d.line2)}</div>` : ''}
-          </div>`).join('');
-        this.box.style.display = 'block';
-        this.box.querySelectorAll('.autocomplete-item').forEach((el, i) => {
-          el.addEventListener('mousedown', e => { e.preventDefault(); this.select(i); });
-        });
-      }
-      select(i) {
-        const d = this.data[i];
-        if (!d) return;
-        this.input.value = d.display_name;
-        if (this.latEl) this.latEl.value = d.lat;
-        if (this.lonEl) this.lonEl.value = d.lon;
-        this.hide();
-      }
-      onKey(e) {
-        if (!this.data.length) return;
-        if (e.key === 'ArrowDown') { e.preventDefault(); this.activeIdx = Math.min(this.activeIdx + 1, this.data.length - 1); this.render(); }
-        else if (e.key === 'ArrowUp') { e.preventDefault(); this.activeIdx = Math.max(this.activeIdx - 1, 0); this.render(); }
-        else if (e.key === 'Enter' && this.activeIdx >= 0) { e.preventDefault(); this.select(this.activeIdx); }
-        else if (e.key === 'Escape') this.hide();
-      }
-      hide() { this.box.style.display = 'none'; this.data = []; this.activeIdx = -1; }
-    }
-
-    new AddressAutocomplete(document.getElementById('pickup'), document.getElementById('pickup_lat'), document.getElementById('pickup_lon'));
-    new AddressAutocomplete(document.getElementById('dropoff'), document.getElementById('dropoff_lat'), document.getElementById('dropoff_lon'));
-
-    function showToast(title, body, ms = 2800) {
-      document.getElementById('toastTitle').textContent = title;
-      document.getElementById('toastBody').textContent = body;
-      const t = document.getElementById('toast');
-      t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), ms);
-    }
-
-    // ── Add Driver ──
-    function openAddDriver() {
-      document.getElementById('addDriverOverlay').classList.add('show');
-      setTimeout(() => document.getElementById('driverName').focus(), 100);
-    }
-
-    function closeAddDriver() {
-      document.getElementById('addDriverOverlay').classList.remove('show');
-      document.getElementById('addDriverForm').reset();
-    }
-
-    function handleAddDriverClick(e) {
-      if (e.target === document.getElementById('addDriverOverlay')) closeAddDriver();
-    }
-
-    document.getElementById('addDriverForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const payload = Object.fromEntries(new FormData(e.target).entries());
-      const btn = e.submitter || e.target.querySelector('[type=submit]');
-      btn.disabled = true;
-      try {
-        const r = await fetch('/api/drivers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (!r.ok) {
-          const err = await r.json();
-          throw new Error(err.detail || 'Failed to add driver');
+          const r = await fetch(`/api/reservations/${id}/assign`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ driver_id: driverId }),
+          });
+          if (!r.ok) {
+            let detail = "Assignment failed";
+            try {
+              const body = await r.json();
+              detail = body.detail || body.message || JSON.stringify(body);
+            } catch (_) {
+              detail = await r.text();
+            }
+            throw new Error(detail);
+          }
+          const data = await r.json();
+          if (data.message_sid === "TWILIO_NOT_CONFIGURED")
+            throw new Error("Twilio not configured");
+          showToast("Driver notified", "Assigning chauffeur…");
+        } catch (e) {
+          showToast("Error", e.message);
         }
-        closeAddDriver();
-        showToast('Driver added', `${payload.name} has been added to the roster.`);
-        fetchDrivers();
-      } catch (err) {
-        showToast('Error', err.message);
-      } finally {
-        btn.disabled = false;
-      }
-    });
-
-    // ── Toggle Driver Online/Offline ──
-    window.toggleDriverStatus = async (id, currentStatus) => {
-      if (currentStatus === 'Busy') {
-        showToast('Cannot change', 'Driver is on an active trip.');
-        return;
-      }
-      const newStatus = currentStatus === 'Online' ? 'Offline' : 'Online';
-      try {
-        const r = await fetch(`/api/drivers/${id}/status`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus })
-        });
-        if (!r.ok) {
-          const err = await r.json().catch(() => ({}));
-          throw new Error(err.detail || 'Failed to update status');
-        }
-        fetchDrivers();
-      } catch (err) {
-        showToast('Error', err.message);
-      }
-    };
-
-    // ── Delete Driver ──
-    let _pendingDeleteId = null;
-
-    function confirmDeleteDriver(id, name) {
-      _pendingDeleteId = id;
-      document.getElementById('deleteDriverName').textContent = name;
-      document.getElementById('deleteConfirmOverlay').classList.add('show');
-    }
-
-    function cancelDeleteDriver() {
-      _pendingDeleteId = null;
-      document.getElementById('deleteConfirmOverlay').classList.remove('show');
-    }
-
-    async function doDeleteDriver() {
-      if (!_pendingDeleteId) return;
-      const id = _pendingDeleteId;
-      cancelDeleteDriver();
-      try {
-        const r = await fetch(`/api/drivers/${id}`, { method: 'DELETE' });
-        if (!r.ok) throw new Error('Failed to remove driver');
-        showToast('Driver removed', 'Driver has been removed from the roster.');
-        fetchDrivers();
-      } catch (err) {
-        showToast('Error', err.message);
-      }
-    }
-
-    // ── Start Trip ──
-    window.startTrip = async (id) => {
-      try {
-        const r = await fetch(`/api/reservations/${id}/start`, { method: 'POST' });
-        if (!r.ok) {
-          const body = await r.json().catch(() => ({}));
-          throw new Error(body.detail || 'Failed to start trip');
-        }
-        showToast('Trip started', 'Passenger info SMS sent to driver.');
-      } catch (e) { showToast('Error', e.message); }
-    };
-
-    // ── Edit Driver ──
-    window.openEditDriver = function(driverId) {
-      const d = driversData.find(dr => dr.id === driverId);
-      if (!d) return;
-      document.getElementById('editDriverId').value = d.id;
-      document.getElementById('editDriverName').value = d.name;
-      document.getElementById('editDriverEmail').value = d.email || '';
-      document.getElementById('editDriverPhone').value = d.phone || '';
-      document.getElementById('editDriverVehicle').value = d.vehicle;
-      document.getElementById('editDriverOverlay').classList.add('show');
-      setTimeout(() => document.getElementById('editDriverName').focus(), 100);
-    };
-
-    function closeEditDriver() {
-      document.getElementById('editDriverOverlay').classList.remove('show');
-      document.getElementById('editDriverForm').reset();
-    }
-
-    function handleEditDriverClick(e) {
-      if (e.target === document.getElementById('editDriverOverlay')) closeEditDriver();
-    }
-
-    document.getElementById('editDriverForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const id = document.getElementById('editDriverId').value;
-      const payload = {
-        name: document.getElementById('editDriverName').value.trim(),
-        email: document.getElementById('editDriverEmail').value.trim() || null,
-        phone: document.getElementById('editDriverPhone').value.trim(),
-        vehicle: document.getElementById('editDriverVehicle').value,
       };
-      const btn = e.submitter || e.target.querySelector('[type=submit]');
-      btn.disabled = true;
-      try {
-        const r = await fetch(`/api/drivers/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (!r.ok) {
-          const err = await r.json().catch(() => ({}));
-          throw new Error(err.detail || 'Update failed');
+
+      window.completeTrip = async (id) => {
+        try {
+          const r = await fetch(`/api/reservations/${id}/complete`, {
+            method: "POST",
+          });
+          if (!r.ok) throw new Error("Completion failed");
+          showToast("Trip completed", "Reservation moved to history.");
+        } catch (e) {
+          showToast("Error", e.message);
         }
-        closeEditDriver();
-        showToast('Driver updated', `${payload.name}'s information has been saved.`);
+      };
+
+      window.cancelTrip = async (id) => {
+        try {
+          const r = await fetch(`/api/reservations/${id}/cancel`, {
+            method: "POST",
+          });
+          if (!r.ok) throw new Error("Cancellation failed");
+          showToast("Trip cancelled", "Reservation marked as cancelled.");
+        } catch (e) {
+          showToast("Error", e.message);
+        }
+      };
+
+      window.postNote = async () => {
+        const text = document.getElementById("newNote").value.trim();
+        if (!text || !selectedTripId) return;
+        try {
+          const r = await fetch(`/api/reservations/${selectedTripId}/notes`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+          });
+          if (!r.ok) throw new Error("Failed to post note");
+          document.getElementById("newNote").value = "";
+        } catch (e) {
+          showToast("Error", e.message);
+        }
+      };
+
+      // ── New Trip Modal ──
+      function openNewTrip() {
+        document.getElementById("modalOverlay").classList.add("show");
+        setTimeout(() => document.getElementById("customer").focus(), 100);
+      }
+
+      function closeNewTrip() {
+        document.getElementById("modalOverlay").classList.remove("show");
+      }
+
+      function handleModalClick(e) {
+        if (e.target === document.getElementById("modalOverlay"))
+          closeNewTrip();
+      }
+
+      // Close on Escape
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeNewTrip();
+      });
+
+      // Quote
+      const vehicleEl = document.getElementById("vehicle");
+      function updateQuote() {
+        const base =
+          Number(vehicleEl.options[vehicleEl.selectedIndex].dataset.base) ||
+          126;
+        const total = base + 22;
+        document.getElementById("baseFare").textContent = "$" + base;
+        document.getElementById("driverPay").textContent =
+          "$" + Math.round(total * 0.7);
+        document.getElementById("totalFare").textContent = "$" + total;
+      }
+      vehicleEl.addEventListener("change", updateQuote);
+      updateQuote();
+
+      // Form submit
+      document
+        .getElementById("reservationForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const payload = Object.fromEntries(new FormData(e.target).entries());
+          try {
+            const r = await fetch("/api/reservations", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!r.ok) throw new Error("API error");
+            const result = await r.json();
+            closeNewTrip();
+            showToast(
+              "Reservation created",
+              `Trip #${result.reservation.id} added to dispatch board.`,
+            );
+            e.target.reset();
+            updateQuote();
+          } catch (err) {
+            showToast("Error", "Backend may be offline. Check server.");
+          }
+        });
+
+      // Address autocomplete in modal
+      function debounce(fn, ms = 280) {
+        let t;
+        return (...a) => {
+          clearTimeout(t);
+          t = setTimeout(() => fn(...a), ms);
+        };
+      }
+
+      class AddressAutocomplete {
+        constructor(input, latEl, lonEl) {
+          this.input = input;
+          this.latEl = latEl;
+          this.lonEl = lonEl;
+          this.data = [];
+          this.activeIdx = -1;
+          this.box = document.createElement("div");
+          this.box.className = "autocomplete-results";
+          input.parentNode.appendChild(this.box);
+          input.addEventListener(
+            "input",
+            debounce(() => this.search()),
+          );
+          input.addEventListener("keydown", (e) => this.onKey(e));
+          document.addEventListener("click", (ev) => {
+            if (!input.contains(ev.target) && !this.box.contains(ev.target))
+              this.hide();
+          });
+        }
+        async search() {
+          const q = this.input.value.trim();
+          if (q.length < 3) return this.hide();
+          this.box.innerHTML =
+            '<div class="autocomplete-loading">Searching…</div>';
+          this.box.style.display = "block";
+          try {
+            const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+            const json = await r.json();
+            this.data = json.results || [];
+            this.activeIdx = -1;
+            this.render();
+          } catch (e) {
+            this.hide();
+          }
+        }
+        render() {
+          if (!this.data.length) return this.hide();
+          this.box.innerHTML = this.data
+            .map(
+              (d, i) => `
+          <div class="autocomplete-item${i === this.activeIdx ? " active" : ""}">
+            <div class="ac-line1">${escapeHTML(d.line1 || d.display_name)}</div>
+            ${d.line2 ? `<div class="ac-line2">${escapeHTML(d.line2)}</div>` : ""}
+          </div>`,
+            )
+            .join("");
+          this.box.style.display = "block";
+          this.box.querySelectorAll(".autocomplete-item").forEach((el, i) => {
+            el.addEventListener("mousedown", (e) => {
+              e.preventDefault();
+              this.select(i);
+            });
+          });
+        }
+        select(i) {
+          const d = this.data[i];
+          if (!d) return;
+          this.input.value = d.display_name;
+          if (this.latEl) this.latEl.value = d.lat;
+          if (this.lonEl) this.lonEl.value = d.lon;
+          this.hide();
+        }
+        onKey(e) {
+          if (!this.data.length) return;
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            this.activeIdx = Math.min(this.activeIdx + 1, this.data.length - 1);
+            this.render();
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            this.activeIdx = Math.max(this.activeIdx - 1, 0);
+            this.render();
+          } else if (e.key === "Enter" && this.activeIdx >= 0) {
+            e.preventDefault();
+            this.select(this.activeIdx);
+          } else if (e.key === "Escape") this.hide();
+        }
+        hide() {
+          this.box.style.display = "none";
+          this.data = [];
+          this.activeIdx = -1;
+        }
+      }
+
+      new AddressAutocomplete(
+        document.getElementById("pickup"),
+        document.getElementById("pickup_lat"),
+        document.getElementById("pickup_lon"),
+      );
+      new AddressAutocomplete(
+        document.getElementById("dropoff"),
+        document.getElementById("dropoff_lat"),
+        document.getElementById("dropoff_lon"),
+      );
+
+      function showToast(title, body, ms = 2800) {
+        document.getElementById("toastTitle").textContent = title;
+        document.getElementById("toastBody").textContent = body;
+        const t = document.getElementById("toast");
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), ms);
+      }
+
+      // ── Add Driver ──
+      function openAddDriver() {
+        document.getElementById("addDriverOverlay").classList.add("show");
+        setTimeout(() => document.getElementById("driverName").focus(), 100);
+      }
+
+      function closeAddDriver() {
+        document.getElementById("addDriverOverlay").classList.remove("show");
+        document.getElementById("addDriverForm").reset();
+      }
+
+      function handleAddDriverClick(e) {
+        if (e.target === document.getElementById("addDriverOverlay"))
+          closeAddDriver();
+      }
+
+      document
+        .getElementById("addDriverForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const payload = Object.fromEntries(new FormData(e.target).entries());
+          const btn = e.submitter || e.target.querySelector("[type=submit]");
+          btn.disabled = true;
+          try {
+            const r = await fetch("/api/drivers", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!r.ok) {
+              const err = await r.json();
+              throw new Error(err.detail || "Failed to add driver");
+            }
+            closeAddDriver();
+            showToast(
+              "Driver added",
+              `${payload.name} has been added to the roster.`,
+            );
+            fetchDrivers();
+          } catch (err) {
+            showToast("Error", err.message);
+          } finally {
+            btn.disabled = false;
+          }
+        });
+
+      // ── Toggle Driver Online/Offline ──
+      window.toggleDriverStatus = async (id, currentStatus) => {
+        if (currentStatus === "Busy") {
+          showToast("Cannot change", "Driver is on an active trip.");
+          return;
+        }
+        const newStatus = currentStatus === "Online" ? "Offline" : "Online";
+        try {
+          const r = await fetch(`/api/drivers/${id}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: newStatus }),
+          });
+          if (!r.ok) {
+            const err = await r.json().catch(() => ({}));
+            throw new Error(err.detail || "Failed to update status");
+          }
+          fetchDrivers();
+        } catch (err) {
+          showToast("Error", err.message);
+        }
+      };
+
+      // ── Delete Driver ──
+      let _pendingDeleteId = null;
+
+      function confirmDeleteDriver(id, name) {
+        _pendingDeleteId = id;
+        document.getElementById("deleteDriverName").textContent = name;
+        document.getElementById("deleteConfirmOverlay").classList.add("show");
+      }
+
+      function cancelDeleteDriver() {
+        _pendingDeleteId = null;
+        document
+          .getElementById("deleteConfirmOverlay")
+          .classList.remove("show");
+      }
+
+      async function doDeleteDriver() {
+        if (!_pendingDeleteId) return;
+        const id = _pendingDeleteId;
+        cancelDeleteDriver();
+        try {
+          const r = await fetch(`/api/drivers/${id}`, { method: "DELETE" });
+          if (!r.ok) throw new Error("Failed to remove driver");
+          showToast(
+            "Driver removed",
+            "Driver has been removed from the roster.",
+          );
+          fetchDrivers();
+        } catch (err) {
+          showToast("Error", err.message);
+        }
+      }
+
+      // ── Start Trip ──
+      window.startTrip = async (id) => {
+        try {
+          const r = await fetch(`/api/reservations/${id}/start`, {
+            method: "POST",
+          });
+          if (!r.ok) {
+            const body = await r.json().catch(() => ({}));
+            throw new Error(body.detail || "Failed to start trip");
+          }
+          showToast("Trip started", "Passenger info SMS sent to driver.");
+        } catch (e) {
+          showToast("Error", e.message);
+        }
+      };
+
+      // ── Edit Driver ──
+      window.openEditDriver = function (driverId) {
+        const d = driversData.find((dr) => dr.id === driverId);
+        if (!d) return;
+        document.getElementById("editDriverId").value = d.id;
+        document.getElementById("editDriverName").value = d.name;
+        document.getElementById("editDriverEmail").value = d.email || "";
+        document.getElementById("editDriverPhone").value = d.phone || "";
+        document.getElementById("editDriverVehicle").value = d.vehicle;
+        document.getElementById("editDriverOverlay").classList.add("show");
+        setTimeout(
+          () => document.getElementById("editDriverName").focus(),
+          100,
+        );
+      };
+
+      function closeEditDriver() {
+        document.getElementById("editDriverOverlay").classList.remove("show");
+        document.getElementById("editDriverForm").reset();
+      }
+
+      function handleEditDriverClick(e) {
+        if (e.target === document.getElementById("editDriverOverlay"))
+          closeEditDriver();
+      }
+
+      document
+        .getElementById("editDriverForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const id = document.getElementById("editDriverId").value;
+          const payload = {
+            name: document.getElementById("editDriverName").value.trim(),
+            email:
+              document.getElementById("editDriverEmail").value.trim() || null,
+            phone: document.getElementById("editDriverPhone").value.trim(),
+            vehicle: document.getElementById("editDriverVehicle").value,
+          };
+          const btn = e.submitter || e.target.querySelector("[type=submit]");
+          btn.disabled = true;
+          try {
+            const r = await fetch(`/api/drivers/${id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!r.ok) {
+              const err = await r.json().catch(() => ({}));
+              throw new Error(err.detail || "Update failed");
+            }
+            closeEditDriver();
+            showToast(
+              "Driver updated",
+              `${payload.name}'s information has been saved.`,
+            );
+            fetchDrivers();
+          } catch (err) {
+            showToast("Error", err.message);
+          } finally {
+            btn.disabled = false;
+          }
+        });
+
+      async function loadCurrentUser() {
+        try {
+          const r = await fetch("/api/me");
+          if (r.status === 401) {
+            location.href = "/login";
+            return;
+          }
+          const u = await r.json();
+          document.getElementById("sidebarUserName").textContent =
+            u.name || u.email;
+          document.getElementById("sidebarUserRole").textContent =
+            u.role === "admin" ? "Admin" : "Operator";
+          document.getElementById("sidebarUserEmail").textContent = u.email;
+        } catch (e) {
+          document.getElementById("sidebarUserName").textContent = "Operator";
+        }
+      }
+
+      function _init() {
+        loadCurrentUser();
+        connectWebSocket();
+        fetchReservations();
         fetchDrivers();
-      } catch (err) {
-        showToast('Error', err.message);
-      } finally {
-        btn.disabled = false;
       }
-    });
 
-    async function loadCurrentUser() {
-      try {
-        const r = await fetch('/api/me');
-        if (r.status === 401) { location.href = '/login'; return; }
-        const u = await r.json();
-        document.getElementById('sidebarUserName').textContent  = u.name || u.email;
-        document.getElementById('sidebarUserRole').textContent  = u.role === 'admin' ? 'Admin' : 'Operator';
-        document.getElementById('sidebarUserEmail').textContent = u.email;
-      } catch (e) {
-        document.getElementById('sidebarUserName').textContent = 'Operator';
-      }
-    }
-
-    function _init() {
-      loadCurrentUser();
-      connectWebSocket();
-      fetchReservations();
-      fetchDrivers();
-    }
-
-    // ── Init ──
-    _init();
-  </script>
-</body>
-
+      // ── Init ──
+      _init();
+    </script>
+  </body>
 </html>

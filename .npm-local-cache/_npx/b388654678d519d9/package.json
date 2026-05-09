@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "prettier": "^3.8.3"
+  },
+  "_npx": {
+    "packages": [
+      "prettier"
+    ]
+  }
+}
