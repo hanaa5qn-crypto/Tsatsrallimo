@@ -2,9 +2,9 @@ services:
   - type: web
     name: tsatsral-limo
     runtime: python
-    rootDir: middle man project
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn -c gunicorn_conf.py app:app
+    rootDir: "middle man project"
+    buildCommand: pip install -r "middle man project/requirements.txt"
+    startCommand: bash -c 'cd "middle man project" && exec gunicorn -c gunicorn_conf.py app:app'
     plan: free
     envVars:
       - key: PRODUCTION
