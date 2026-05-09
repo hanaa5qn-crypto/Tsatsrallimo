@@ -31,3 +31,6 @@ graphify-out/
 
 # Misc artifacts
 *.artifact.json
+
+# Local npm cache used by formatting
+.npm-local-cache/
