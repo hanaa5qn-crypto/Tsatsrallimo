@@ -321,7 +321,7 @@
       background: var(--panel);
       position: relative;
       overflow: hidden;
-      min-height: 230px;
+      min-height: 300px;
       box-shadow: var(--shadow)
     }
 
@@ -337,11 +337,11 @@
     }
 
     .route-icon {
-      width: 12px;
-      height: 12px;
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
-      border: 2px solid white;
-      box-shadow: 0 0 5px rgba(0, 0, 0, .3)
+      border: 2.5px solid white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .35)
     }
 
     .route-icon.pickup {
@@ -353,80 +353,97 @@
     }
 
     .driver-dot {
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
-      background: #e4f9a8;
-      border: 2px solid #15211d;
-      box-shadow: 0 0 0 5px rgba(228, 249, 168, .2), 0 0 10px rgba(56, 180, 120, .4);
-      animation: pulse-driver 2s ease infinite
+      background: #38b478;
+      border: 2.5px solid #fff;
+      box-shadow: 0 0 0 4px rgba(56, 180, 120, .25), 0 2px 10px rgba(0,0,0,.2);
+      animation: pulse-driver 2.2s ease infinite
     }
 
     @keyframes pulse-driver {
-
-      0%,
-      100% {
-        box-shadow: 0 0 0 4px rgba(228, 249, 168, .2), 0 0 10px rgba(56, 180, 120, .3)
-      }
-
-      50% {
-        box-shadow: 0 0 0 8px rgba(228, 249, 168, .1), 0 0 18px rgba(56, 180, 120, .2)
-      }
+      0%, 100% { box-shadow: 0 0 0 4px rgba(56, 180, 120, .2), 0 2px 10px rgba(0,0,0,.15) }
+      50%       { box-shadow: 0 0 0 8px rgba(56, 180, 120, .08), 0 2px 14px rgba(0,0,0,.1) }
     }
 
     .map-label {
-      background: rgba(17, 25, 23, .82);
+      background: rgba(17, 25, 23, .88);
       color: #eef5f0;
       font-size: 11px;
       font-weight: 700;
-      padding: 3px 7px;
-      border-radius: 4px;
+      padding: 3px 8px;
+      border-radius: 5px;
       white-space: nowrap;
-      pointer-events: none
+      pointer-events: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,.2)
+    }
+
+    #routeInfoBadge {
+      display: none;
+      position: absolute; top: 12px; right: 12px; z-index: 10;
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(4px);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 5px 13px;
+      font-size: 12px; font-weight: 700;
+      color: var(--green);
+      pointer-events: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,.1)
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 8px !important;
+      font-size: 12.5px !important;
+      box-shadow: 0 6px 20px rgba(0,0,0,.15) !important
     }
 
     .map-panel {
       position: absolute;
-      left: 14px;
-      right: 14px;
-      bottom: 14px;
-      background: rgba(255, 255, 255, .9);
-      backdrop-filter: blur(4px);
+      left: 12px;
+      bottom: 12px;
+      background: rgba(255, 255, 255, .88);
+      backdrop-filter: blur(6px);
       border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 12px 14px;
+      border-radius: 20px;
+      padding: 7px 13px;
       z-index: 10;
       color: var(--ink);
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px
+      gap: 10px;
+      pointer-events: none;
+      max-width: calc(100% - 24px)
     }
 
     .map-panel b {
-      display: block;
-      font-size: 13px
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap
     }
 
     .map-panel span {
-      font-size: 12px;
-      color: var(--muted)
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap
     }
 
     .drivers-online {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       font-size: 12px;
       font-weight: 700;
       color: var(--green)
     }
 
     .online-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: #38b478;
+      flex-shrink: 0;
       animation: pulse-dot 1.8s ease infinite
     }
 
@@ -1037,18 +1054,21 @@
       gap: 8px
     }
 
-    .driver-delete {
+    .driver-delete, .driver-edit {
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      border: 1px solid rgba(157, 46, 46, .18);
       border-radius: 6px;
       padding: 5px 10px;
       background: transparent;
-      color: var(--muted);
       font-size: 12px;
       font-weight: 650;
       transition: background .14s, color .14s, border-color .14s
+    }
+
+    .driver-delete {
+      border: 1px solid rgba(157, 46, 46, .18);
+      color: var(--muted)
     }
 
     .driver-delete:hover {
@@ -1057,7 +1077,18 @@
       color: var(--red)
     }
 
-    .driver-delete svg {
+    .driver-edit {
+      border: 1px solid var(--line);
+      color: var(--soft)
+    }
+
+    .driver-edit:hover {
+      background: var(--bg);
+      border-color: var(--muted);
+      color: var(--ink)
+    }
+
+    .driver-delete svg, .driver-edit svg {
       stroke: currentColor;
       stroke-width: 2;
       fill: none;
@@ -1107,6 +1138,20 @@
       flex-shrink: 0
     }
     .card-close:hover { background: #fee2e2; color: var(--red) }
+
+    .card-invoice {
+      border: 1px solid var(--line);
+      background: none;
+      color: var(--soft);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 650;
+      cursor: pointer;
+      flex-shrink: 0;
+      letter-spacing: .2px
+    }
+    .card-invoice:hover { background: var(--bg); color: var(--ink); border-color: var(--muted) }
 
     .clear-all-btn {
       border: 1px solid var(--line-strong);
@@ -1303,15 +1348,13 @@
           </div>
           <div class="live-map" aria-label="Live driver map">
             <div id="map"></div>
+            <div id="routeInfoBadge"></div>
             <div class="map-panel">
-              <div>
-                <b>Live driver locations</b>
-                <span id="mapSub">Waiting for driver positions…</span>
-              </div>
               <div class="drivers-online">
                 <span class="online-dot"></span>
                 <span id="onlineCount">0 online</span>
               </div>
+              <span id="mapSub">Waiting for driver positions…</span>
             </div>
           </div>
         </div>
@@ -1327,6 +1370,7 @@
               <div class="tabs" role="tablist" id="dispatchTabs">
                 <button class="tab active" data-filter="Needs driver" type="button">Open</button>
                 <button class="tab" data-filter="Assigned" type="button">Assigned</button>
+                <button class="tab" data-filter="In Progress" type="button">In Progress</button>
                 <button class="tab" data-filter="Completed" type="button">Completed</button>
                 <button class="tab" data-filter="Cancelled" type="button">Cancelled</button>
               </div>
@@ -1577,6 +1621,50 @@
     </div>
   </div>
 
+  <!-- Edit Driver Modal -->
+  <div class="modal-overlay" id="editDriverOverlay" onclick="handleEditDriverClick(event)">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editDriverTitle">
+      <div class="modal-head">
+        <h2 id="editDriverTitle">Edit driver</h2>
+        <button class="modal-close" onclick="closeEditDriver()" aria-label="Close">✕</button>
+      </div>
+      <form class="modal-form" id="editDriverForm">
+        <input type="hidden" id="editDriverId">
+        <div class="field">
+          <label for="editDriverName">Full name</label>
+          <input id="editDriverName" name="name" placeholder="e.g. Alex Smith" required>
+        </div>
+        <div class="two">
+          <div class="field">
+            <label for="editDriverEmail">Email</label>
+            <input id="editDriverEmail" name="email" type="email" placeholder="driver@example.com">
+          </div>
+          <div class="field">
+            <label for="editDriverPhone">Phone</label>
+            <input id="editDriverPhone" name="phone" type="tel" placeholder="4155550100" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="editDriverVehicle">Vehicle class</label>
+          <select id="editDriverVehicle" name="vehicle" required>
+            <option value="Black car">Black car</option>
+            <option value="Executive SUV">Executive SUV</option>
+            <option value="Sprinter van">Sprinter van</option>
+          </select>
+        </div>
+      </form>
+      <div class="modal-footer">
+        <button class="btn primary" type="submit" form="editDriverForm"
+          style="width:100%;padding:12px;justify-content:center">
+          <svg viewBox="0 0 24 24">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+          Save changes
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"><b id="toastTitle">Done</b><span id="toastBody"></span></div>
 
   <!-- Vendor scripts: Leaflet and Flatpickr (moved to end for faster render) -->
@@ -1606,23 +1694,36 @@
 
     // ── Map ──
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([37.7749, -122.4194], 12);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd' }).addTo(map);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    const routeIcon = (cls) => L.divIcon({ className: '', html: `<div class="route-icon ${cls}"></div>`, iconSize: [12, 12] });
+    const routeIcon = (cls) => L.divIcon({ className: '', html: `<div class="route-icon ${cls}"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
 
     let currentRouteLayer = null;
     let currentRouteMarkers = [];
 
     function makeDriverIcon(name) {
-      const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2);
+      const initials = (name || '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
       return L.divIcon({
         className: '',
-        html: `<div style="position:relative">
-        <div class="driver-dot"></div>
-        <div class="map-label" style="position:absolute;top:-24px;left:50%;transform:translateX(-50%)">${initials}</div>
-      </div>`,
-        iconSize: [14, 14],
-        iconAnchor: [7, 7]
+        html: `<div style="position:relative;width:16px;height:16px">
+          <div class="driver-dot"></div>
+          <div class="map-label" style="position:absolute;bottom:22px;left:50%;transform:translateX(-50%)">${escapeHTML(initials)}</div>
+        </div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      });
+    }
+
+    function animateLine(polyline) {
+      const path = polyline._path;
+      if (!path) return;
+      const len = path.getTotalLength();
+      path.style.strokeDasharray = len;
+      path.style.strokeDashoffset = len;
+      requestAnimationFrame(() => {
+        path.style.transition = 'stroke-dashoffset 1.3s cubic-bezier(0.4,0,0.2,1)';
+        path.style.strokeDashoffset = '0';
       });
     }
 
@@ -1632,7 +1733,7 @@
       } else {
         const marker = L.marker([lat, lon], { icon: makeDriverIcon(name) })
           .addTo(map)
-          .bindTooltip(name, { permanent: false, direction: 'top' });
+          .bindTooltip(escapeHTML(name), { permanent: false, direction: 'top', offset: [0, -10] });
         driverMarkers[driverId] = marker;
       }
     }
@@ -1658,6 +1759,7 @@
       if (currentRouteLayer) { map.removeLayer(currentRouteLayer); currentRouteLayer = null; }
       currentRouteMarkers.forEach(m => map.removeLayer(m));
       currentRouteMarkers = [];
+      document.getElementById('routeInfoBadge').style.display = 'none';
 
       let start = trip.pickup_lat && trip.pickup_lon
         ? [parseFloat(trip.pickup_lat), parseFloat(trip.pickup_lon)]
@@ -1668,22 +1770,29 @@
 
       if (!start || !end) return;
 
-      const m1 = L.marker(start, { icon: routeIcon('pickup') }).addTo(map).bindPopup('Pickup: ' + trip.pickup);
-      const m2 = L.marker(end, { icon: routeIcon('dropoff') }).addTo(map).bindPopup('Dropoff: ' + trip.dropoff);
+      const m1 = L.marker(start, { icon: routeIcon('pickup') }).addTo(map).bindPopup(`<b>Pickup</b><br>${escapeHTML(trip.pickup)}`);
+      const m2 = L.marker(end,   { icon: routeIcon('dropoff') }).addTo(map).bindPopup(`<b>Dropoff</b><br>${escapeHTML(trip.dropoff)}`);
       currentRouteMarkers.push(m1, m2);
 
       try {
         const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`);
         const data = await r.json();
         if (data.routes?.length) {
-          const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-          currentRouteLayer = L.polyline(coords, { color: 'var(--green)', weight: 4, opacity: 0.72 }).addTo(map);
-          map.fitBounds(currentRouteLayer.getBounds(), { padding: [40, 40] });
+          const route = data.routes[0];
+          const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+          currentRouteLayer = L.polyline(coords, { color: '#176b4d', weight: 5, opacity: 0.75 }).addTo(map);
+          animateLine(currentRouteLayer);
+          map.fitBounds(currentRouteLayer.getBounds(), { padding: [44, 44] });
+          const miles = (route.distance / 1609.34).toFixed(1);
+          const mins  = Math.round(route.duration / 60);
+          const badge = document.getElementById('routeInfoBadge');
+          badge.textContent = `${miles} mi · ${mins} min`;
+          badge.style.display = 'block';
         } else {
-          map.fitBounds(L.latLngBounds([start, end]), { padding: [40, 40] });
+          map.fitBounds(L.latLngBounds([start, end]), { padding: [44, 44] });
         }
       } catch (e) {
-        map.fitBounds(L.latLngBounds([start, end]), { padding: [40, 40] });
+        map.fitBounds(L.latLngBounds([start, end]), { padding: [44, 44] });
       }
     }
 
@@ -1761,6 +1870,9 @@
         if (currentFilter === 'Assigned') {
           return r.status === 'Assigned' || r.status === 'Pending confirmation';
         }
+        if (currentFilter === 'In Progress') {
+          return r.status === 'In Progress';
+        }
         return r.status === currentFilter;
       });
       if (searchQuery) {
@@ -1779,7 +1891,7 @@
       board.innerHTML = '';
       filtered.forEach(r => {
         const card = document.createElement('article');
-        card.className = `trip-card ${r.status === 'Assigned' ? 'assigned' : ''} ${selectedTripId === r.id ? 'selected' : ''}`;
+        card.className = `trip-card ${r.status === 'Assigned' || r.status === 'In Progress' ? 'assigned' : ''} ${selectedTripId === r.id ? 'selected' : ''}`;
         card.onclick = () => selectTrip(r.id);
 
         let timeStr = `${r.date} ${r.time}`;
@@ -1802,7 +1914,8 @@
             </div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:6px">
-            <span class="status ${r.status === 'Needs driver' ? 'amber' : r.status === 'Assigned' ? 'green' : r.status === 'Cancelled' ? 'red' : 'blue'}">${escapeHTML(r.status)}</span>
+            <span class="status ${r.status === 'Needs driver' ? 'amber' : r.status === 'Assigned' ? 'green' : r.status === 'In Progress' ? 'blue' : r.status === 'Cancelled' ? 'red' : 'blue'}">${escapeHTML(r.status)}</span>
+            ${r.status === 'Completed' ? `<button class="card-invoice" title="View invoice" onclick="event.stopPropagation();window.open('/invoice/${r.id}','_blank')">Invoice</button>` : ''}
             ${isResolved ? `<button class="card-close" title="Close trip" onclick="event.stopPropagation();archiveTrip(${r.id})">✕</button>` : ''}
           </div>
         </div>
@@ -1837,9 +1950,17 @@
         ${r.status === 'Assigned' ? `
           <div class="driver-row" style="margin-top:10px;border-top:1px solid var(--line);padding-top:12px">
             <span class="avatar">${escapeHTML(driverInitials)}</span>
-            <div><b>${escapeHTML(r.assigned_driver)}</b><span>Confirmed · Active</span></div>
+            <div><b>${escapeHTML(r.assigned_driver)}</b><span>Confirmed · Ready to dispatch</span></div>
             <div style="display:flex; gap:6px">
               <button class="mini" type="button" style="color:var(--red); border-color:rgba(157,46,46,.2)" onclick="event.stopPropagation(); if(confirm('Cancel this trip?')) cancelTrip(${r.id})">Cancel</button>
+              <button class="mini" type="button" onclick="event.stopPropagation();startTrip(${r.id})">Start Trip</button>
+            </div>
+          </div>` : ''}
+        ${r.status === 'In Progress' ? `
+          <div class="driver-row" style="margin-top:10px;border-top:1px solid var(--line);padding-top:12px">
+            <span class="avatar" style="background:var(--blue-2);color:var(--blue)">${escapeHTML(driverInitials)}</span>
+            <div><b>${escapeHTML(r.assigned_driver)}</b><span>En route · Passenger notified</span></div>
+            <div style="display:flex; gap:6px">
               <button class="mini" type="button" onclick="event.stopPropagation();completeTrip(${r.id})">Complete</button>
             </div>
           </div>` : ''}
@@ -1900,6 +2021,13 @@
                   ${isBusy ? 'disabled title="Driver is on an active trip"' : ''}>
             <span class="toggle-pip"></span>
             ${toggleLabel}
+          </button>
+          <button class="driver-edit" onclick="openEditDriver(${d.id})">
+            <svg viewBox="0 0 24 24" width="13" height="13">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Edit
           </button>
           <button class="driver-delete" onclick="confirmDeleteDriver(${d.id}, '${safeName}')">
             <svg viewBox="0 0 24 24" width="13" height="13">
@@ -2233,6 +2361,71 @@
         showToast('Error', err.message);
       }
     }
+
+    // ── Start Trip ──
+    window.startTrip = async (id) => {
+      try {
+        const r = await fetch(`/api/reservations/${id}/start`, { method: 'POST' });
+        if (!r.ok) {
+          const body = await r.json().catch(() => ({}));
+          throw new Error(body.detail || 'Failed to start trip');
+        }
+        showToast('Trip started', 'Passenger info SMS sent to driver.');
+      } catch (e) { showToast('Error', e.message); }
+    };
+
+    // ── Edit Driver ──
+    window.openEditDriver = function(driverId) {
+      const d = driversData.find(dr => dr.id === driverId);
+      if (!d) return;
+      document.getElementById('editDriverId').value = d.id;
+      document.getElementById('editDriverName').value = d.name;
+      document.getElementById('editDriverEmail').value = d.email || '';
+      document.getElementById('editDriverPhone').value = d.phone || '';
+      document.getElementById('editDriverVehicle').value = d.vehicle;
+      document.getElementById('editDriverOverlay').classList.add('show');
+      setTimeout(() => document.getElementById('editDriverName').focus(), 100);
+    };
+
+    function closeEditDriver() {
+      document.getElementById('editDriverOverlay').classList.remove('show');
+      document.getElementById('editDriverForm').reset();
+    }
+
+    function handleEditDriverClick(e) {
+      if (e.target === document.getElementById('editDriverOverlay')) closeEditDriver();
+    }
+
+    document.getElementById('editDriverForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editDriverId').value;
+      const payload = {
+        name: document.getElementById('editDriverName').value.trim(),
+        email: document.getElementById('editDriverEmail').value.trim() || null,
+        phone: document.getElementById('editDriverPhone').value.trim(),
+        vehicle: document.getElementById('editDriverVehicle').value,
+      };
+      const btn = e.submitter || e.target.querySelector('[type=submit]');
+      btn.disabled = true;
+      try {
+        const r = await fetch(`/api/drivers/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.detail || 'Update failed');
+        }
+        closeEditDriver();
+        showToast('Driver updated', `${payload.name}'s information has been saved.`);
+        fetchDrivers();
+      } catch (err) {
+        showToast('Error', err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
 
     async function loadCurrentUser() {
       try {

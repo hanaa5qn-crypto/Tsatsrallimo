@@ -208,8 +208,7 @@
 
     async function loadDrivers() {
       try {
-        const r = await fetch('/api/drivers');
-        if (r.status === 401) { location.href = '/login'; return; }
+        const r = await fetch('/api/drivers/public');
         const data = await r.json();
         const sel = document.getElementById('driverSelect');
         const fragment = document.createDocumentFragment();

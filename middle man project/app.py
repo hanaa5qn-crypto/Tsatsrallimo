@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, List
 import re
+import urllib.parse
 
 import httpx
 from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request, Form, Cookie
@@ -51,6 +52,7 @@ def _verify_password(password: str, stored: str) -> bool:
 # --- AUTH STATE ---
 # {token: {"user_id": int, "role": str, "name": str, "email": str, "expires": datetime}}
 _active_sessions: dict[str, dict] = {}
+_scheduled_reminders: dict[int, asyncio.Task] = {}  # reservation_id → pre-trip reminder task
 _SESSION_DURATION = timedelta(hours=8)
 _REMEMBER_ME_DURATION = timedelta(days=30)
 _booking_rate: dict[str, list[datetime]] = {}
@@ -178,6 +180,20 @@ class DriverCreate(BaseModel):
         return v
 
 
+class DriverUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1)
+    email: Optional[str] = None
+    phone: Optional[str] = Field(None, min_length=1)
+    vehicle: Optional[str] = None
+
+    @field_validator("vehicle")
+    @classmethod
+    def validate_vehicle(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in _ALLOWED_VEHICLES:
+            raise ValueError(f"Invalid vehicle. Allowed: {', '.join(_ALLOWED_VEHICLES)}")
+        return v
+
+
 class ReservationCreate(BaseModel):
     customer: str = Field(..., min_length=1)
     phone: Optional[str] = None
@@ -302,8 +318,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com; "
             "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
-            "img-src 'self' data: https://*.tile.openstreetmap.org; "
-            "connect-src 'self' https://photon.komoot.io https://router.project-osrm.org; "
+            "img-src 'self' data: https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com; "
+            "connect-src 'self' https://photon.komoot.io https://router.project-osrm.org https://*.basemaps.cartocdn.com; "
             "frame-ancestors 'none';"
         )
         return response
@@ -410,15 +426,19 @@ async def _midnight_archive_loop():
 
 
 def seed_admin_user(db: Session):
+    import sqlalchemy.exc
     admin_email = os.getenv("ADMIN_EMAIL", "admin@tsatslimo.com")
     admin_password = os.getenv("ADMIN_PASSWORD", os.getenv("DISPATCH_PASSWORD", ""))
     if not admin_password:
         return
     existing = db.query(UserModel).filter(UserModel.email == admin_email).first()
     if not existing:
-        hashed = _hash_password(admin_password)
-        db.add(UserModel(email=admin_email, hashed_password=hashed, name="Admin", role="admin"))
-        db.commit()
+        try:
+            hashed = _hash_password(admin_password)
+            db.add(UserModel(email=admin_email, hashed_password=hashed, name="Admin", role="admin"))
+            db.commit()
+        except sqlalchemy.exc.IntegrityError:
+            db.rollback()
 
 
 @app.on_event("startup")
@@ -546,10 +566,17 @@ def home():
 
 
 @app.get("/driver")
-def driver_location_page(session_token: Optional[str] = Cookie(default=None)):
-    if not _session_valid(session_token):
-        return RedirectResponse(url="/login", status_code=302)
+def driver_location_page():
     return FileResponse(BASE_DIR / "driver.html")
+
+
+@app.get("/api/drivers/public")
+def list_drivers_public(db: Session = Depends(get_db)):
+    drivers = db.query(DriverModel).filter(DriverModel.status != "Offline").all()
+    return {"status": "Success", "drivers": [
+        {"id": d.id, "name": d.name, "vehicle": d.vehicle, "status": d.status}
+        for d in drivers
+    ]}
 
 
 @app.get("/dispatch")
@@ -601,6 +628,179 @@ def landing_page():
 @app.get("/payment/{res_id}")
 def payment_page(res_id: int):
     return FileResponse(BASE_DIR / "payment.html")
+
+
+@app.get("/invoice/{res_id}")
+def invoice_page(res_id: int, db: Session = Depends(get_db), _: dict = Depends(require_admin)):
+    from fastapi.responses import HTMLResponse
+    r = db.query(ReservationModel).filter(ReservationModel.id == res_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    try:
+        hour = int((r.time or "12:00").split(":")[0])
+        total_cents = _calc_total_cents(r.vehicle, r.distance_miles or 0, hour)
+        total = total_cents / 100
+        rate, minimum = _VEHICLE_RATES.get(r.vehicle, (4.50, 88))
+        base = round(max(rate * (r.distance_miles or 0), float(minimum)), 2)
+        if hour >= 22 or hour < 5:
+            base = round(base * 1.25, 2)
+        elif (6 <= hour < 9) or (16 <= hour < 19):
+            base = round(base * 1.15, 2)
+        gratuity = round(base * 0.18, 2)
+        service_fee = 22.00
+        payout = round(total * 0.70, 2)
+        commission = round(total * 0.30, 2)
+    except Exception:
+        base = gratuity = service_fee = payout = commission = 0.0
+        total = 0.0
+
+    try:
+        dt = datetime.fromisoformat(f"{r.date}T{r.time}")
+        trip_date = dt.strftime("%B %-d, %Y · %-I:%M %p")
+    except Exception:
+        trip_date = f"{r.date} {r.time}"
+
+    phone_fmt = r.phone or ""
+    dist_str = f"{r.distance_miles:.2f} miles" if r.distance_miles else "N/A"
+    order_no = f"TSL-{r.id:03d}"
+
+    surcharge_rows = ""
+    if hour >= 22 or hour < 5:
+        surcharge_rows = "<tr><td>Late night surcharge (25%)</td><td>included</td></tr>"
+    elif (6 <= hour < 9) or (16 <= hour < 19):
+        surcharge_rows = "<tr><td>Rush hour surcharge (15%)</td><td>included</td></tr>"
+
+    notes_row = f"<div class='itin-row'><span class='itin-label'>Notes:</span> {r.notes}</div>" if r.notes else ""
+
+    html = f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Invoice {order_no} — Tsatsral Limo LLC</title>
+<style>
+  *{{box-sizing:border-box;margin:0;padding:0}}
+  body{{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#222;background:#fff;padding:48px}}
+  .page{{max-width:760px;margin:0 auto}}
+  .header{{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:28px;border-bottom:2px solid #111}}
+  .logo-name{{font-size:20px;font-weight:800;letter-spacing:-.5px;text-transform:uppercase}}
+  .logo-sub{{font-size:11px;color:#666;letter-spacing:.5px;margin-top:4px}}
+  .header-meta{{text-align:right;font-size:12px;color:#444;line-height:1.9}}
+  .header-meta strong{{color:#111}}
+  h1{{font-size:32px;font-weight:800;letter-spacing:-1px;margin:28px 0 24px}}
+  .contacts{{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:20px 0;border-top:1px solid #e5e5e5;border-bottom:1px solid #e5e5e5;margin-bottom:32px}}
+  .label{{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#999;margin-bottom:6px}}
+  .cname{{font-weight:700;font-size:14px;margin-bottom:3px}}
+  .detail{{color:#555;font-size:12px;line-height:1.7}}
+  h2{{font-size:16px;font-weight:700;margin-bottom:16px}}
+  .trip-card{{border:1px solid #e5e5e5;border-radius:8px;overflow:hidden;margin-bottom:24px}}
+  .trip-meta{{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid #e5e5e5}}
+  .trip-meta-item{{padding:14px 16px;border-right:1px solid #e5e5e5}}
+  .trip-meta-item:last-child{{border-right:none}}
+  .mlabel{{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#999;margin-bottom:5px}}
+  .mval{{font-weight:600;font-size:12px;color:#111}}
+  .itinerary{{padding:14px 16px;border-bottom:1px solid #e5e5e5;background:#fafafa}}
+  .itin-row{{display:flex;gap:12px;font-size:12px;color:#333;margin-bottom:4px}}
+  .itin-row:last-child{{margin-bottom:0}}
+  .itin-label{{color:#999;width:64px;flex-shrink:0}}
+  .line-items{{width:100%;border-collapse:collapse}}
+  .line-items td{{padding:11px 16px;font-size:12px}}
+  .line-items td:last-child{{text-align:right;font-weight:600}}
+  .line-items .hr td{{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#999;padding-bottom:8px;border-bottom:1px solid #e5e5e5}}
+  .line-items .sub td{{border-top:1px solid #e5e5e5;font-weight:700;background:#f7f7f7}}
+  .totals-block{{display:flex;justify-content:flex-end;margin-bottom:32px}}
+  .totals-table{{width:280px;border:1px solid #e5e5e5;border-radius:8px;overflow:hidden;border-collapse:collapse}}
+  .totals-table td{{padding:11px 16px;font-size:13px}}
+  .totals-table td:last-child{{text-align:right;font-weight:600}}
+  .grand td{{background:#111;color:#fff!important;font-weight:800!important;font-size:14px}}
+  .pay-table{{width:100%;border:1px solid #e5e5e5;border-radius:8px;overflow:hidden;border-collapse:collapse}}
+  .pay-table th{{padding:10px 16px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#999;text-align:left;border-bottom:1px solid #e5e5e5;background:#fafafa}}
+  .pay-table td{{padding:12px 16px;font-size:12px;color:#333}}
+  .due-row td{{font-weight:700;font-size:13px;color:#111;border-top:1px solid #e5e5e5;background:#fff9f0}}
+  .footer{{text-align:center;font-size:11px;color:#bbb;padding-top:24px;border-top:1px solid #eee;margin-top:32px}}
+  .print-btn{{display:block;margin:0 auto 32px;padding:10px 28px;background:#111;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.3px}}
+  .print-btn:hover{{background:#333}}
+  @media print{{.print-btn{{display:none}}body{{padding:0}}.page{{max-width:100%}}}}
+</style>
+</head>
+<body>
+<div class="page">
+  <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
+
+  <div class="header">
+    <div>
+      <div class="logo-name">Tsatsral Limo LLC</div>
+      <div class="logo-sub">Professional Chauffeur Service</div>
+    </div>
+    <div class="header-meta">
+      <div><strong>ORDER NO</strong> &nbsp;{order_no}</div>
+      <div><strong>DATE</strong> &nbsp;{r.date}</div>
+      <div><strong>STATUS</strong> &nbsp;Completed</div>
+    </div>
+  </div>
+
+  <h1>Invoice</h1>
+
+  <div class="contacts">
+    <div>
+      <div class="label">Billed To</div>
+      <div class="cname">{r.customer}</div>
+      <div class="detail">{phone_fmt}<br>{r.email or ''}</div>
+    </div>
+    <div>
+      <div class="label">Contact Us</div>
+      <div class="cname">Tsatsral Limo LLC</div>
+      <div class="detail">Contact@tsatslimo.com<br>(415) 699-4052</div>
+    </div>
+  </div>
+
+  <h2>Pricing</h2>
+  <div class="trip-card">
+    <div class="trip-meta">
+      <div class="trip-meta-item"><div class="mlabel">Trip #</div><div class="mval">{order_no}</div></div>
+      <div class="trip-meta-item"><div class="mlabel">Type</div><div class="mval">{r.trip_type}</div></div>
+      <div class="trip-meta-item"><div class="mlabel">Driver</div><div class="mval">{r.assigned_driver or '—'}</div></div>
+      <div class="trip-meta-item"><div class="mlabel">Date &amp; Time</div><div class="mval">{trip_date}</div></div>
+      <div class="trip-meta-item"><div class="mlabel">Vehicle</div><div class="mval">{r.vehicle}</div></div>
+    </div>
+    <div class="itinerary">
+      <div class="mlabel" style="margin-bottom:8px">Itinerary</div>
+      <div class="itin-row"><span class="itin-label">Pick-up:</span>{r.pickup}</div>
+      <div class="itin-row"><span class="itin-label">Drop-off:</span>{r.dropoff}</div>
+      <div class="itin-row"><span class="itin-label">Distance:</span>{dist_str}</div>
+      {notes_row}
+    </div>
+    <table class="line-items">
+      <tr class="hr"><td>Item</td><td>Amount</td></tr>
+      <tr><td>Base Rate ({r.vehicle})</td><td>${base:.2f}</td></tr>
+      {surcharge_rows}
+      <tr><td>Gratuity (18%)</td><td>${gratuity:.2f}</td></tr>
+      <tr><td>Service Fee</td><td>${service_fee:.2f}</td></tr>
+      <tr class="sub"><td>Subtotal</td><td>${total:.2f}</td></tr>
+    </table>
+  </div>
+
+  <div class="totals-block">
+    <table class="totals-table">
+      <tr><td>Subtotal</td><td>${total:.2f}</td></tr>
+      <tr class="grand"><td>Total Amount</td><td>${total:.2f}</td></tr>
+    </table>
+  </div>
+
+  <h2 style="margin-bottom:16px">Payments</h2>
+  <table class="pay-table">
+    <thead><tr><th>Type</th><th>Method</th><th>Note</th><th>Date</th><th style="text-align:right">Amount</th></tr></thead>
+    <tbody>
+      <tr><td colspan="4" style="color:#bbb">No payments recorded</td><td style="text-align:right;font-weight:600">$0.00</td></tr>
+      <tr class="due-row"><td colspan="4">Amount Due</td><td style="text-align:right">${total:.2f}</td></tr>
+    </tbody>
+  </table>
+
+  <div class="footer">Tsatsral Limo LLC &nbsp;·&nbsp; {r.date} &nbsp;·&nbsp; Contact@tsatslimo.com</div>
+</div>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
 
 
 @app.post("/stripe/webhook")
@@ -854,17 +1054,56 @@ async def complete_reservation(reservation_id: int, db: Session = Depends(get_db
         raise HTTPException(status_code=404, detail="Reservation not found")
 
     reservation.status = "Completed"
-    
-    # Release the driver if one was assigned
+
+    driver = None
     if reservation.assigned_driver:
         driver = db.query(DriverModel).filter(DriverModel.name == reservation.assigned_driver).first()
         if driver:
             driver.status = "Online"
-            
+
     add_db_event(db, reservation_id, "Trip completed", "Reservation moved to history.")
     db.commit()
 
+    # Cancel pre-trip reminder if pending
+    reminder_task = _scheduled_reminders.pop(reservation_id, None)
+    if reminder_task:
+        reminder_task.cancel()
+
+    # Send completion SMS to driver
+    if driver:
+        try:
+            _send_sms(driver.phone, build_completion_message(reservation))
+        except Exception:
+            pass
+
     await manager.broadcast({"type": "UPDATE", "message": f"Trip #{reservation_id} completed"})
+    return {"status": "Success"}
+
+
+@app.post("/api/reservations/{reservation_id}/start")
+async def start_trip(reservation_id: int, db: Session = Depends(get_db), _: None = Depends(require_admin)):
+    reservation = db.query(ReservationModel).filter(ReservationModel.id == reservation_id).first()
+    if reservation is None:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    if reservation.status != "Assigned":
+        raise HTTPException(status_code=409, detail="Trip must be in Assigned state to start")
+    if not reservation.assigned_driver:
+        raise HTTPException(status_code=409, detail="No driver assigned")
+
+    driver = db.query(DriverModel).filter(DriverModel.name == reservation.assigned_driver).first()
+    reservation.status = "In Progress"
+    add_db_event(db, reservation_id, "Trip started", "Driver dispatched to pickup location.")
+    db.commit()
+
+    if driver:
+        try:
+            _send_sms(driver.phone, build_passenger_info_message(reservation))
+            add_db_event(db, reservation_id, "Passenger info sent", f"Contact details SMS sent to {driver.name}.")
+            db.commit()
+        except Exception:
+            pass
+
+    await manager.broadcast({"type": "UPDATE", "message": f"Trip #{reservation_id} is now In Progress"})
     return {"status": "Success"}
 
 
@@ -875,8 +1114,7 @@ async def cancel_reservation(reservation_id: int, db: Session = Depends(get_db),
         raise HTTPException(status_code=404, detail="Reservation not found")
 
     reservation.status = "Cancelled"
-    
-    # Release the driver if one was assigned
+
     if reservation.assigned_driver:
         driver = db.query(DriverModel).filter(DriverModel.name == reservation.assigned_driver).first()
         if driver:
@@ -884,6 +1122,10 @@ async def cancel_reservation(reservation_id: int, db: Session = Depends(get_db),
 
     add_db_event(db, reservation_id, "Trip cancelled", "Reservation was cancelled by operator.")
     db.commit()
+
+    reminder_task = _scheduled_reminders.pop(reservation_id, None)
+    if reminder_task:
+        reminder_task.cancel()
 
     await manager.broadcast({"type": "UPDATE", "message": f"Trip #{reservation_id} cancelled"})
     return {"status": "Success"}
@@ -951,10 +1193,15 @@ async def twilio_reply(
     if not validator.validate(url, form_data, signature):
         raise HTTPException(status_code=403, detail="Invalid request signature")
     reply = Body.strip().upper()
-    # Normalize phone: Twilio sends +1XXXXXXXXXX, DB stores 10-digit
-    phone_raw = From.replace("+1", "").replace("+", "").replace("-", "").replace(" ", "").replace("(", "").replace(")", "")
+    # Normalize to 10-digit and also try E.164 to match however the number is stored in DB
+    digits = re.sub(r'\D', '', From)
+    if len(digits) == 11 and digits.startswith('1'):
+        digits = digits[1:]
+    e164 = f"+1{digits}" if len(digits) == 10 else From
 
-    driver = db.query(DriverModel).filter(DriverModel.phone == phone_raw).first()
+    driver = db.query(DriverModel).filter(
+        (DriverModel.phone == digits) | (DriverModel.phone == e164)
+    ).first()
     if not driver:
         return PlainTextResponse("<?xml version='1.0'?><Response></Response>", media_type="application/xml")
 
@@ -976,6 +1223,8 @@ async def twilio_reply(
         reservation.status = "Assigned"
         add_db_event(db, reservation.id, "Driver confirmed", f"{driver.name} accepted the trip.")
         sms_back = f"Got it! You're confirmed for the trip from {reservation.pickup} to {reservation.dropoff}. See you there."
+        db.commit()
+        _schedule_trip_reminder(reservation)
     elif reply.startswith("NO"):
         reservation.status = "Needs driver"
         reservation.assigned_driver = None
@@ -1021,6 +1270,31 @@ async def create_driver(data: DriverCreate, db: Session = Depends(get_db), _: No
     db.refresh(driver)
     await manager.broadcast({"type": "UPDATE", "message": f"{driver.name} added to the roster"})
     return {"status": "Success", "driver": {"id": driver.id, "name": driver.name}}
+
+
+@app.put("/api/drivers/{driver_id}")
+async def update_driver(driver_id: int, data: DriverUpdate, db: Session = Depends(get_db), _: None = Depends(require_admin)):
+    driver = db.query(DriverModel).filter(DriverModel.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+    if data.name is not None:
+        conflict = db.query(DriverModel).filter(DriverModel.name == data.name, DriverModel.id != driver_id).first()
+        if conflict:
+            raise HTTPException(status_code=409, detail="A driver with that name already exists")
+        driver.name = data.name
+    if data.email is not None:
+        driver.email = data.email
+    if data.phone is not None:
+        driver.phone = data.phone
+    if data.vehicle is not None:
+        driver.vehicle = data.vehicle
+    db.commit()
+    db.refresh(driver)
+    await manager.broadcast({"type": "UPDATE", "message": f"{driver.name} profile updated"})
+    return {"status": "Success", "driver": {
+        "id": driver.id, "name": driver.name, "email": driver.email,
+        "phone": driver.phone, "vehicle": driver.vehicle, "status": driver.status,
+    }}
 
 
 @app.patch("/api/drivers/{driver_id}/status")
@@ -1069,7 +1343,7 @@ async def delete_driver(driver_id: int, db: Session = Depends(get_db), _: None =
 
 
 @app.put("/api/drivers/{driver_id}/location")
-async def update_driver_location(driver_id: int, payload: dict, db: Session = Depends(get_db), _: None = Depends(get_current_user)):
+async def update_driver_location(driver_id: int, payload: dict, db: Session = Depends(get_db)):
     driver = db.query(DriverModel).filter(DriverModel.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
@@ -1105,39 +1379,125 @@ def _to_e164(phone: str) -> str:
     return f"+{digits}" if digits else phone
 
 
-def notify_driver_of_reservation(reservation: ReservationModel, driver: dict[str, str]) -> str:
-    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-    from_number = os.getenv("TWILIO_FROM_NUMBER")
-
-    if not account_sid or not auth_token or not from_number:
-        return "TWILIO_NOT_CONFIGURED"
-
-    client = Client(account_sid, auth_token)
-    to_number = _to_e164(driver.get("phone", ""))
-    message = client.messages.create(
-        body=build_driver_message(reservation),
-        from_=from_number,
-        to=to_number,
-    )
-    return message.sid
-
-
-def build_driver_message(reservation: ReservationModel) -> str:
-    pickup_time = format_pickup_time(reservation.date, reservation.time)
-    notes = f"\nSpecial requests: {reservation.notes}" if reservation.notes else ""
-    return (
-        f"Hi, I'm assigning you a trip from {reservation.pickup} to {reservation.dropoff}.\n"
-        f"Passenger: {reservation.customer}\n"
-        f"Pickup time: {pickup_time}\n"
-        f"Vehicle: {reservation.vehicle}{notes}\n"
-        "Will you accept? Reply YES to confirm or NO to decline."
-    )
-
-
 def format_pickup_time(date_value: str, time_value: str) -> str:
     try:
         parsed = datetime.fromisoformat(f"{date_value}T{time_value}")
         return f"{parsed.strftime('%a %b')} {parsed.day} at {parsed.strftime('%I:%M %p').lstrip('0')}"
     except ValueError:
         return f"{date_value} {time_value}"
+
+
+def _maps_link(address: str, lat: Optional[str] = None, lon: Optional[str] = None) -> str:
+    if lat and lon:
+        return f"https://maps.google.com/?q={lat},{lon}"
+    return f"https://maps.google.com/?q={urllib.parse.quote(address)}"
+
+
+def _send_sms(phone: str, body: str) -> Optional[str]:
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    from_number = os.getenv("TWILIO_FROM_NUMBER")
+    if not account_sid or not auth_token or not from_number:
+        return None
+    client = Client(account_sid, auth_token)
+    msg = client.messages.create(body=body, from_=from_number, to=_to_e164(phone))
+    return msg.sid
+
+
+def build_dispatch_alert(reservation: ReservationModel) -> str:
+    pickup_time = format_pickup_time(reservation.date, reservation.time)
+    base_url = os.getenv("APP_BASE_URL", "")
+    details_line = f"\nDetails: {base_url}/driver" if base_url else ""
+    return (
+        f"NEW TRIP ASSIGNED\n"
+        f"Date: {pickup_time}\n"
+        f"Type: {reservation.trip_type}\n"
+        f"From: {reservation.pickup}\n"
+        f"To: {reservation.dropoff}\n"
+        f"Vehicle: {reservation.vehicle}{details_line}\n"
+        f"Reply YES to accept or NO to decline."
+    )
+
+
+def build_reminder_message(reservation: ReservationModel) -> str:
+    maps_url = _maps_link(reservation.pickup, reservation.pickup_lat, reservation.pickup_lon)
+    return (
+        f"REMINDER: Your trip for {reservation.customer} starts in 60 mins.\n"
+        f"Pickup: {reservation.pickup}\n"
+        f"Map: {maps_url}"
+    )
+
+
+def build_passenger_info_message(reservation: ReservationModel) -> str:
+    dest_url = _maps_link(reservation.dropoff, reservation.dropoff_lat, reservation.dropoff_lon)
+    phone_line = f"\nPhone: {reservation.phone}" if reservation.phone else ""
+    notes_line = f"\nNotes: {reservation.notes}" if reservation.notes else ""
+    return (
+        f"TRIP ACTIVE: {reservation.customer}{phone_line}{notes_line}\n"
+        f"Track Route: {dest_url}"
+    )
+
+
+def build_completion_message(reservation: ReservationModel) -> str:
+    try:
+        hour = int((reservation.time or "12:00").split(":")[0])
+        total_cents = _calc_total_cents(reservation.vehicle, reservation.distance_miles or 0, hour)
+        payout = f"${round(total_cents * 0.70 / 100)}"
+    except Exception:
+        payout = "TBD"
+    base_url = os.getenv("APP_BASE_URL", "")
+    dashboard_line = f"\nView your daily earnings: {base_url}/driver" if base_url else ""
+    return (
+        f"TRIP COMPLETE: Great job! Trip #{reservation.id} has been closed.\n"
+        f"Total Payout: {payout}{dashboard_line}"
+    )
+
+
+async def _send_reminder_at_time(reservation_id: int, remind_at: datetime):
+    delay = (remind_at - datetime.now()).total_seconds()
+    if delay > 0:
+        await asyncio.sleep(delay)
+    db = SessionLocal()
+    try:
+        reservation = db.query(ReservationModel).filter(ReservationModel.id == reservation_id).first()
+        if not reservation or reservation.status not in ("Assigned", "In Progress"):
+            return
+        driver = db.query(DriverModel).filter(DriverModel.name == reservation.assigned_driver).first()
+        if not driver:
+            return
+        _send_sms(driver.phone, build_reminder_message(reservation))
+        add_db_event(db, reservation_id, "Reminder sent", "60-min pre-trip SMS sent to driver.")
+        db.commit()
+    finally:
+        db.close()
+    _scheduled_reminders.pop(reservation_id, None)
+
+
+def _schedule_trip_reminder(reservation: ReservationModel):
+    if reservation.id in _scheduled_reminders:
+        return
+    try:
+        pickup_dt = datetime.fromisoformat(f"{reservation.date}T{reservation.time}")
+        remind_at = pickup_dt - timedelta(hours=1)
+        if remind_at <= datetime.now():
+            return
+        task = asyncio.create_task(_send_reminder_at_time(reservation.id, remind_at))
+        _scheduled_reminders[reservation.id] = task
+    except Exception:
+        pass
+
+
+def notify_driver_of_reservation(reservation: ReservationModel, driver: dict[str, str]) -> str:
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    from_number = os.getenv("TWILIO_FROM_NUMBER")
+    if not account_sid or not auth_token or not from_number:
+        return "TWILIO_NOT_CONFIGURED"
+    client = Client(account_sid, auth_token)
+    to_number = _to_e164(driver.get("phone", ""))
+    message = client.messages.create(
+        body=build_dispatch_alert(reservation),
+        from_=from_number,
+        to=to_number,
+    )
+    return message.sid
