@@ -5,10 +5,18 @@ services:
     rootDir: "middle man project"
     buildCommand: pip install -r backend/requirements.txt
     startCommand: gunicorn -c backend/gunicorn_conf.py backend.app:app
-    plan: free
+    plan: starter
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: PRODUCTION
         value: true
+      - key: DATABASE_URL
+        value: sqlite:////var/data/dispatch.db
+      - key: APP_BASE_URL
+        sync: false
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD

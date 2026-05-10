@@ -1643,6 +1643,49 @@
                 </select>
               </div>
 
+              <!-- Flight info (Airport Arrival/Departure only) -->
+              <div
+                class="form-row g2"
+                id="flightInfoRow"
+                style="display: none"
+              >
+                <div class="field">
+                  <label for="s2-airline">Airline</label>
+                  <input
+                    id="s2-airline"
+                    placeholder="e.g. United"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="field">
+                  <label for="s2-flight">Flight number</label>
+                  <input
+                    id="s2-flight"
+                    placeholder="e.g. UA 245"
+                    autocomplete="off"
+                  />
+                </div>
+              </div>
+
+              <!-- Hours selector (Hourly only) -->
+              <div class="field" id="hoursRow" style="display: none">
+                <label for="s2-hours">How many hours?</label>
+                <select id="s2-hours">
+                  <option value="1">1 hour</option>
+                  <option value="2">2 hours</option>
+                  <option value="3" selected>3 hours</option>
+                  <option value="4">4 hours</option>
+                  <option value="5">5 hours</option>
+                  <option value="6">6 hours</option>
+                  <option value="7">7 hours</option>
+                  <option value="8">8 hours</option>
+                  <option value="9">9 hours</option>
+                  <option value="10">10 hours</option>
+                  <option value="11">11 hours</option>
+                  <option value="12">12 hours</option>
+                </select>
+              </div>
+
               <!-- Date + Time + Pax -->
               <div class="form-row g3">
                 <div class="field">
@@ -2750,6 +2793,11 @@
           }
 
           const get = (id) => document.getElementById(id).value.trim();
+          const tripType = get("s2-type");
+          const isAirport =
+            tripType === "Airport Arrival" ||
+            tripType === "Airport Departure";
+          const isHourly = tripType === "Hourly";
           const payload = {
             customer: get("s1-name"),
             phone: get("s1-phone"),
@@ -2757,10 +2805,10 @@
             pickup: get("s2-pickup"),
             pickup_lat: get("pickup_lat"),
             pickup_lon: get("pickup_lon"),
-            dropoff: get("s2-dropoff"),
+            dropoff: get("s2-dropoff") || (isHourly ? "—" : ""),
             dropoff_lat: get("dropoff_lat"),
             dropoff_lon: get("dropoff_lon"),
-            trip_type: get("s2-type"),
+            trip_type: tripType,
             date: get("s2-date"),
             time: get("s2-time"),
             passengers: get("s2-pax"),
@@ -2770,11 +2818,24 @@
               null,
             notes: get("s4-notes"),
             payment: "Collect later",
+            airline: isAirport ? get("s2-airline") || null : null,
+            flight_number: isAirport ? get("s2-flight") || null : null,
+            hours_count: isHourly
+              ? parseInt(get("s2-hours"), 10) || null
+              : null,
             hp_website: "",
           };
 
-          if (!payload.customer || !payload.pickup || !payload.dropoff) {
+          if (
+            !payload.customer ||
+            !payload.pickup ||
+            (!isHourly && !payload.dropoff)
+          ) {
             alert("Please complete all required fields.");
+            return;
+          }
+          if (isAirport && (!payload.airline || !payload.flight_number)) {
+            alert("Please enter the airline and flight number.");
             return;
           }
 
@@ -2839,6 +2900,32 @@
       function handleOverlayClick(e) {
         if (e.target === document.getElementById("modalOverlay")) closeModal();
       }
+
+      /* TRIP TYPE → conditional fields */
+      function syncTripTypeFields() {
+        const t = document.getElementById("s2-type").value;
+        const isAirport =
+          t === "Airport Arrival" || t === "Airport Departure";
+        const isHourly = t === "Hourly";
+        document.getElementById("flightInfoRow").style.display = isAirport
+          ? ""
+          : "none";
+        document.getElementById("hoursRow").style.display = isHourly
+          ? ""
+          : "none";
+        // Hourly trips don't need a fixed dropoff
+        const dropoff = document.getElementById("s2-dropoff");
+        if (dropoff) {
+          dropoff.required = !isHourly;
+          dropoff.placeholder = isHourly
+            ? "Dropoff (optional for hourly)…"
+            : "Where to? Airport, address, or venue…";
+        }
+      }
+      document
+        .getElementById("s2-type")
+        .addEventListener("change", syncTripTypeFields);
+      syncTripTypeFields();
 
       /* INIT */
       if (new URLSearchParams(location.search).get("paid") === "1") {

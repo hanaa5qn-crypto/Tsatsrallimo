@@ -104,8 +104,16 @@ if _stripe and _STRIPE_SECRET_KEY:
     _stripe.api_key = _STRIPE_SECRET_KEY
 
 # --- DATABASE SETUP ---
-DATABASE_URL = "sqlite:///./dispatch.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# On Render, set DATABASE_URL to a path on the persistent disk, e.g.
+# sqlite:////var/data/dispatch.db (note the four slashes for absolute paths).
+# Without a persistent disk, every redeploy wipes the SQLite file.
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./dispatch.db")
+_sqlite_kwargs = (
+    {"connect_args": {"check_same_thread": False}}
+    if DATABASE_URL.startswith("sqlite")
+    else {}
+)
+engine = create_engine(DATABASE_URL, **_sqlite_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -160,6 +168,11 @@ class ReservationModel(Base):
     archived = Column(Integer, default=0)  # 0 = visible, 1 = archived
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     stripe_session_id = Column(String, nullable=True)
+
+    # Trip-type-specific fields
+    airline = Column(String, nullable=True)  # for Airport Arrival/Departure
+    flight_number = Column(String, nullable=True)  # for Airport Arrival/Departure
+    hours_count = Column(Integer, nullable=True)  # for Hourly (1–12)
 
     events = relationship(
         "EventModel", back_populates="reservation", cascade="all, delete-orphan"
@@ -261,6 +274,10 @@ class ReservationCreate(BaseModel):
     dropoff_lon: Optional[str] = None
     distance_miles: Optional[float] = None
     created_by: Optional[int] = None
+    # Trip-type-specific
+    airline: Optional[str] = None
+    flight_number: Optional[str] = None
+    hours_count: Optional[int] = Field(default=None, ge=1, le=12)
 
     @field_validator("vehicle")
     @classmethod
@@ -275,6 +292,42 @@ class ReservationCreate(BaseModel):
     @classmethod
     def validate_trip_type(cls, v: str) -> str:
         if v not in _ALLOWED_TRIP_TYPES:
+            raise ValueError(
+                f"Invalid trip type. Allowed: {', '.join(_ALLOWED_TRIP_TYPES)}"
+            )
+        return v
+
+
+class ReservationUpdate(BaseModel):
+    customer: Optional[str] = Field(None, min_length=1)
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    pickup: Optional[str] = Field(None, min_length=1)
+    dropoff: Optional[str] = None
+    date: Optional[str] = None
+    time: Optional[str] = None
+    passengers: Optional[str] = None
+    vehicle: Optional[str] = None
+    payment: Optional[str] = None
+    trip_type: Optional[str] = None
+    notes: Optional[str] = None
+    airline: Optional[str] = None
+    flight_number: Optional[str] = None
+    hours_count: Optional[int] = Field(default=None, ge=1, le=12)
+
+    @field_validator("vehicle")
+    @classmethod
+    def validate_vehicle(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in _ALLOWED_VEHICLES:
+            raise ValueError(
+                f"Invalid vehicle. Allowed: {', '.join(_ALLOWED_VEHICLES)}"
+            )
+        return v
+
+    @field_validator("trip_type")
+    @classmethod
+    def validate_trip_type(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in _ALLOWED_TRIP_TYPES:
             raise ValueError(
                 f"Invalid trip type. Allowed: {', '.join(_ALLOWED_TRIP_TYPES)}"
             )
@@ -563,6 +616,19 @@ async def startup_event():
         if "distance_miles" not in existing_cols:
             conn.execute(
                 text("ALTER TABLE reservations ADD COLUMN distance_miles FLOAT")
+            )
+            conn.commit()
+        if "airline" not in existing_cols:
+            conn.execute(text("ALTER TABLE reservations ADD COLUMN airline VARCHAR"))
+            conn.commit()
+        if "flight_number" not in existing_cols:
+            conn.execute(
+                text("ALTER TABLE reservations ADD COLUMN flight_number VARCHAR")
+            )
+            conn.commit()
+        if "hours_count" not in existing_cols:
+            conn.execute(
+                text("ALTER TABLE reservations ADD COLUMN hours_count INTEGER")
             )
             conn.commit()
     db = SessionLocal()
@@ -1090,6 +1156,9 @@ def list_reservations(
                 "pickup_lon": r.pickup_lon,
                 "dropoff_lat": r.dropoff_lat,
                 "dropoff_lon": r.dropoff_lon,
+                "airline": r.airline,
+                "flight_number": r.flight_number,
+                "hours_count": r.hours_count,
                 "events": events,
             }
         )
@@ -1165,6 +1234,52 @@ async def create_reservation(
         "status": "Success",
         "reservation": {"id": db_res.id, "payment_url": payment_url},
     }
+
+
+@app.put("/api/reservations/{reservation_id}")
+async def update_reservation(
+    reservation_id: int,
+    data: ReservationUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    reservation = (
+        db.query(ReservationModel).filter(ReservationModel.id == reservation_id).first()
+    )
+    if reservation is None:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    # IDOR: operators can only edit trips they created or were assigned to
+    if current_user["role"] != "admin":
+        if (
+            reservation.created_by != current_user["user_id"]
+            and reservation.assigned_driver != current_user["name"]
+        ):
+            raise HTTPException(status_code=403, detail="Not allowed")
+
+    updates = data.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(status_code=422, detail="No fields to update")
+
+    changed = []
+    for key, value in updates.items():
+        old = getattr(reservation, key, None)
+        if old != value:
+            setattr(reservation, key, value)
+            changed.append(key)
+
+    if changed:
+        db.commit()
+        add_db_event(
+            db,
+            reservation.id,
+            "Reservation edited",
+            f"{current_user['name']} updated: {', '.join(changed)}.",
+        )
+        await manager.broadcast(
+            {"type": "UPDATE", "message": f"Trip #{reservation_id} updated"}
+        )
+
+    return {"status": "Success", "changed": changed}
 
 
 @app.post("/api/reservations/{reservation_id}/archive")
@@ -1430,8 +1545,29 @@ async def twilio_reply(
     validator = RequestValidator(auth_token)
     form_data = dict(await request.form())
     signature = request.headers.get("X-Twilio-Signature", "")
-    url = str(request.url)
-    if not validator.validate(url, form_data, signature):
+
+    # Behind Render's proxy, request.url often shows the internal http://host:PORT
+    # URL, but Twilio signs the public https URL. Rebuild the URL Twilio actually
+    # signed using X-Forwarded-Proto / X-Forwarded-Host (or APP_BASE_URL override).
+    fwd_proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    fwd_host = request.headers.get(
+        "x-forwarded-host", request.headers.get("host", request.url.netloc)
+    )
+    path = request.url.path
+    query = f"?{request.url.query}" if request.url.query else ""
+    candidate_urls = [
+        f"{fwd_proto}://{fwd_host}{path}{query}",
+        str(request.url),
+    ]
+    app_base = os.getenv("APP_BASE_URL", "").rstrip("/")
+    if app_base:
+        candidate_urls.insert(0, f"{app_base}{path}{query}")
+
+    if not any(validator.validate(u, form_data, signature) for u in candidate_urls):
+        print(
+            f"[twilio] signature mismatch. tried={candidate_urls} "
+            f"sig={signature!r} headers={dict(request.headers)}"
+        )
         raise HTTPException(status_code=403, detail="Invalid request signature")
     reply = Body.strip().upper()
     # Normalize to 10-digit and also try E.164 to match however the number is stored in DB

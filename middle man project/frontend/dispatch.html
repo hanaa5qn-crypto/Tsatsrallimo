@@ -584,6 +584,74 @@
         gap: 11px;
       }
 
+      /* ── Inline (Notion-style) editable fields ── */
+      .editable {
+        cursor: text;
+        padding: 1px 4px;
+        margin: -1px -4px;
+        border-radius: 4px;
+        transition: background 0.12s;
+        display: inline-block;
+        min-height: 1em;
+      }
+      .editable:hover {
+        background: rgba(23, 107, 77, 0.08);
+        outline: 1px dashed rgba(23, 107, 77, 0.35);
+      }
+      .editable.empty::before {
+        content: "+ add";
+        color: var(--soft);
+        font-style: italic;
+        font-size: 11px;
+      }
+      .edit-input,
+      .edit-select,
+      .edit-textarea {
+        font: inherit;
+        color: inherit;
+        background: #fff;
+        border: 1px solid var(--green);
+        border-radius: 4px;
+        padding: 2px 5px;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(23, 107, 77, 0.18);
+        min-width: 80px;
+        max-width: 100%;
+      }
+      .edit-textarea {
+        width: 100%;
+        min-height: 50px;
+        resize: vertical;
+      }
+
+      /* ── Unpaid caution pill ── */
+      .unpaid-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        background: #fff5e6;
+        color: #a86200;
+        border: 1px solid rgba(204, 122, 0, 0.4);
+        padding: 2px 7px;
+        border-radius: 999px;
+      }
+      .unpaid-banner {
+        background: #fff5e6;
+        color: #a86200;
+        border: 1px solid rgba(204, 122, 0, 0.4);
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
       .trip-card.assigned {
         border-color: rgba(23, 107, 77, 0.35);
         background: #fbfffd;
@@ -1686,6 +1754,41 @@
               <option value="Point-to-Point">Point-to-Point</option>
             </select>
           </div>
+          <div class="two" id="m_flight_row" style="display: none">
+            <div class="field">
+              <label for="m_airline">Airline</label>
+              <input
+                id="m_airline"
+                name="airline"
+                placeholder="e.g. United"
+              />
+            </div>
+            <div class="field">
+              <label for="m_flight">Flight number</label>
+              <input
+                id="m_flight"
+                name="flight_number"
+                placeholder="e.g. UA 245"
+              />
+            </div>
+          </div>
+          <div class="field" id="m_hours_row" style="display: none">
+            <label for="m_hours">How many hours?</label>
+            <select id="m_hours" name="hours_count">
+              <option value="1">1 hour</option>
+              <option value="2">2 hours</option>
+              <option value="3" selected>3 hours</option>
+              <option value="4">4 hours</option>
+              <option value="5">5 hours</option>
+              <option value="6">6 hours</option>
+              <option value="7">7 hours</option>
+              <option value="8">8 hours</option>
+              <option value="9">9 hours</option>
+              <option value="10">10 hours</option>
+              <option value="11">11 hours</option>
+              <option value="12">12 hours</option>
+            </select>
+          </div>
           <div class="three">
             <div class="field">
               <label for="m_date">Date</label>
@@ -2298,6 +2401,14 @@
 
       // ── Board rendering ──
       function renderBoard() {
+        // Don't blow away an in-progress inline edit
+        if (
+          document.querySelector(
+            "#dispatchBoard .edit-input, #dispatchBoard .edit-select, #dispatchBoard .edit-textarea",
+          )
+        ) {
+          return;
+        }
         const board = document.getElementById("dispatchBoard");
         let filtered = reservationsData.filter((r) => {
           if (currentFilter === "Assigned") {
@@ -2349,30 +2460,75 @@
 
           const isResolved =
             r.status === "Completed" || r.status === "Cancelled";
+          const isUnpaid = (r.payment || "") !== "Paid";
+          const isAirport =
+            r.trip_type === "Airport Arrival" ||
+            r.trip_type === "Airport Departure";
+          const isHourly = r.trip_type === "Hourly";
+
+          // Helper for editable spans (Notion-style click-to-edit)
+          const ed = (
+            field,
+            value,
+            { type = "text", options = "", emptyHint = "" } = {},
+          ) => {
+            const raw = value === null || value === undefined ? "" : String(value);
+            const optsAttr = options ? ` data-options="${escapeHTML(options)}"` : "";
+            const cls = "editable" + (raw === "" ? " empty" : "");
+            return `<span class="${cls}" data-trip-id="${r.id}" data-field="${field}" data-type="${type}"${optsAttr} data-value="${escapeHTML(raw)}" onclick="event.stopPropagation();startInlineEdit(this)" title="${escapeHTML(emptyHint || "Click to edit")}">${escapeHTML(raw)}</span>`;
+          };
+
           card.innerHTML = `
         <div class="card-top">
-          <div><b>${escapeHTML(r.customer)}</b>
+          <div><b>${ed("customer", r.customer)}</b>
             <div class="meta">
-              <span>${escapeHTML(timeStr)}</span>
-              <span>${escapeHTML(r.vehicle)}</span>
-              <span style="font-size:9px;background:var(--bg);border:1px solid var(--line);color:var(--soft);padding:1px 4px;border-radius:3px">${escapeHTML(r.trip_type)}</span>
+              <span title="Date & time">📅 ${ed("date", r.date, { type: "date" })} ${ed("time", r.time, { type: "time" })}</span>
+              <span>${ed("vehicle", r.vehicle, { type: "select", options: "Black car|Executive SUV|Sprinter van" })}</span>
+              <span style="font-size:9px;background:var(--bg);border:1px solid var(--line);color:var(--soft);padding:1px 4px;border-radius:3px">${ed("trip_type", r.trip_type, { type: "select", options: "Point-to-Point|Airport Arrival|Airport Departure|Hourly|One Way" })}</span>
+              <span>👥 ${ed("passengers", r.passengers, { type: "select", options: "1|2|3|4|5|6" })}</span>
             </div>
             <div class="meta" style="margin-top:4px; color:var(--green)">
-              ${r.phone ? `<span>📞 ${escapeHTML(r.phone)}</span>` : ""}
-              ${r.email ? `<span>✉️ ${escapeHTML(r.email)}</span>` : ""}
+              <span>📞 ${ed("phone", r.phone, { emptyHint: "Add phone" })}</span>
+              <span>✉️ ${ed("email", r.email, { emptyHint: "Add email" })}</span>
+            </div>
+            ${
+              isAirport
+                ? `
+              <div class="meta" style="margin-top:4px">
+                <span>✈️ ${ed("airline", r.airline, { emptyHint: "Add airline" })}</span>
+                <span>#️⃣ ${ed("flight_number", r.flight_number, { emptyHint: "Add flight #" })}</span>
+              </div>`
+                : ""
+            }
+            ${
+              isHourly
+                ? `
+              <div class="meta" style="margin-top:4px">
+                <span>⏱ ${ed("hours_count", r.hours_count, { type: "select", options: "1|2|3|4|5|6|7|8|9|10|11|12" })} hours</span>
+              </div>`
+                : ""
+            }
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <span class="status ${r.status === "Needs driver" ? "amber" : r.status === "Assigned" ? "green" : r.status === "In Progress" ? "blue" : r.status === "Cancelled" ? "red" : "blue"}">${escapeHTML(r.status)}</span>
+            ${isUnpaid && !isResolved ? `<span class="unpaid-pill" title="Trip has not been paid">⚠ Unpaid</span>` : ""}
+            <span style="font-size:10px;color:var(--soft)">💳 ${ed("payment", r.payment, { type: "select", options: "Paid|Card on file|Invoice account|Collect later" })}</span>
+            <div style="display:flex;gap:6px">
+              ${r.status === "Completed" ? `<button class="card-invoice" title="View invoice" onclick="event.stopPropagation();window.open('/invoice/${r.id}','_blank')">Invoice</button>` : ""}
+              ${isResolved ? `<button class="card-close" title="Close trip" onclick="event.stopPropagation();archiveTrip(${r.id})">✕</button>` : ""}
             </div>
           </div>
-          <div style="display:flex;align-items:flex-start;gap:6px">
-            <span class="status ${r.status === "Needs driver" ? "amber" : r.status === "Assigned" ? "green" : r.status === "In Progress" ? "blue" : r.status === "Cancelled" ? "red" : "blue"}">${escapeHTML(r.status)}</span>
-            ${r.status === "Completed" ? `<button class="card-invoice" title="View invoice" onclick="event.stopPropagation();window.open('/invoice/${r.id}','_blank')">Invoice</button>` : ""}
-            ${isResolved ? `<button class="card-close" title="Close trip" onclick="event.stopPropagation();archiveTrip(${r.id})">✕</button>` : ""}
-          </div>
         </div>
+        ${
+          isUnpaid && !isResolved
+            ? `<div class="unpaid-banner">⚠ Payment not received — collect on pickup or send payment link.</div>`
+            : ""
+        }
         <div class="route">
-          <div><span class="dot"></span><span>${escapeHTML(r.pickup)}</span></div>
-          <div><span class="dot drop"></span><span>${escapeHTML(r.dropoff)}</span></div>
+          <div><span class="dot"></span>${ed("pickup", r.pickup)}</div>
+          <div><span class="dot drop"></span>${ed("dropoff", r.dropoff, { emptyHint: isHourly ? "Optional for hourly" : "Add dropoff" })}</div>
         </div>
-        ${r.notes ? `<div class="trip-notes">✦ ${escapeHTML(r.notes)}</div>` : ""}
+        <div class="trip-notes" style="font-size:12px;color:var(--soft)">✦ ${ed("notes", r.notes, { type: "textarea", emptyHint: "Add note" })}</div>
         ${
           r.status === "Needs driver"
             ? `
@@ -2562,6 +2718,106 @@
         renderTimeline();
       }
 
+      // ── Notion-style inline edit ──
+      window.startInlineEdit = function (span) {
+        if (
+          span.querySelector(".edit-input,.edit-select,.edit-textarea")
+        )
+          return;
+        const tripId = parseInt(span.dataset.tripId, 10);
+        const field = span.dataset.field;
+        const type = span.dataset.type || "text";
+        const options = span.dataset.options || "";
+        const current = span.dataset.value || "";
+        const originalHTML = span.innerHTML;
+
+        let input;
+        if (type === "select") {
+          input = document.createElement("select");
+          input.className = "edit-select";
+          options.split("|").forEach((opt) => {
+            const o = document.createElement("option");
+            o.value = opt;
+            o.textContent = opt;
+            if (opt === current) o.selected = true;
+            input.appendChild(o);
+          });
+        } else if (type === "textarea") {
+          input = document.createElement("textarea");
+          input.className = "edit-textarea";
+          input.value = current;
+        } else {
+          input = document.createElement("input");
+          input.className = "edit-input";
+          input.type =
+            type === "date" || type === "time" || type === "number"
+              ? type
+              : "text";
+          input.value = current;
+        }
+        span.innerHTML = "";
+        span.classList.remove("empty");
+        span.appendChild(input);
+        input.focus();
+        if (input.select && type !== "select") input.select();
+
+        let settled = false;
+        async function commit() {
+          if (settled) return;
+          settled = true;
+          let val = input.value;
+          if (val === current) {
+            span.innerHTML = originalHTML;
+            if (current === "") span.classList.add("empty");
+            return;
+          }
+          const body = {};
+          let send = val.trim() === "" ? null : val;
+          if (field === "hours_count")
+            send = send === null ? null : parseInt(send, 10);
+          body[field] = send;
+          try {
+            const r = await fetch(`/api/reservations/${tripId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+            if (!r.ok) {
+              const err = await r.json().catch(() => ({}));
+              throw new Error(err.detail || "Save failed");
+            }
+            showToast("Saved", `${field} updated.`);
+            await fetchReservations();
+          } catch (e) {
+            showToast("Error", e.message);
+            span.innerHTML = originalHTML;
+            if (current === "") span.classList.add("empty");
+          }
+        }
+        function cancel() {
+          if (settled) return;
+          settled = true;
+          span.innerHTML = originalHTML;
+          if (current === "") span.classList.add("empty");
+        }
+        input.addEventListener("blur", commit);
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            cancel();
+          } else if (e.key === "Enter" && type === "textarea") {
+            if (e.metaKey || e.ctrlKey) {
+              e.preventDefault();
+              input.blur();
+            }
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            input.blur();
+          }
+        });
+        input.addEventListener("click", (e) => e.stopPropagation());
+      };
+
       function renderTimeline() {
         const list = document.getElementById("timelineList");
         const trip = reservationsData.find((r) => r.id === selectedTripId);
@@ -2741,12 +2997,53 @@
       vehicleEl.addEventListener("change", updateQuote);
       updateQuote();
 
+      // Trip-type → conditional fields in the modal
+      function syncModalTripTypeFields() {
+        const t = document.getElementById("trip_type").value;
+        const isAirport =
+          t === "Airport Arrival" || t === "Airport Departure";
+        const isHourly = t === "Hourly";
+        document.getElementById("m_flight_row").style.display = isAirport
+          ? ""
+          : "none";
+        document.getElementById("m_hours_row").style.display = isHourly
+          ? ""
+          : "none";
+        const dropoff = document.getElementById("dropoff");
+        if (dropoff) {
+          dropoff.required = !isHourly;
+          dropoff.placeholder = isHourly
+            ? "Dropoff (optional for hourly)"
+            : "Enter dropoff address";
+        }
+      }
+      document
+        .getElementById("trip_type")
+        .addEventListener("change", syncModalTripTypeFields);
+      syncModalTripTypeFields();
+
       // Form submit
       document
         .getElementById("reservationForm")
         .addEventListener("submit", async (e) => {
           e.preventDefault();
           const payload = Object.fromEntries(new FormData(e.target).entries());
+          // Strip irrelevant conditional fields and coerce hours_count
+          const isAirport =
+            payload.trip_type === "Airport Arrival" ||
+            payload.trip_type === "Airport Departure";
+          const isHourly = payload.trip_type === "Hourly";
+          if (!isAirport) {
+            payload.airline = null;
+            payload.flight_number = null;
+          }
+          if (isHourly) {
+            payload.hours_count = parseInt(payload.hours_count, 10) || null;
+            if (!payload.dropoff || !payload.dropoff.trim())
+              payload.dropoff = "—";
+          } else {
+            payload.hours_count = null;
+          }
           try {
             const r = await fetch("/api/reservations", {
               method: "POST",
@@ -2761,6 +3058,7 @@
               `Trip #${result.reservation.id} added to dispatch board.`,
             );
             e.target.reset();
+            syncModalTripTypeFields();
             updateQuote();
           } catch (err) {
             showToast("Error", "Backend may be offline. Check server.");
