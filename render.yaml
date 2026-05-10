@@ -3,27 +3,27 @@ services:
     name: tsatsral-limo
     runtime: python
     rootDir: "middle man project"
-    buildCommand: pip install -r "middle man project/requirements.txt"
-    startCommand: bash -c 'cd "middle man project" && exec gunicorn -c gunicorn_conf.py app:app'
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: gunicorn -c backend/gunicorn_conf.py backend.app:app
     plan: free
     envVars:
       - key: PRODUCTION
         value: true
       - key: ADMIN_EMAIL
-        generateValue: false
+        sync: false
       - key: ADMIN_PASSWORD
-        generateValue: false
+        sync: false
       - key: TWILIO_ACCOUNT_SID
-        generateValue: false
+        sync: false
       - key: TWILIO_AUTH_TOKEN
-        generateValue: false
+        sync: false
       - key: TWILIO_FROM_NUMBER
-        generateValue: false
+        sync: false
       - key: STRIPE_SECRET_KEY
-        generateValue: false
+        sync: false
       - key: STRIPE_PUBLISHABLE_KEY
-        generateValue: false
+        sync: false
       - key: STRIPE_WEBHOOK_SECRET
-        generateValue: false
+        sync: false
       - key: STRIPE_PAYMENT_LINK
-        generateValue: false
+        sync: false

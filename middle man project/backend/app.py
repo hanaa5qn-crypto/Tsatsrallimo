@@ -54,6 +54,12 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, relationship, sessionmaker
 
 BASE_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = BASE_DIR.parent
+FRONTEND_DIR = PROJECT_DIR / "frontend"
+IMAGES_DIR = PROJECT_DIR / "images"
+SITE_DIR = PROJECT_DIR.parent / "tsatsral-limo-llc" / "tsatsral-limo-site"
+
+load_dotenv(PROJECT_DIR / ".env", override=True)
 load_dotenv(BASE_DIR / ".env", override=True)
 
 
@@ -401,7 +407,7 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(BodySizeLimitMiddleware)
-app.mount("/images", StaticFiles(directory=BASE_DIR / "images"), name="images")
+app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
 
 def add_db_event(db: Session, reservation_id: int, title: str, body: str):
@@ -571,7 +577,7 @@ async def startup_event():
 # --- ROUTES ---
 @app.get("/login")
 def login_page():
-    return FileResponse(BASE_DIR / "login.html")
+    return FileResponse(FRONTEND_DIR / "login.html")
 
 
 @app.post("/login")
@@ -673,12 +679,12 @@ def logout(session_token: Optional[str] = Cookie(default=None)):
 
 @app.get("/")
 def home():
-    return FileResponse(BASE_DIR / "index.html")
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 
 @app.get("/driver")
 def driver_location_page():
-    return FileResponse(BASE_DIR / "driver.html")
+    return FileResponse(FRONTEND_DIR / "driver.html")
 
 
 @app.get("/api/drivers/public")
@@ -698,37 +704,37 @@ def list_drivers_public(db: Session = Depends(get_db)):
 def dispatch_page(session_token: Optional[str] = Cookie(default=None)):
     if not _session_valid(session_token):
         return RedirectResponse(url="/login", status_code=302)
-    return FileResponse(BASE_DIR / "dispatch.html")
+    return FileResponse(FRONTEND_DIR / "dispatch.html")
 
 
 @app.get("/booking")
 @app.get("/booking.html")
 def booking_page():
-    return FileResponse(BASE_DIR / "index.html")
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 
 @app.get("/about")
 @app.get("/about.html")
 def about_page():
-    return FileResponse(BASE_DIR.parent / "about.html")
+    return FileResponse(SITE_DIR / "about.html")
 
 
 @app.get("/blog")
 @app.get("/blog.html")
 def blog_page():
-    return FileResponse(BASE_DIR.parent / "blog.html")
+    return FileResponse(SITE_DIR / "blog.html")
 
 
 @app.get("/contact")
 @app.get("/contact.html")
 def contact_page():
-    return FileResponse(BASE_DIR.parent / "contact.html")
+    return FileResponse(SITE_DIR / "contact.html")
 
 
 @app.get("/services")
 @app.get("/services.html")
 def services_page():
-    return FileResponse(BASE_DIR.parent / "services.html")
+    return FileResponse(SITE_DIR / "services.html")
 
 
 @app.get("/index")
@@ -736,12 +742,12 @@ def services_page():
 @app.get("/demo")
 @app.get("/demo.html")
 def landing_page():
-    return FileResponse(BASE_DIR.parent / "demo.html")
+    return FileResponse(SITE_DIR / "demo.html")
 
 
 @app.get("/payment/{res_id}")
 def payment_page(res_id: int):
-    return FileResponse(BASE_DIR / "payment.html")
+    return FileResponse(FRONTEND_DIR / "payment.html")
 
 
 @app.get("/invoice/{res_id}")
