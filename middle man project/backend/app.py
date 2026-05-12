@@ -6,7 +6,7 @@ import os
 import re
 import secrets
 import urllib.parse
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 
@@ -107,7 +107,11 @@ if _stripe and _STRIPE_SECRET_KEY:
 # On Render, set DATABASE_URL to a path on the persistent disk, e.g.
 # sqlite:////var/data/dispatch.db (note the four slashes for absolute paths).
 # Without a persistent disk, every redeploy wipes the SQLite file.
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./dispatch.db")
+#
+# Locally, keep the default DB path anchored to the app folder so starting
+# uvicorn from different directories does not create separate dispatch.db files.
+DEFAULT_DB_PATH = Path(__file__).resolve().parents[1] / "dispatch.db"
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}")
 _sqlite_kwargs = (
     {"connect_args": {"check_same_thread": False}}
     if DATABASE_URL.startswith("sqlite")
@@ -494,7 +498,8 @@ def _calc_total_cents(vehicle: str, distance_miles: float = 0, hour: int = 12) -
 
 # --- INITIAL DATA ---
 def init_drivers(db: Session):
-    existing_drivers = {d.name for d in db.query(DriverModel).all()}
+    if db.query(DriverModel).first():
+        return
 
     drivers_to_add = [
         {"name": "Jack Dorj", "phone": "4156994052", "vehicle": "Executive SUV"},
@@ -505,13 +510,7 @@ def init_drivers(db: Session):
     ]
 
     for d_data in drivers_to_add:
-        if d_data["name"] not in existing_drivers:
-            db.add(DriverModel(**d_data))
-        elif d_data["name"] == "Jack Dorj":
-            # Update Jack's phone if he already exists
-            jack = db.query(DriverModel).filter(DriverModel.name == "Jack Dorj").first()
-            if jack:
-                jack.phone = d_data["phone"]
+        db.add(DriverModel(**d_data))
 
     db.commit()
 
@@ -928,7 +927,7 @@ def invoice_page(
     <div class="header-meta">
       <div><strong>ORDER NO</strong> &nbsp;{order_no}</div>
       <div><strong>DATE</strong> &nbsp;{r.date}</div>
-      <div><strong>STATUS</strong> &nbsp;Completed</div>
+      <div><strong>STATUS</strong> &nbsp;{r.status}</div>
     </div>
   </div>
 
@@ -943,7 +942,7 @@ def invoice_page(
     <div>
       <div class="label">Contact Us</div>
       <div class="cname">Tsatsral Limo LLC</div>
-      <div class="detail">Contact@tsatslimo.com<br>(415) 699-4052</div>
+      <div class="detail">contact@gobilimo.com<br>(415) 699-4052</div>
     </div>
   </div>
 
@@ -989,7 +988,7 @@ def invoice_page(
     </tbody>
   </table>
 
-  <div class="footer">Tsatsral Limo LLC &nbsp;·&nbsp; {r.date} &nbsp;·&nbsp; Contact@tsatslimo.com</div>
+  <div class="footer">Tsatsral Limo LLC &nbsp;·&nbsp; {r.date} &nbsp;·&nbsp; contact@gobilimo.com</div>
 </div>
 </body>
 </html>"""
@@ -1163,6 +1162,104 @@ def list_reservations(
             }
         )
     return {"status": "Success", "reservations": output}
+
+
+def _serialize_reservation(r: ReservationModel) -> dict:
+    events = [{"time": e.time, "title": e.title, "body": e.body} for e in r.events]
+    events.reverse()
+    return {
+        "id": r.id,
+        "customer": r.customer,
+        "phone": r.phone,
+        "email": r.email,
+        "pickup": r.pickup,
+        "dropoff": r.dropoff,
+        "date": r.date,
+        "time": r.time,
+        "passengers": r.passengers,
+        "vehicle": r.vehicle,
+        "payment": r.payment,
+        "trip_type": r.trip_type,
+        "notes": r.notes,
+        "status": r.status,
+        "assigned_driver": r.assigned_driver,
+        "payment_url": r.payment_url,
+        "pickup_lat": r.pickup_lat,
+        "pickup_lon": r.pickup_lon,
+        "dropoff_lat": r.dropoff_lat,
+        "dropoff_lon": r.dropoff_lon,
+        "airline": r.airline,
+        "flight_number": r.flight_number,
+        "hours_count": r.hours_count,
+        "archived": r.archived,
+        "events": events,
+    }
+
+
+def _serialize_history_reservation(r: ReservationModel) -> dict:
+    return {
+        "id": r.id,
+        "customer": r.customer,
+        "phone": r.phone,
+        "email": r.email,
+        "pickup": r.pickup,
+        "dropoff": r.dropoff,
+        "date": r.date,
+        "time": r.time,
+        "passengers": r.passengers,
+        "vehicle": r.vehicle,
+        "payment": r.payment,
+        "trip_type": r.trip_type,
+        "notes": r.notes,
+        "status": r.status,
+        "assigned_driver": r.assigned_driver,
+        "archived": r.archived,
+    }
+
+
+@app.get("/api/reservations/metrics")
+def reservation_metrics(
+    day: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    target_day = day or date.today().isoformat()
+    query = db.query(ReservationModel).filter(ReservationModel.date == target_day)
+    if current_user["role"] != "admin":
+        query = query.filter(
+            or_(
+                ReservationModel.assigned_driver == current_user["name"],
+                ReservationModel.created_by == current_user["user_id"],
+            )
+        )
+    return {
+        "status": "Success",
+        "date": target_day,
+        "trips_today": query.count(),
+    }
+
+
+@app.get("/api/reservations/history")
+def reservation_history(
+    day: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    target_day = day or date.today().isoformat()
+    query = db.query(ReservationModel).filter(ReservationModel.date == target_day)
+    if current_user["role"] != "admin":
+        query = query.filter(
+            or_(
+                ReservationModel.assigned_driver == current_user["name"],
+                ReservationModel.created_by == current_user["user_id"],
+            )
+        )
+    trips = query.order_by(ReservationModel.time.asc(), ReservationModel.id.asc()).all()
+    return {
+        "status": "Success",
+        "date": target_day,
+        "reservations": [_serialize_history_reservation(r) for r in trips],
+    }
 
 
 @app.post("/api/reservations")
@@ -1426,8 +1523,71 @@ async def start_trip(
         except Exception:
             pass
 
+    if reservation.phone and driver:
+        try:
+            _send_sms(
+                reservation.phone,
+                build_customer_en_route_message(reservation, driver),
+            )
+            add_db_event(
+                db,
+                reservation_id,
+                "Customer notified",
+                f"En-route SMS sent to {reservation.customer}.",
+            )
+            db.commit()
+        except Exception:
+            pass
+
     await manager.broadcast(
         {"type": "UPDATE", "message": f"Trip #{reservation_id} is now In Progress"}
+    )
+    return {"status": "Success"}
+
+
+@app.post("/api/reservations/{reservation_id}/arrive")
+async def mark_driver_arrived(
+    reservation_id: int, db: Session = Depends(get_db), _: None = Depends(require_admin)
+):
+    reservation = (
+        db.query(ReservationModel).filter(ReservationModel.id == reservation_id).first()
+    )
+    if reservation is None:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    if reservation.status not in ("In Progress", "Arrived"):
+        raise HTTPException(
+            status_code=409, detail="Trip must be in progress before arrival"
+        )
+    if not reservation.assigned_driver:
+        raise HTTPException(status_code=409, detail="No driver assigned")
+
+    driver = (
+        db.query(DriverModel)
+        .filter(DriverModel.name == reservation.assigned_driver)
+        .first()
+    )
+    reservation.status = "Arrived"
+    add_db_event(db, reservation_id, "Driver arrived", "Driver reached pickup.")
+    db.commit()
+
+    if reservation.phone and driver:
+        try:
+            _send_sms(
+                reservation.phone,
+                build_customer_arrived_message(reservation, driver),
+            )
+            add_db_event(
+                db,
+                reservation_id,
+                "Customer notified",
+                f"Arrival SMS sent to {reservation.customer}.",
+            )
+            db.commit()
+        except Exception:
+            pass
+
+    await manager.broadcast(
+        {"type": "UPDATE", "message": f"Driver arrived for trip #{reservation_id}"}
     )
     return {"status": "Success"}
 
@@ -1905,22 +2065,31 @@ def build_passenger_info_message(reservation: ReservationModel) -> str:
     )
 
 
-def build_completion_message(reservation: ReservationModel) -> str:
-    try:
-        hour = int((reservation.time or "12:00").split(":")[0])
-        total_cents = _calc_total_cents(
-            reservation.vehicle, reservation.distance_miles or 0, hour
-        )
-        payout = f"${round(total_cents * 0.70 / 100)}"
-    except Exception:
-        payout = "TBD"
-    base_url = os.getenv("APP_BASE_URL", "")
-    dashboard_line = (
-        f"\nView your daily earnings: {base_url}/driver" if base_url else ""
+def build_customer_en_route_message(
+    reservation: ReservationModel, driver: DriverModel
+) -> str:
+    driver_phone = f" ({driver.phone})" if driver.phone else ""
+    return (
+        f"Tsatsral Limo: Your driver {driver.name}{driver_phone} is on the way "
+        f"to {reservation.pickup} for your trip to {reservation.dropoff}."
     )
+
+
+def build_customer_arrived_message(
+    reservation: ReservationModel, driver: DriverModel
+) -> str:
+    return (
+        f"Tsatsral Limo: Your driver {driver.name} has arrived at "
+        f"{reservation.pickup}. Please meet your driver when ready."
+    )
+
+
+def build_completion_message(reservation: ReservationModel) -> str:
+    base_url = os.getenv("APP_BASE_URL", "")
+    dashboard_line = f"\nView trip details: {base_url}/driver" if base_url else ""
     return (
         f"TRIP COMPLETE: Great job! Trip #{reservation.id} has been closed.\n"
-        f"Total Payout: {payout}{dashboard_line}"
+        f"Thank you for driving with Tsatsral Limo.{dashboard_line}"
     )
 
 
@@ -1935,7 +2104,11 @@ async def _send_reminder_at_time(reservation_id: int, remind_at: datetime):
             .filter(ReservationModel.id == reservation_id)
             .first()
         )
-        if not reservation or reservation.status not in ("Assigned", "In Progress"):
+        if not reservation or reservation.status not in (
+            "Assigned",
+            "In Progress",
+            "Arrived",
+        ):
             return
         driver = (
             db.query(DriverModel)

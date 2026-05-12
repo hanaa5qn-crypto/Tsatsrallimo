@@ -94,57 +94,13 @@
         height: 68px;
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-end;
+        gap: 18px;
         padding: 0 clamp(20px, 4vw, 52px);
         background: rgba(6, 6, 8, 0.86);
         backdrop-filter: blur(14px);
         border-bottom: 1px solid var(--border);
         z-index: 100;
-      }
-
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 11px;
-        text-decoration: none;
-        color: inherit;
-      }
-      .brand-emblem {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        background: var(--gold);
-        display: grid;
-        place-items: center;
-        flex-shrink: 0;
-      }
-      .brand-name {
-        font-family: "Cormorant Garamond", serif;
-        font-size: 20px;
-        font-weight: 500;
-        letter-spacing: 0.06em;
-        color: var(--text);
-      }
-      .brand-name em {
-        font-style: italic;
-        color: var(--gold-light);
-        font-weight: 400;
-      }
-
-      .header-nav {
-        display: flex;
-        align-items: center;
-        gap: 28px;
-      }
-      .nav-link {
-        font-size: 13px;
-        color: var(--text-soft);
-        text-decoration: none;
-        transition: color 0.15s;
-        letter-spacing: 0.01em;
-      }
-      .nav-link:hover {
-        color: var(--text);
       }
 
       .header-actions {
@@ -175,27 +131,6 @@
       }
       .header-phone svg {
         color: var(--gold);
-      }
-
-      .header-login {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 14px;
-        border-radius: 8px;
-        border: 1px solid var(--border);
-        background: transparent;
-        font-size: 13px;
-        color: var(--text-soft);
-        text-decoration: none;
-        cursor: pointer;
-        transition:
-          border-color 0.15s,
-          color 0.15s;
-      }
-      .header-login:hover {
-        border-color: var(--border-strong);
-        color: var(--text);
       }
 
       /* ── PAGE SHELL ── */
@@ -277,28 +212,6 @@
         color: var(--gold);
       }
 
-      .eta-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-        padding: 6px 12px;
-        border-radius: 999px;
-        background: rgba(42, 107, 80, 0.18);
-        border: 1px solid rgba(42, 107, 80, 0.4);
-        font-size: 11.5px;
-        color: #6be5a0;
-        font-weight: 500;
-        letter-spacing: 0.01em;
-      }
-      .eta-chip::before {
-        content: "";
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: #6be5a0;
-        box-shadow: 0 0 0 0 rgba(107, 229, 160, 0.5);
-        animation: pulse 1.8s infinite;
-      }
       @keyframes pulse {
         0% {
           box-shadow: 0 0 0 0 rgba(107, 229, 160, 0.6);
@@ -654,25 +567,6 @@
         opacity: 0.5;
         cursor: not-allowed;
         transform: none;
-      }
-
-      .login-inline {
-        font-size: 13px;
-        color: var(--text-muted);
-        text-decoration: none;
-        transition: color 0.15s;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-      }
-      .login-inline:hover {
-        color: var(--text-soft);
-      }
-      .login-inline svg {
-        transition: transform 0.2s;
-      }
-      .login-inline:hover svg {
-        transform: translateX(3px);
       }
 
       /* trust badges */
@@ -1354,9 +1248,6 @@
         .hero-quote {
           max-width: 100%;
         }
-        .header-nav {
-          display: none;
-        }
         .confirm-grid {
           grid-template-columns: 1fr;
         }
@@ -1380,12 +1271,6 @@
         .trust-row {
           gap: 14px;
         }
-        .header-phone span {
-          display: none;
-        }
-        .header-login span {
-          display: none;
-        }
       }
 
       @keyframes spin {
@@ -1398,25 +1283,6 @@
   <body>
     <!-- HEADER -->
     <header class="site-header">
-      <a class="brand" href="index.html">
-        <div class="brand-emblem">
-          <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
-            <path
-              d="M10 2 L12.5 8.5 L19 9 L14 13.5 L15.5 20 L10 16.5 L4.5 20 L6 13.5 L1 9 L7.5 8.5 Z"
-              fill="#060608"
-            />
-          </svg>
-        </div>
-        <span class="brand-name">Tsatsral <em>Limo</em></span>
-      </a>
-
-      <nav class="header-nav">
-        <a class="nav-link" href="#">Fleet</a>
-        <a class="nav-link" href="#">Services</a>
-        <a class="nav-link" href="#">Corporate</a>
-        <a class="nav-link" href="#">Help</a>
-      </nav>
-
       <div class="header-actions">
         <a class="header-phone" href="tel:+14156994052">
           <svg
@@ -1434,22 +1300,6 @@
             />
           </svg>
           <span>(415) 699-4052</span>
-        </a>
-        <a class="header-login" href="login.html">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
-          <span>Log in</span>
         </a>
       </div>
     </header>
@@ -1500,10 +1350,6 @@
                 </svg>
                 San Francisco, CA
                 <span class="change">Change</span>
-              </div>
-              <div class="eta-chip" id="etaChip">
-                Next pickup available in
-                <strong style="margin-left: 2px">~12 min</strong>
               </div>
             </div>
 
@@ -1915,21 +1761,6 @@
                     <path d="M5 12h14M13 5l7 7-7 7" />
                   </svg>
                 </button>
-                <a href="login.html" class="login-inline">
-                  Log in to use saved trips
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="m9 18 6-6-6-6" />
-                  </svg>
-                </a>
               </div>
 
               <!-- Trust badges -->
@@ -2308,7 +2139,7 @@
       <p>
         © 2025 Tsatsral Limo LLC ·
         <a href="tel:+14156994052">(415) 699-4052</a> ·
-        <a href="mailto:info@tsatsrallimo.com">info@tsatsrallimo.com</a>
+        <a href="mailto:contact@gobilimo.com">contact@gobilimo.com</a>
       </p>
     </footer>
 
