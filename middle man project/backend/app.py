@@ -110,7 +110,7 @@ if _stripe and _STRIPE_SECRET_KEY:
 #
 # Locally, keep the default DB path anchored to the app folder so starting
 # uvicorn from different directories does not create separate dispatch.db files.
-DEFAULT_DB_PATH = Path(__file__).resolve().parents[1] / "dispatch.db"
+DEFAULT_DB_PATH = Path("/tmp/dispatch.db")
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}")
 _sqlite_kwargs = (
     {"connect_args": {"check_same_thread": False}}
