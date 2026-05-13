@@ -112,6 +112,35 @@ if _stripe and _STRIPE_SECRET_KEY:
 # uvicorn from different directories does not create separate dispatch.db files.
 DEFAULT_DB_PATH = Path("/tmp/dispatch.db")
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}")
+
+
+def _ensure_sqlite_path_writable(url: str) -> str:
+    """For sqlite URLs, make sure the parent directory exists and is writable.
+    Falls back to /tmp/dispatch.db if not (e.g. Render disk not attached yet)."""
+    if not url.startswith("sqlite"):
+        return url
+    # sqlite:///relative or sqlite:////absolute
+    prefix, _, path_part = url.partition("sqlite:///")
+    if not path_part:
+        return url
+    db_path = Path("/" + path_part if url.startswith("sqlite:////") else path_part)
+    try:
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        # Touch a probe file to confirm writability
+        probe = db_path.parent / ".write_probe"
+        probe.touch()
+        probe.unlink(missing_ok=True)
+        return url
+    except (OSError, PermissionError) as exc:
+        print(
+            f"[db] WARNING: cannot use {db_path} ({exc}); "
+            f"falling back to {DEFAULT_DB_PATH}"
+        )
+        DEFAULT_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        return f"sqlite:///{DEFAULT_DB_PATH}"
+
+
+DATABASE_URL = _ensure_sqlite_path_writable(DATABASE_URL)
 _sqlite_kwargs = (
     {"connect_args": {"check_same_thread": False}}
     if DATABASE_URL.startswith("sqlite")
