@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import html
 import hmac
 import json
 import os
@@ -876,9 +877,9 @@ def invoice_page(
         dt = datetime.fromisoformat(f"{r.date}T{r.time}")
         trip_date = dt.strftime("%B %-d, %Y · %-I:%M %p")
     except Exception:
-        trip_date = f"{r.date} {r.time}"
+        trip_date = f"{html.escape(r.date)} {html.escape(r.time)}"
 
-    phone_fmt = r.phone or ""
+    phone_fmt = html.escape(r.phone or "")
     dist_str = f"{r.distance_miles:.2f} miles" if r.distance_miles else "N/A"
     order_no = f"TSL-{r.id:03d}"
 
@@ -889,12 +890,12 @@ def invoice_page(
         surcharge_rows = "<tr><td>Rush hour surcharge (15%)</td><td>included</td></tr>"
 
     notes_row = (
-        f"<div class='itin-row'><span class='itin-label'>Notes:</span> {r.notes}</div>"
+        f"<div class='itin-row'><span class='itin-label'>Notes:</span> {html.escape(r.notes)}</div>"
         if r.notes
         else ""
     )
 
-    html = f"""<!doctype html>
+    html_content = f"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -955,8 +956,8 @@ def invoice_page(
     </div>
     <div class="header-meta">
       <div><strong>ORDER NO</strong> &nbsp;{order_no}</div>
-      <div><strong>DATE</strong> &nbsp;{r.date}</div>
-      <div><strong>STATUS</strong> &nbsp;{r.status}</div>
+      <div><strong>DATE</strong> &nbsp;{html.escape(r.date)}</div>
+      <div><strong>STATUS</strong> &nbsp;{html.escape(r.status)}</div>
     </div>
   </div>
 
@@ -965,8 +966,8 @@ def invoice_page(
   <div class="contacts">
     <div>
       <div class="label">Billed To</div>
-      <div class="cname">{r.customer}</div>
-      <div class="detail">{phone_fmt}<br>{r.email or ''}</div>
+      <div class="cname">{html.escape(r.customer)}</div>
+      <div class="detail">{phone_fmt}<br>{html.escape(r.email or '')}</div>
     </div>
     <div>
       <div class="label">Contact Us</div>
@@ -979,21 +980,21 @@ def invoice_page(
   <div class="trip-card">
     <div class="trip-meta">
       <div class="trip-meta-item"><div class="mlabel">Trip #</div><div class="mval">{order_no}</div></div>
-      <div class="trip-meta-item"><div class="mlabel">Type</div><div class="mval">{r.trip_type}</div></div>
-      <div class="trip-meta-item"><div class="mlabel">Driver</div><div class="mval">{r.assigned_driver or '—'}</div></div>
+      <div class="trip-meta-item"><div class="mlabel">Type</div><div class="mval">{html.escape(r.trip_type)}</div></div>
+      <div class="trip-meta-item"><div class="mlabel">Driver</div><div class="mval">{html.escape(r.assigned_driver or '—')}</div></div>
       <div class="trip-meta-item"><div class="mlabel">Date &amp; Time</div><div class="mval">{trip_date}</div></div>
-      <div class="trip-meta-item"><div class="mlabel">Vehicle</div><div class="mval">{r.vehicle}</div></div>
+      <div class="trip-meta-item"><div class="mlabel">Vehicle</div><div class="mval">{html.escape(r.vehicle)}</div></div>
     </div>
     <div class="itinerary">
       <div class="mlabel" style="margin-bottom:8px">Itinerary</div>
-      <div class="itin-row"><span class="itin-label">Pick-up:</span>{r.pickup}</div>
-      <div class="itin-row"><span class="itin-label">Drop-off:</span>{r.dropoff}</div>
+      <div class="itin-row"><span class="itin-label">Pick-up:</span>{html.escape(r.pickup)}</div>
+      <div class="itin-row"><span class="itin-label">Drop-off:</span>{html.escape(r.dropoff)}</div>
       <div class="itin-row"><span class="itin-label">Distance:</span>{dist_str}</div>
       {notes_row}
     </div>
     <table class="line-items">
       <tr class="hr"><td>Item</td><td>Amount</td></tr>
-      <tr><td>Base Rate ({r.vehicle})</td><td>${base:.2f}</td></tr>
+      <tr><td>Base Rate ({html.escape(r.vehicle)})</td><td>${base:.2f}</td></tr>
       {surcharge_rows}
       <tr><td>Gratuity (18%)</td><td>${gratuity:.2f}</td></tr>
       <tr><td>Service Fee</td><td>${service_fee:.2f}</td></tr>
@@ -1017,11 +1018,11 @@ def invoice_page(
     </tbody>
   </table>
 
-  <div class="footer">Tsatsral Limo LLC &nbsp;·&nbsp; {r.date} &nbsp;·&nbsp; contact@gobilimo.com</div>
+  <div class="footer">Tsatsral Limo LLC &nbsp;·&nbsp; {html.escape(r.date)} &nbsp;·&nbsp; contact@gobilimo.com</div>
 </div>
 </body>
 </html>"""
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=html_content)
 
 
 @app.post("/stripe/webhook")
@@ -1304,6 +1305,8 @@ async def create_reservation(
     sess = _get_session(session_token)
     if sess:
         res_data["created_by"] = sess["user_id"]
+    else:
+        res_data["created_by"] = None
     db_res = ReservationModel(**res_data)
     db.add(db_res)
     db.commit()
@@ -2001,6 +2004,12 @@ async def update_driver_location(
     if lat is None or lon is None:
         raise HTTPException(status_code=422, detail="lat and lon required")
 
+    try:
+        lat = float(lat)
+        lon = float(lon)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=422, detail="lat and lon must be numbers")
+
     driver.lat = str(lat)
     driver.lon = str(lon)
     db.commit()
@@ -2010,8 +2019,8 @@ async def update_driver_location(
             "type": "DRIVER_LOCATION",
             "driver_id": driver_id,
             "name": driver.name,
-            "lat": float(lat),
-            "lon": float(lon),
+            "lat": lat,
+            "lon": lon,
             "status": driver.status,
         }
     )
