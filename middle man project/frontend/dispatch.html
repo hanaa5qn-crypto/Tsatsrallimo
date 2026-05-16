@@ -3412,6 +3412,7 @@
           this.lonEl = lonEl;
           this.data = [];
           this.activeIdx = -1;
+          this.token = this._newToken();
           this.box = document.createElement("div");
           this.box.className = "autocomplete-results";
           input.parentNode.appendChild(this.box);
@@ -3425,6 +3426,12 @@
               this.hide();
           });
         }
+        _newToken() {
+          return (
+            (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+            "t" + Date.now() + Math.random().toString(16).slice(2)
+          );
+        }
         async search() {
           const q = this.input.value.trim();
           if (q.length < 3) return this.hide();
@@ -3432,7 +3439,9 @@
             '<div class="autocomplete-loading">Searching…</div>';
           this.box.style.display = "block";
           try {
-            const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+            const r = await fetch(
+              `/api/geocode?q=${encodeURIComponent(q)}&token=${encodeURIComponent(this.token)}`,
+            );
             const json = await r.json();
             this.data = json.results || [];
             this.activeIdx = -1;
@@ -3460,13 +3469,26 @@
             });
           });
         }
-        select(i) {
+        async select(i) {
           const d = this.data[i];
           if (!d) return;
           this.input.value = d.display_name;
-          if (this.latEl) this.latEl.value = d.lat;
-          if (this.lonEl) this.lonEl.value = d.lon;
+          if (this.latEl) this.latEl.value = "";
+          if (this.lonEl) this.lonEl.value = "";
           this.hide();
+          if (!d.place_id) return;
+          try {
+            const r = await fetch(
+              `/api/place?place_id=${encodeURIComponent(d.place_id)}&token=${encodeURIComponent(this.token)}`,
+            );
+            const j = await r.json();
+            if (j && j.ok) {
+              if (this.latEl) this.latEl.value = j.lat;
+              if (this.lonEl) this.lonEl.value = j.lon;
+              if (j.display_name) this.input.value = j.display_name;
+            }
+          } catch (e) {}
+          this.token = this._newToken();
         }
         onKey(e) {
           if (!this.data.length) return;

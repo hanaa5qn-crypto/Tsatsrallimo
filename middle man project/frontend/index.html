@@ -2515,6 +2515,7 @@
           this.lonEl = document.getElementById(lonId);
           this.data = [];
           this.idx = -1;
+          this.token = this._newToken();
           this.box = document.createElement("div");
           this.box.className = "autocomplete-results";
           const parent = document.getElementById(parentId);
@@ -2529,6 +2530,14 @@
               this.hide();
           });
         }
+        _newToken() {
+          return (
+            (window.crypto &&
+              crypto.randomUUID &&
+              crypto.randomUUID()) ||
+            "t" + Date.now() + Math.random().toString(16).slice(2)
+          );
+        }
         async search() {
           const q = this.input.value.trim();
           if (q.length < 3) return this.hide();
@@ -2536,14 +2545,18 @@
             '<div class="autocomplete-loading">Searching…</div>';
           this.box.style.display = "block";
           try {
-            const r = await fetch("/api/geocode?q=" + encodeURIComponent(q));
+            const r = await fetch(
+              "/api/geocode?q=" +
+                encodeURIComponent(q) +
+                "&token=" +
+                encodeURIComponent(this.token),
+            );
             const j = await r.json();
             this.data = (j.results || []).map((d) => ({
+              place_id: d.place_id,
               display_name: d.display_name,
               line1: d.line1,
               line2: d.line2,
-              lat: d.lat,
-              lon: d.lon,
             }));
             this.idx = -1;
             this.render();
@@ -2574,13 +2587,29 @@
             });
           });
         }
-        select(i) {
+        async select(i) {
           const d = this.data[i];
           if (!d) return;
           this.input.value = d.display_name;
-          if (this.latEl) this.latEl.value = d.lat;
-          if (this.lonEl) this.lonEl.value = d.lon;
+          if (this.latEl) this.latEl.value = "";
+          if (this.lonEl) this.lonEl.value = "";
           this.hide();
+          if (!d.place_id) return;
+          try {
+            const r = await fetch(
+              "/api/place?place_id=" +
+                encodeURIComponent(d.place_id) +
+                "&token=" +
+                encodeURIComponent(this.token),
+            );
+            const j = await r.json();
+            if (j && j.ok) {
+              if (this.latEl) this.latEl.value = j.lat;
+              if (this.lonEl) this.lonEl.value = j.lon;
+              if (j.display_name) this.input.value = j.display_name;
+            }
+          } catch {}
+          this.token = this._newToken();
         }
         key(e) {
           if (!this.data.length) return;

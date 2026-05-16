@@ -101,6 +101,7 @@ _STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 _STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 _STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
 _STRIPE_PAYMENT_LINK = os.getenv("STRIPE_PAYMENT_LINK", "")
+_GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
 if _stripe and _STRIPE_SECRET_KEY:
     _stripe.api_key = _STRIPE_SECRET_KEY
 
@@ -470,7 +471,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data: https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com; "
-            "connect-src 'self' https://photon.komoot.io https://router.project-osrm.org https://*.basemaps.cartocdn.com; "
+            "connect-src 'self' https://router.project-osrm.org https://*.basemaps.cartocdn.com; "
             "frame-ancestors 'none';"
         )
         return response
@@ -594,14 +595,21 @@ async def _midnight_archive_loop():
 def seed_admin_user(db: Session):
     import sqlalchemy.exc
 
-    admin_email = os.getenv("ADMIN_EMAIL", "admin@tsatslimo.com")
+    admin_email = os.getenv("ADMIN_EMAIL", "admin@gobilimo.live")
     admin_password = os.getenv("ADMIN_PASSWORD", os.getenv("DISPATCH_PASSWORD", ""))
     if not admin_password:
         return
-    existing = db.query(UserModel).filter(UserModel.email == admin_email).first()
-    if not existing:
+    hashed = _hash_password(admin_password)
+    existing = db.query(UserModel).filter(UserModel.role == "admin").first()
+    if existing:
+        existing.email = admin_email
+        existing.hashed_password = hashed
         try:
-            hashed = _hash_password(admin_password)
+            db.commit()
+        except sqlalchemy.exc.IntegrityError:
+            db.rollback()
+    else:
+        try:
             db.add(
                 UserModel(
                     email=admin_email,
@@ -1067,13 +1075,30 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     return JSONResponse({"status": "ok"})
 
 
-_geocode_cache: dict[str, tuple] = {}  # q → (results, timestamp)
+_GMAPS_BASE = "https://places.googleapis.com/v1"
+
+_geocode_cache: dict[str, tuple] = {}  # input (lower) → (results, ts)
+_place_cache: dict[str, tuple] = {}  # place_id → (detail, ts)
 _GEOCODE_TTL = 600  # seconds
+_PLACE_TTL = 3600  # seconds
+
+# Bias autocomplete toward California / the Bay Area without hard-restricting,
+# so statewide airports (LAX, SAN, …) still rank when typed.
+_CA_BIAS = {
+    "rectangle": {
+        "low": {"latitude": 32.5, "longitude": -124.5},
+        "high": {"latitude": 42.0, "longitude": -114.0},
+    }
+}
 
 
 @app.get("/api/geocode")
-async def geocode_proxy(q: str):
+async def geocode_proxy(q: str, token: str = ""):
+    """Google Places Autocomplete (New). Returns predictions only (no
+    coordinates) — resolve a chosen prediction via /api/place."""
     if not q or len(q) < 3 or len(q) > 200:
+        return {"results": []}
+    if not _GOOGLE_MAPS_API_KEY:
         return {"results": []}
     key = q.lower().strip()
     cached = _geocode_cache.get(key)
@@ -1081,67 +1106,107 @@ async def geocode_proxy(q: str):
         results, ts = cached
         if (datetime.utcnow().timestamp() - ts) < _GEOCODE_TTL:
             return {"results": results}
+
+    body = {
+        "input": q,
+        "includedRegionCodes": ["us"],
+        "locationBias": _CA_BIAS,
+    }
+    if token:
+        body["sessionToken"] = token
     try:
         async with httpx.AsyncClient(timeout=4.0) as client:
-            r = await client.get(
-                "https://photon.komoot.io/api/",
-                params={
-                    "q": q,
-                    "limit": 6,
-                    "lang": "en",
-                    "lat": 37.7749,
-                    "lon": -122.4194,
-                    "bbox": "-124.5,32.5,-114.0,42.0",  # California hard boundary
+            r = await client.post(
+                f"{_GMAPS_BASE}/places:autocomplete",
+                json=body,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Goog-Api-Key": _GOOGLE_MAPS_API_KEY,
                 },
-                headers={"User-Agent": "TsatsralLimoLLC/1.0"},
             )
             data = r.json() if r.status_code == 200 else {}
     except Exception:
         data = {}
 
-    features = data.get("features", []) if isinstance(data, dict) else []
+    suggestions = data.get("suggestions", []) if isinstance(data, dict) else []
     safe = []
-    for f in features:
-        props = f.get("properties", {})
-        coords = f.get("geometry", {}).get("coordinates", [None, None])
-        if coords[0] is None or coords[1] is None:
+    for s in suggestions:
+        p = s.get("placePrediction")
+        if not p:
             continue
-        # Skip results outside the US
-        if props.get("countrycode", "US") != "US":
+        pid = p.get("placeId")
+        if not pid:
             continue
-        # Build a clean display name
-        name = props.get("name", "")
-        street = props.get("street", "")
-        housenumber = props.get("housenumber", "")
-        city = props.get("city") or props.get("county", "")
-        state = props.get("state", "")
-        if housenumber and street:
-            line1 = f"{housenumber} {street}"
-        elif street:
-            line1 = street
-        elif name:
-            line1 = name
-        else:
-            continue
-        # Append name as prefix if it's a landmark (not just a street)
-        if name and name not in line1:
-            line1 = f"{name}, {line1}"
-        line2 = ", ".join(filter(None, [city, state]))
-        display = f"{line1}, {line2}" if line2 else line1
+        fmt = p.get("structuredFormat") or {}
+        main = (fmt.get("mainText") or {}).get("text", "")
+        secondary = (fmt.get("secondaryText") or {}).get("text", "")
+        full = (p.get("text") or {}).get("text", "") or main
+        if not main:
+            main = full
         safe.append(
             {
-                "display_name": display[:300],
-                "line1": line1[:150],
-                "line2": line2[:100],
-                "lat": str(coords[1]),
-                "lon": str(coords[0]),
+                "place_id": pid,
+                "display_name": full[:300],
+                "line1": main[:150],
+                "line2": secondary[:120],
             }
         )
+
     if len(_geocode_cache) > 500:
         oldest = min(_geocode_cache, key=lambda k: _geocode_cache[k][1])
         _geocode_cache.pop(oldest, None)
     _geocode_cache[key] = (safe, datetime.utcnow().timestamp())
     return {"results": safe}
+
+
+@app.get("/api/place")
+async def place_details(place_id: str, token: str = ""):
+    """Resolve a Google place_id to coordinates + a formatted address."""
+    if not place_id or len(place_id) > 300:
+        return {"ok": False}
+    if not _GOOGLE_MAPS_API_KEY:
+        return {"ok": False}
+    cached = _place_cache.get(place_id)
+    if cached:
+        detail, ts = cached
+        if (datetime.utcnow().timestamp() - ts) < _PLACE_TTL:
+            return detail
+
+    params = {"sessionToken": token} if token else {}
+    try:
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            r = await client.get(
+                f"{_GMAPS_BASE}/places/{place_id}",
+                params=params,
+                headers={
+                    "X-Goog-Api-Key": _GOOGLE_MAPS_API_KEY,
+                    "X-Goog-FieldMask": "location,formattedAddress,displayName",
+                },
+            )
+            data = r.json() if r.status_code == 200 else {}
+    except Exception:
+        data = {}
+
+    loc = data.get("location") if isinstance(data, dict) else None
+    if not loc or loc.get("latitude") is None or loc.get("longitude") is None:
+        return {"ok": False}
+    name = (data.get("displayName") or {}).get("text", "")
+    addr = data.get("formattedAddress", "")
+    if name and name not in addr:
+        display = ", ".join(filter(None, [name, addr]))
+    else:
+        display = addr or name
+    detail = {
+        "ok": True,
+        "lat": str(loc["latitude"]),
+        "lon": str(loc["longitude"]),
+        "display_name": display[:300],
+    }
+    if len(_place_cache) > 1000:
+        oldest = min(_place_cache, key=lambda k: _place_cache[k][1])
+        _place_cache.pop(oldest, None)
+    _place_cache[place_id] = (detail, datetime.utcnow().timestamp())
+    return detail
 
 
 @app.get("/api/reservations")
