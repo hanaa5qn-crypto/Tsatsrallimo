@@ -208,6 +208,7 @@ class ReservationModel(Base):
     airline = Column(String, nullable=True)  # for Airport Arrival/Departure
     flight_number = Column(String, nullable=True)  # for Airport Arrival/Departure
     hours_count = Column(Integer, nullable=True)  # for Hourly (1–12)
+    custom_price = Column(Float, nullable=True)
 
     events = relationship(
         "EventModel", back_populates="reservation", cascade="all, delete-orphan"
@@ -313,6 +314,7 @@ class ReservationCreate(BaseModel):
     airline: Optional[str] = None
     flight_number: Optional[str] = None
     hours_count: Optional[int] = Field(default=None, ge=1, le=12)
+    custom_price: Optional[float] = None
 
     @field_validator("vehicle")
     @classmethod
@@ -349,6 +351,7 @@ class ReservationUpdate(BaseModel):
     airline: Optional[str] = None
     flight_number: Optional[str] = None
     hours_count: Optional[int] = Field(default=None, ge=1, le=12)
+    custom_price: Optional[float] = None
 
     @field_validator("vehicle")
     @classmethod
@@ -668,6 +671,11 @@ async def startup_event():
                 text("ALTER TABLE reservations ADD COLUMN hours_count INTEGER")
             )
             conn.commit()
+        if "custom_price" not in existing_cols:
+            conn.execute(
+                text("ALTER TABLE reservations ADD COLUMN custom_price FLOAT")
+            )
+            conn.commit()
     db = SessionLocal()
     try:
         init_drivers(db)
@@ -865,16 +873,28 @@ def invoice_page(
 
     try:
         hour = int((r.time or "12:00").split(":")[0])
-        total_cents = _calc_total_cents(r.vehicle, r.distance_miles or 0, hour)
-        total = total_cents / 100
-        rate, minimum = _VEHICLE_RATES.get(r.vehicle, (4.50, 88))
-        base = round(max(rate * (r.distance_miles or 0), float(minimum)), 2)
-        if hour >= 22 or hour < 5:
-            base = round(base * 1.25, 2)
-        elif (6 <= hour < 9) or (16 <= hour < 19):
-            base = round(base * 1.15, 2)
-        gratuity = round(base * 0.18, 2)
-        service_fee = 22.00
+        if r.custom_price is not None:
+            total = float(r.custom_price)
+            if total >= 25.00:
+                service_fee = 22.00
+                remaining = total - service_fee
+                base = round(remaining / 1.18, 2)
+                gratuity = round(total - base - service_fee, 2)
+            else:
+                service_fee = 0.0
+                base = total
+                gratuity = 0.0
+        else:
+            total_cents = _calc_total_cents(r.vehicle, r.distance_miles or 0, hour)
+            total = total_cents / 100
+            rate, minimum = _VEHICLE_RATES.get(r.vehicle, (4.50, 88))
+            base = round(max(rate * (r.distance_miles or 0), float(minimum)), 2)
+            if hour >= 22 or hour < 5:
+                base = round(base * 1.25, 2)
+            elif (6 <= hour < 9) or (16 <= hour < 19):
+                base = round(base * 1.15, 2)
+            gratuity = round(base * 0.18, 2)
+            service_fee = 22.00
         payout = round(total * 0.70, 2)
         commission = round(total * 0.30, 2)
     except Exception:
@@ -1253,10 +1273,23 @@ def list_reservations(
                 "airline": r.airline,
                 "flight_number": r.flight_number,
                 "hours_count": r.hours_count,
+                "custom_price": r.custom_price,
+                "price": _get_reservation_price(r),
                 "events": events,
             }
         )
     return {"status": "Success", "reservations": output}
+
+
+def _get_reservation_price(r: ReservationModel) -> float:
+    if r.custom_price is not None:
+        return float(r.custom_price)
+    try:
+        hour = int((r.time or "12:00").split(":")[0])
+        total_cents = _calc_total_cents(r.vehicle, r.distance_miles or 0, hour)
+        return total_cents / 100
+    except Exception:
+        return 0.0
 
 
 def _serialize_reservation(r: ReservationModel) -> dict:
@@ -1286,6 +1319,8 @@ def _serialize_reservation(r: ReservationModel) -> dict:
         "airline": r.airline,
         "flight_number": r.flight_number,
         "hours_count": r.hours_count,
+        "custom_price": r.custom_price,
+        "price": _get_reservation_price(r),
         "archived": r.archived,
         "events": events,
     }
@@ -1309,6 +1344,8 @@ def _serialize_history_reservation(r: ReservationModel) -> dict:
         "status": r.status,
         "assigned_driver": r.assigned_driver,
         "archived": r.archived,
+        "custom_price": r.custom_price,
+        "price": _get_reservation_price(r),
     }
 
 
@@ -1427,6 +1464,23 @@ async def create_reservation(
     return {
         "status": "Success",
         "reservation": {"id": db_res.id, "payment_url": payment_url},
+    }
+
+
+@app.get("/api/reservations/public/{res_id}")
+def get_public_reservation(res_id: int, db: Session = Depends(get_db)):
+    r = db.query(ReservationModel).filter(ReservationModel.id == res_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    return {
+        "id": r.id,
+        "customer": r.customer,
+        "price": _get_reservation_price(r),
+        "status": r.status,
+        "pickup": r.pickup,
+        "dropoff": r.dropoff,
+        "date": r.date,
+        "time": r.time
     }
 
 

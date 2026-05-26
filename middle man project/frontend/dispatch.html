@@ -2690,6 +2690,7 @@
                   <span><b>Dropoff</b> ${escapeHTML(trip.dropoff || "—")}</span>
                   <span><b>Passengers</b> ${escapeHTML(trip.passengers || "—")}</span>
                   <span><b>Payment</b> ${escapeHTML(trip.payment || "—")}</span>
+                  <span><b>Price</b> $${trip.custom_price !== null && trip.custom_price !== undefined ? parseFloat(trip.custom_price).toFixed(2) : (trip.price ? parseFloat(trip.price).toFixed(2) : "—")}</span>
                 </div>
                 ${
                   trip.notes
@@ -2821,6 +2822,9 @@
               <span>📞 ${ed("phone", r.phone, { emptyHint: "Add phone" })}</span>
               <span>✉️ ${ed("email", r.email, { emptyHint: "Add email" })}</span>
             </div>
+            <div class="meta" style="margin-top:4px; color:var(--ink)">
+              <span>💰 Price: $${ed("custom_price", r.custom_price, { type: "number", emptyHint: r.price ? parseFloat(r.price).toFixed(2) : "Set price" })}</span>
+            </div>
             ${
               isAirport
                 ? `
@@ -2844,7 +2848,7 @@
             ${isUnpaid && !isResolved ? `<span class="unpaid-pill" title="Trip has not been paid">⚠ Unpaid</span>` : ""}
             <span style="font-size:10px;color:var(--soft)">💳 ${ed("payment", r.payment, { type: "select", options: "Paid|Card on file|Invoice account|Collect later" })}</span>
             <div style="display:flex;gap:6px">
-              ${r.status === "Completed" ? `<button class="card-invoice" title="View invoice" onclick="event.stopPropagation();window.open('/invoice/${r.id}','_blank')">Invoice</button>` : ""}
+              <button class="card-invoice" title="View invoice" onclick="event.stopPropagation();window.open('/invoice/${r.id}','_blank')">Invoice</button>
               ${isResolved ? `<button class="card-close" title="Close trip" onclick="event.stopPropagation();archiveTrip(${r.id})">✕</button>` : ""}
             </div>
           </div>
@@ -3106,6 +3110,8 @@
           let send = val.trim() === "" ? null : val;
           if (field === "hours_count")
             send = send === null ? null : parseInt(send, 10);
+          else if (field === "custom_price")
+            send = send === null ? null : parseFloat(send);
           body[field] = send;
           try {
             const r = await fetch(`/api/reservations/${tripId}`, {

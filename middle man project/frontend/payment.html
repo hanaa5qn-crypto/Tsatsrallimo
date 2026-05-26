@@ -48,6 +48,49 @@
   const id = window.location.pathname.split('/').pop() || '0';
   document.getElementById('resId').textContent = id;
 
+  const btn = document.querySelector('.btn');
+  btn.disabled = true;
+  btn.textContent = 'Loading details...';
+
+  let tripPrice = 148.00;
+
+  async function loadTripDetails() {
+    try {
+      const response = await fetch(`/api/reservations/public/${id}`);
+      if (!response.ok) throw new Error('Failed to load trip');
+      const data = await response.json();
+      
+      tripPrice = parseFloat(data.price || 0);
+      btn.textContent = `Pay $${tripPrice.toFixed(2)}`;
+      btn.disabled = false;
+      
+      const tripDesc = document.createElement('div');
+      tripDesc.style.marginTop = '16px';
+      tripDesc.style.marginBottom = '24px';
+      tripDesc.style.fontSize = '13px';
+      tripDesc.style.color = '#5d6761';
+      tripDesc.style.textAlign = 'left';
+      tripDesc.style.background = '#fafafa';
+      tripDesc.style.padding = '14px';
+      tripDesc.style.borderRadius = '8px';
+      tripDesc.style.border = '1px solid #dfe4de';
+      tripDesc.innerHTML = `
+        <div style="margin-bottom:6px"><b>Guest:</b> ${data.customer}</div>
+        <div style="margin-bottom:6px"><b>Pickup:</b> ${data.pickup}</div>
+        <div style="margin-bottom:6px"><b>Drop-off:</b> ${data.dropoff}</div>
+        <div><b>Schedule:</b> ${data.date} at ${data.time}</div>
+      `;
+      const p = document.querySelector('.card p');
+      p.parentNode.insertBefore(tripDesc, p.nextSibling);
+    } catch (e) {
+      console.error(e);
+      btn.textContent = `Pay $${tripPrice.toFixed(2)}`;
+      btn.disabled = false;
+    }
+  }
+
+  loadTripDetails();
+
   function pay(){
     const btn = document.querySelector('.btn');
     btn.textContent = 'Processing...';
