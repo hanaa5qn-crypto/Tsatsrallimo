@@ -209,6 +209,9 @@ class ReservationModel(Base):
     flight_number = Column(String, nullable=True)  # for Airport Arrival/Departure
     hours_count = Column(Integer, nullable=True)  # for Hourly (1–12)
     custom_price = Column(Float, nullable=True)
+    custom_base_rate = Column(Float, nullable=True)
+    custom_gratuity = Column(Float, nullable=True)
+    custom_service_fee = Column(Float, nullable=True)
 
     events = relationship(
         "EventModel", back_populates="reservation", cascade="all, delete-orphan"
@@ -315,6 +318,9 @@ class ReservationCreate(BaseModel):
     flight_number: Optional[str] = None
     hours_count: Optional[int] = Field(default=None, ge=1, le=12)
     custom_price: Optional[float] = None
+    custom_base_rate: Optional[float] = None
+    custom_gratuity: Optional[float] = None
+    custom_service_fee: Optional[float] = None
 
     @field_validator("vehicle")
     @classmethod
@@ -352,6 +358,9 @@ class ReservationUpdate(BaseModel):
     flight_number: Optional[str] = None
     hours_count: Optional[int] = Field(default=None, ge=1, le=12)
     custom_price: Optional[float] = None
+    custom_base_rate: Optional[float] = None
+    custom_gratuity: Optional[float] = None
+    custom_service_fee: Optional[float] = None
 
     @field_validator("vehicle")
     @classmethod
@@ -676,6 +685,21 @@ async def startup_event():
                 text("ALTER TABLE reservations ADD COLUMN custom_price FLOAT")
             )
             conn.commit()
+        if "custom_base_rate" not in existing_cols:
+            conn.execute(
+                text("ALTER TABLE reservations ADD COLUMN custom_base_rate FLOAT")
+            )
+            conn.commit()
+        if "custom_gratuity" not in existing_cols:
+            conn.execute(
+                text("ALTER TABLE reservations ADD COLUMN custom_gratuity FLOAT")
+            )
+            conn.commit()
+        if "custom_service_fee" not in existing_cols:
+            conn.execute(
+                text("ALTER TABLE reservations ADD COLUMN custom_service_fee FLOAT")
+            )
+            conn.commit()
     db = SessionLocal()
     try:
         init_drivers(db)
@@ -875,15 +899,21 @@ def invoice_page(
         hour = int((r.time or "12:00").split(":")[0])
         if r.custom_price is not None:
             total = float(r.custom_price)
-            if total >= 25.00:
-                service_fee = 22.00
-                remaining = total - service_fee
-                base = round(remaining / 1.18, 2)
-                gratuity = round(total - base - service_fee, 2)
+            if r.custom_service_fee is not None:
+                service_fee = float(r.custom_service_fee)
             else:
-                service_fee = 0.0
-                base = total
-                gratuity = 0.0
+                service_fee = 22.00 if total >= 25.00 else 0.0
+
+            if r.custom_base_rate is not None:
+                base = float(r.custom_base_rate)
+            else:
+                remaining = total - service_fee
+                base = round(remaining / 1.18, 2) if total >= 25.00 else total
+
+            if r.custom_gratuity is not None:
+                gratuity = float(r.custom_gratuity)
+            else:
+                gratuity = round(total - base - service_fee, 2) if total >= 25.00 else 0.0
         else:
             total_cents = _calc_total_cents(r.vehicle, r.distance_miles or 0, hour)
             total = total_cents / 100
@@ -1274,6 +1304,9 @@ def list_reservations(
                 "flight_number": r.flight_number,
                 "hours_count": r.hours_count,
                 "custom_price": r.custom_price,
+                "custom_base_rate": r.custom_base_rate,
+                "custom_gratuity": r.custom_gratuity,
+                "custom_service_fee": r.custom_service_fee,
                 "price": _get_reservation_price(r),
                 "events": events,
             }
@@ -1320,6 +1353,9 @@ def _serialize_reservation(r: ReservationModel) -> dict:
         "flight_number": r.flight_number,
         "hours_count": r.hours_count,
         "custom_price": r.custom_price,
+        "custom_base_rate": r.custom_base_rate,
+        "custom_gratuity": r.custom_gratuity,
+        "custom_service_fee": r.custom_service_fee,
         "price": _get_reservation_price(r),
         "archived": r.archived,
         "events": events,
@@ -1345,6 +1381,9 @@ def _serialize_history_reservation(r: ReservationModel) -> dict:
         "assigned_driver": r.assigned_driver,
         "archived": r.archived,
         "custom_price": r.custom_price,
+        "custom_base_rate": r.custom_base_rate,
+        "custom_gratuity": r.custom_gratuity,
+        "custom_service_fee": r.custom_service_fee,
         "price": _get_reservation_price(r),
     }
 
@@ -1476,6 +1515,10 @@ def get_public_reservation(res_id: int, db: Session = Depends(get_db)):
         "id": r.id,
         "customer": r.customer,
         "price": _get_reservation_price(r),
+        "custom_price": r.custom_price,
+        "custom_base_rate": r.custom_base_rate,
+        "custom_gratuity": r.custom_gratuity,
+        "custom_service_fee": r.custom_service_fee,
         "status": r.status,
         "pickup": r.pickup,
         "dropoff": r.dropoff,

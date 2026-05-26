@@ -2264,6 +2264,120 @@
       </div>
     </div>
 
+    <!-- Edit Price Modal -->
+    <div
+      class="modal-overlay"
+      id="editPriceOverlay"
+      onclick="handleEditPriceClick(event)"
+    >
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="editPriceTitle"
+        style="max-width: 450px;"
+      >
+        <div class="modal-head">
+          <h2 id="editPriceTitle">Edit Trip Pricing</h2>
+          <button
+            class="modal-close"
+            onclick="closeEditPrice()"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <div style="font-size: 13px; color: var(--soft); margin-bottom: 20px; line-height: 1.5;">
+          Review or override the trip fare breakdown. Modifying the base rate or total price will automatically update the line items dynamically.
+        </div>
+        <form class="modal-form" id="editPriceForm" onsubmit="savePriceOverride(event)">
+          <input type="hidden" id="editPriceTripId" />
+          
+          <div class="field">
+            <label for="editPriceBase">Base Rate ($)</label>
+            <input
+              id="editPriceBase"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="e.g. 100.00"
+              required
+              oninput="onBaseRateInput()"
+            />
+          </div>
+          
+          <div class="field">
+            <label for="editPriceSurcharge">Surcharge ($)</label>
+            <input
+              id="editPriceSurcharge"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="e.g. 15.00"
+              oninput="onSurchargeInput()"
+            />
+          </div>
+          
+          <div class="two">
+            <div class="field">
+              <label for="editPriceGratuity">Gratuity (18%) ($)</label>
+              <input
+                id="editPriceGratuity"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="e.g. 18.00"
+                oninput="onGratuityInput()"
+              />
+            </div>
+            <div class="field">
+              <label for="editPriceServiceFee">Service Fee ($)</label>
+              <input
+                id="editPriceServiceFee"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="e.g. 22.00"
+                oninput="onServiceFeeInput()"
+              />
+            </div>
+          </div>
+          
+          <div class="field" style="border-top: 1px solid var(--line); padding-top: 15px; margin-top: 15px;">
+            <label for="editPriceTotal" style="font-weight: 800; color: var(--ink);">Total Price ($)</label>
+            <input
+              id="editPriceTotal"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="e.g. 140.00"
+              required
+              style="font-weight: 800; font-size: 16px; border-color: var(--soft);"
+              oninput="onTotalPriceInput()"
+            />
+          </div>
+        </form>
+        
+        <div class="modal-footer" style="display: flex; gap: 10px; margin-top: 20px;">
+          <button
+            class="btn"
+            onclick="resetPriceToEstimate()"
+            style="flex: 1; justify-content: center; background: #fafafa; border: 1px solid var(--line); color: var(--soft);"
+          >
+            Reset to Auto
+          </button>
+          <button
+            class="btn primary"
+            type="submit"
+            form="editPriceForm"
+            style="flex: 2; justify-content: center;"
+          >
+            Save pricing
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- History Modal -->
     <div
       class="modal-overlay history-overlay"
@@ -2823,7 +2937,10 @@
               <span>✉️ ${ed("email", r.email, { emptyHint: "Add email" })}</span>
             </div>
             <div class="meta" style="margin-top:4px; color:var(--ink)">
-              <span>💰 Price: $${ed("custom_price", r.custom_price, { type: "number", emptyHint: r.price ? parseFloat(r.price).toFixed(2) : "Set price" })}</span>
+              <span class="price-click-trigger" onclick="event.stopPropagation(); openPriceModal(${r.id})" style="cursor:pointer; display:inline-flex; align-items:center; gap:4px; font-weight:600; padding:2px 6px; border-radius:4px; border:1px solid #dfe4de; background:#fafafa; transition:background 0.2s;" onmouseover="this.style.background='#eaeaea'" onmouseout="this.style.background='#fafafa'" title="Click to view detailed pricing breakdown">
+                💰 Price: $${r.custom_price !== null && r.custom_price !== undefined ? parseFloat(r.custom_price).toFixed(2) : (r.price ? parseFloat(r.price).toFixed(2) : "Set price")}
+                ${r.custom_price !== null && r.custom_price !== undefined ? '<span style="font-size:9px; color:var(--green); font-weight:bold; background:#e3f4ec; padding:1px 3px; border-radius:3px; margin-left:3px">Edited</span>' : ''}
+              </span>
             </div>
             ${
               isAirport
@@ -3667,6 +3784,219 @@
           showToast("Driver arrived", "Customer arrival SMS sent.");
         } catch (e) {
           showToast("Error", e.message);
+        }
+      };
+
+      // ── Trip Price Breakdown Modal ──
+      const VEHICLE_PRICING_RATES = {
+        "Black car": [3.5, 65],
+        "Executive SUV": [4.5, 88],
+        "Sprinter van": [6.0, 150],
+      };
+
+      function calculateAutoPricing(r) {
+        const vehicle = r.vehicle || "Executive SUV";
+        const dist = parseFloat(r.distance_miles || 0);
+        const hour = parseInt((r.time || "12:00").split(":")[0], 10);
+        
+        const [rate, minimum] = VEHICLE_PRICING_RATES[vehicle] || [4.5, 88];
+        const mileageCost = dist > 0 ? rate * dist : 0;
+        const preBase = Math.max(mileageCost, minimum);
+
+        let surchargeRate = 0;
+        if (hour >= 22 || hour < 5) surchargeRate = 0.25;
+        else if ((hour >= 6 && hour < 9) || (hour >= 16 && hour < 19)) surchargeRate = 0.15;
+
+        const surchargeAmt = Math.round(preBase * surchargeRate);
+        const base = Math.round(preBase) + surchargeAmt;
+        const gratuity = Math.round(base * 0.18);
+        const total = base + gratuity + 22.00;
+        
+        return {
+          base: base - surchargeAmt,
+          surcharge: surchargeAmt,
+          gratuity: gratuity,
+          serviceFee: 22.00,
+          total: total
+        };
+      }
+
+      window.openPriceModal = function (tripId) {
+        const r = reservationsData.find((res) => res.id === tripId);
+        if (!r) return;
+        
+        document.getElementById("editPriceTripId").value = r.id;
+        
+        const auto = calculateAutoPricing(r);
+        
+        // Base rate input in the modal represents base rate excluding surcharge for clarity
+        const baseVal = r.custom_base_rate !== null && r.custom_base_rate !== undefined 
+          ? parseFloat(r.custom_base_rate) 
+          : (r.custom_price !== null 
+              ? (parseFloat(r.custom_price) - (r.custom_service_fee !== null ? parseFloat(r.custom_service_fee) : 22.00)) / 1.18 
+              : auto.base);
+              
+        const surchargeVal = r.custom_price !== null && r.custom_price !== undefined
+          ? 0.0  // If customized, custom surcharge is 0 by default unless they add it manually
+          : auto.surcharge;
+        
+        const serviceFeeVal = r.custom_service_fee !== null && r.custom_service_fee !== undefined 
+          ? parseFloat(r.custom_service_fee) 
+          : (r.custom_price !== null ? (parseFloat(r.custom_price) >= 25.00 ? 22.00 : 0.0) : auto.serviceFee);
+        
+        const gratuityVal = r.custom_gratuity !== null && r.custom_gratuity !== undefined 
+          ? parseFloat(r.custom_gratuity) 
+          : (r.custom_price !== null ? (parseFloat(r.custom_price) - baseVal - serviceFeeVal) : auto.gratuity);
+        
+        const totalVal = r.custom_price !== null && r.custom_price !== undefined 
+          ? parseFloat(r.custom_price) 
+          : auto.total;
+
+        document.getElementById("editPriceBase").value = baseVal.toFixed(2);
+        document.getElementById("editPriceSurcharge").value = surchargeVal.toFixed(2);
+        document.getElementById("editPriceGratuity").value = gratuityVal.toFixed(2);
+        document.getElementById("editPriceServiceFee").value = serviceFeeVal.toFixed(2);
+        document.getElementById("editPriceTotal").value = totalVal.toFixed(2);
+        
+        document.getElementById("editPriceOverlay").classList.add("show");
+      };
+
+      window.closeEditPrice = function () {
+        document.getElementById("editPriceOverlay").classList.remove("show");
+        document.getElementById("editPriceForm").reset();
+      };
+
+      window.handleEditPriceClick = function (e) {
+        if (e.target === document.getElementById("editPriceOverlay"))
+          closeEditPrice();
+      };
+
+      window.onBaseRateInput = function () {
+        const base = parseFloat(document.getElementById("editPriceBase").value) || 0;
+        const surcharge = parseFloat(document.getElementById("editPriceSurcharge").value) || 0;
+        const serviceFee = parseFloat(document.getElementById("editPriceServiceFee").value) || 0;
+        
+        const gratuity = Math.round(base * 0.18 * 100) / 100;
+        document.getElementById("editPriceGratuity").value = gratuity.toFixed(2);
+        
+        const total = base + surcharge + gratuity + serviceFee;
+        document.getElementById("editPriceTotal").value = total.toFixed(2);
+      };
+
+      window.onSurchargeInput = function () {
+        const base = parseFloat(document.getElementById("editPriceBase").value) || 0;
+        const surcharge = parseFloat(document.getElementById("editPriceSurcharge").value) || 0;
+        const gratuity = parseFloat(document.getElementById("editPriceGratuity").value) || 0;
+        const serviceFee = parseFloat(document.getElementById("editPriceServiceFee").value) || 0;
+        
+        const total = base + surcharge + gratuity + serviceFee;
+        document.getElementById("editPriceTotal").value = total.toFixed(2);
+      };
+
+      window.onGratuityInput = function () {
+        const base = parseFloat(document.getElementById("editPriceBase").value) || 0;
+        const surcharge = parseFloat(document.getElementById("editPriceSurcharge").value) || 0;
+        const gratuity = parseFloat(document.getElementById("editPriceGratuity").value) || 0;
+        const serviceFee = parseFloat(document.getElementById("editPriceServiceFee").value) || 0;
+        
+        const total = base + surcharge + gratuity + serviceFee;
+        document.getElementById("editPriceTotal").value = total.toFixed(2);
+      };
+
+      window.onServiceFeeInput = function () {
+        const base = parseFloat(document.getElementById("editPriceBase").value) || 0;
+        const surcharge = parseFloat(document.getElementById("editPriceSurcharge").value) || 0;
+        const gratuity = parseFloat(document.getElementById("editPriceGratuity").value) || 0;
+        const serviceFee = parseFloat(document.getElementById("editPriceServiceFee").value) || 0;
+        
+        const total = base + surcharge + gratuity + serviceFee;
+        document.getElementById("editPriceTotal").value = total.toFixed(2);
+      };
+
+      window.onTotalPriceInput = function () {
+        const total = parseFloat(document.getElementById("editPriceTotal").value) || 0;
+        const surcharge = parseFloat(document.getElementById("editPriceSurcharge").value) || 0;
+        const serviceFee = parseFloat(document.getElementById("editPriceServiceFee").value) || 0;
+        
+        if (total >= serviceFee + surcharge) {
+          const remaining = total - serviceFee - surcharge;
+          const base = Math.round((remaining / 1.18) * 100) / 100;
+          const gratuity = Math.round((total - base - serviceFee - surcharge) * 100) / 100;
+          
+          document.getElementById("editPriceBase").value = base.toFixed(2);
+          document.getElementById("editPriceGratuity").value = gratuity.toFixed(2);
+        } else {
+          document.getElementById("editPriceBase").value = "0.00";
+          document.getElementById("editPriceGratuity").value = "0.00";
+        }
+      };
+
+      window.resetPriceToEstimate = async function () {
+        const tripId = parseInt(document.getElementById("editPriceTripId").value, 10);
+        if (!tripId) return;
+        
+        const payload = {
+          custom_price: null,
+          custom_base_rate: null,
+          custom_gratuity: null,
+          custom_service_fee: null
+        };
+        
+        try {
+          const response = await fetch(`/api/reservations/${tripId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || "Failed to reset price");
+          }
+          closeEditPrice();
+          showToast("Pricing Reset", "Custom price override removed. Trip is now using automatic estimates.");
+          await fetchReservations();
+        } catch (e) {
+          showToast("Error", e.message);
+        }
+      };
+
+      window.savePriceOverride = async function (e) {
+        if (e) e.preventDefault();
+        
+        const tripId = parseInt(document.getElementById("editPriceTripId").value, 10);
+        if (!tripId) return;
+        
+        const base = parseFloat(document.getElementById("editPriceBase").value) || 0;
+        const surcharge = parseFloat(document.getElementById("editPriceSurcharge").value) || 0;
+        const gratuity = parseFloat(document.getElementById("editPriceGratuity").value) || 0;
+        const serviceFee = parseFloat(document.getElementById("editPriceServiceFee").value) || 0;
+        const total = parseFloat(document.getElementById("editPriceTotal").value) || 0;
+        
+        // Stored base rate should fold surcharge for backend calculations
+        const customBaseSaved = base + surcharge;
+        
+        const payload = {
+          custom_price: total,
+          custom_base_rate: customBaseSaved,
+          custom_gratuity: gratuity,
+          custom_service_fee: serviceFee
+        };
+        
+        try {
+          const response = await fetch(`/api/reservations/${tripId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || "Failed to save price override");
+          }
+          closeEditPrice();
+          showToast("Saved Pricing", "Trip price override successfully saved.");
+          await fetchReservations();
+        } catch (err) {
+          showToast("Error", err.message);
         }
       };
 
