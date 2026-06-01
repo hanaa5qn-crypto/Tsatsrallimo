@@ -197,6 +197,7 @@ class DriverModel(Base):
     status = Column(String, default="Online")  # Online, Offline, Busy
     lat = Column(String, nullable=True)
     lon = Column(String, nullable=True)
+    location_token = Column(String, nullable=True, index=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
 
 
@@ -538,32 +539,45 @@ def require_company_by_slug(db: Session, slug: str) -> "CompanyModel":
     return company
 
 
+def _allow_env_credential_fallback(company: Optional["CompanyModel"]) -> bool:
+    if company is None:
+        return True
+    default_slug = os.getenv("DEFAULT_COMPANY_SLUG", "tsatsral")
+    return company.slug == default_slug
+
+
 def _company_twilio(company: Optional["CompanyModel"]) -> tuple:
     """(account_sid, auth_token, from_number) preferring per-company creds,
-    falling back to env (keeps the default company working unchanged)."""
-    sid = (company.twilio_account_sid if company else None) or os.getenv(
-        "TWILIO_ACCOUNT_SID"
+    falling back to env only for the legacy/default company."""
+    allow_env = _allow_env_credential_fallback(company)
+    sid = (company.twilio_account_sid if company else None) or (
+        os.getenv("TWILIO_ACCOUNT_SID") if allow_env else None
     )
-    token = (company.twilio_auth_token if company else None) or os.getenv(
-        "TWILIO_AUTH_TOKEN"
+    token = (company.twilio_auth_token if company else None) or (
+        os.getenv("TWILIO_AUTH_TOKEN") if allow_env else None
     )
-    from_number = (company.twilio_from_number if company else None) or os.getenv(
-        "TWILIO_FROM_NUMBER"
+    from_number = (company.twilio_from_number if company else None) or (
+        os.getenv("TWILIO_FROM_NUMBER") if allow_env else None
     )
     return sid, token, from_number
 
 
 def _company_stripe(company: Optional["CompanyModel"]) -> dict:
-    """Resolve Stripe config preferring per-company creds, falling back to env."""
+    """Resolve Stripe config preferring per-company creds.
+
+    Env fallback is restricted to the legacy/default company so new tenants
+    cannot accidentally charge through the platform owner's Stripe account.
+    """
+    allow_env = _allow_env_credential_fallback(company)
     return {
         "secret_key": (company.stripe_secret_key if company else None)
-        or _STRIPE_SECRET_KEY,
+        or (_STRIPE_SECRET_KEY if allow_env else ""),
         "publishable_key": (company.stripe_publishable_key if company else None)
-        or _STRIPE_PUBLISHABLE_KEY,
+        or (_STRIPE_PUBLISHABLE_KEY if allow_env else ""),
         "webhook_secret": (company.stripe_webhook_secret if company else None)
-        or _STRIPE_WEBHOOK_SECRET,
+        or (_STRIPE_WEBHOOK_SECRET if allow_env else ""),
         "payment_link": (company.stripe_payment_link if company else None)
-        or _STRIPE_PAYMENT_LINK,
+        or (_STRIPE_PAYMENT_LINK if allow_env else ""),
     }
 
 
@@ -586,7 +600,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data: https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com; "
-            "connect-src 'self' https://router.project-osrm.org https://*.basemaps.cartocdn.com; "
+            "connect-src 'self' https://router.project-osrm.org https://*.basemaps.cartocdn.com https://nominatim.openstreetmap.org; "
             "frame-ancestors 'none';"
         )
         return response
@@ -656,7 +670,13 @@ def init_drivers(db: Session, company_id: int):
     ]
 
     for d_data in drivers_to_add:
-        db.add(DriverModel(company_id=company_id, **d_data))
+        db.add(
+            DriverModel(
+                company_id=company_id,
+                location_token=secrets.token_urlsafe(24),
+                **d_data,
+            )
+        )
 
     db.commit()
 
@@ -757,6 +777,9 @@ async def startup_event():
         existing_cols = [row[1] for row in result.fetchall()]
         if "email" not in existing_cols:
             conn.execute(text("ALTER TABLE drivers ADD COLUMN email VARCHAR"))
+            conn.commit()
+        if "location_token" not in existing_cols:
+            conn.execute(text("ALTER TABLE drivers ADD COLUMN location_token VARCHAR"))
             conn.commit()
         # reservations migration
         result = conn.execute(text("PRAGMA table_info(reservations)"))
@@ -861,6 +884,18 @@ async def startup_event():
                 {"cid": default_company_id},
             )
         conn.commit()
+
+        # 3b. Backfill per-driver public location tokens.
+        token_rows = conn.execute(
+            text("SELECT id FROM drivers WHERE location_token IS NULL OR location_token = ''")
+        ).fetchall()
+        for row in token_rows:
+            conn.execute(
+                text("UPDATE drivers SET location_token = :token WHERE id = :id"),
+                {"token": secrets.token_urlsafe(24), "id": row[0]},
+            )
+        if token_rows:
+            conn.commit()
 
         # 4. Swap the globally-unique driver-name index for a composite one.
         #    (Must run after backfill so company_id is populated.)
@@ -1163,8 +1198,8 @@ def home():
 
 
 @app.get("/book/{slug}")
-def company_booking_page(slug: str):
-    # The page reads the slug from its own path and fetches branding client-side.
+def company_booking_page(slug: str, db: Session = Depends(get_db)):
+    require_company_by_slug(db, slug)
     return FileResponse(FRONTEND_DIR / "index.html")
 
 
@@ -1179,7 +1214,26 @@ def driver_location_page():
 
 
 @app.get("/driver/{slug}")
-def company_driver_page(slug: str):
+def company_driver_page(slug: str, db: Session = Depends(get_db)):
+    require_company_by_slug(db, slug)
+    return FileResponse(FRONTEND_DIR / "driver.html")
+
+
+@app.get("/driver/{slug}/{token}")
+def company_driver_token_page(
+    slug: str, token: str, db: Session = Depends(get_db)
+):
+    company = require_company_by_slug(db, slug)
+    driver = (
+        db.query(DriverModel)
+        .filter(
+            DriverModel.company_id == company.id,
+            DriverModel.location_token == token,
+        )
+        .first()
+    )
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver link not found")
     return FileResponse(FRONTEND_DIR / "driver.html")
 
 
@@ -1190,17 +1244,20 @@ def get_company_public(slug: str, db: Session = Depends(get_db)):
 
 
 @app.get("/api/drivers/public")
-def list_drivers_public(company: str = "", db: Session = Depends(get_db)):
-    # A driver page must identify its company, otherwise every tenant's roster
-    # would leak. Unknown/missing slug → empty roster.
+def list_drivers_public(
+    company: str = "", token: str = "", db: Session = Depends(get_db)
+):
+    # Driver GPS links are public, so the company slug is not enough authority.
+    # Unknown/missing token → empty roster.
     comp = get_company_by_slug(db, company)
-    if not comp:
+    if not comp or not token:
         return {"status": "Success", "drivers": []}
     drivers = (
         db.query(DriverModel)
         .filter(
             DriverModel.status != "Offline",
             DriverModel.company_id == comp.id,
+            DriverModel.location_token == token,
         )
         .all()
     )
@@ -1261,6 +1318,22 @@ def landing_page():
 
 @app.get("/payment/{res_id}")
 def payment_page(res_id: int):
+    return FileResponse(FRONTEND_DIR / "payment.html")
+
+
+@app.get("/payment/{slug}/{res_id}")
+def company_payment_page(slug: str, res_id: int, db: Session = Depends(get_db)):
+    company = require_company_by_slug(db, slug)
+    reservation = (
+        db.query(ReservationModel)
+        .filter(
+            ReservationModel.id == res_id,
+            ReservationModel.company_id == company.id,
+        )
+        .first()
+    )
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
     return FileResponse(FRONTEND_DIR / "payment.html")
 
 
@@ -1512,12 +1585,15 @@ async def _handle_stripe_webhook(
         raise HTTPException(status_code=400, detail=str(e))
     if event["type"] == "checkout.session.completed":
         sess_obj = event["data"]["object"]
-        res_id_str = (sess_obj.get("metadata") or {}).get("reservation_id")
+        res_id_str = (sess_obj.get("metadata") or {}).get(
+            "reservation_id"
+        ) or sess_obj.get("client_reference_id")
         if res_id_str:
             try:
+                res_id = int(res_id_str)
                 reservation = (
                     db.query(ReservationModel)
-                    .filter(ReservationModel.id == int(res_id_str))
+                    .filter(ReservationModel.id == res_id)
                     .first()
                 )
                 # Make sure the trip actually belongs to the webhook's company.
@@ -1894,14 +1970,16 @@ async def create_reservation(
     db.refresh(db_res)
 
     stripe_cfg = _company_stripe(company)
+    local_payment_url = f"/payment/{company.slug}/{db_res.id}"
     # Prefer static payment link (supports client_reference_id for tracking)
     if stripe_cfg["payment_link"]:
-        payment_url = (
-            f"{stripe_cfg['payment_link']}?client_reference_id={db_res.id}"
-        )
+        sep = "&" if "?" in stripe_cfg["payment_link"] else "?"
+        payment_url = f"{stripe_cfg['payment_link']}{sep}client_reference_id={db_res.id}"
     elif _stripe and stripe_cfg["secret_key"]:
         try:
-            origin = str(request.base_url).rstrip("/")
+            origin = os.getenv("APP_BASE_URL", "").rstrip("/") or str(
+                request.base_url
+            ).rstrip("/")
             stripe_sess = _stripe.checkout.Session.create(
                 mode="payment",
                 line_items=[
@@ -1923,17 +2001,17 @@ async def create_reservation(
                 ],
                 metadata={"reservation_id": str(db_res.id)},
                 customer_email=db_res.email or None,
-                success_url=f"{origin}/?paid=1&res={db_res.id}",
-                cancel_url=f"{origin}/",
+                success_url=f"{origin}/book/{company.slug}?paid=1&res={db_res.id}",
+                cancel_url=f"{origin}/book/{company.slug}",
                 api_key=stripe_cfg["secret_key"],
             )
             payment_url = stripe_sess.url
             db_res.stripe_session_id = stripe_sess.id
         except Exception as stripe_err:
             print(f"Stripe session error: {stripe_err}")
-            payment_url = f"/payment/{db_res.id}"
+            payment_url = local_payment_url
     else:
-        payment_url = f"/payment/{db_res.id}"
+        payment_url = local_payment_url
     db_res.payment_url = payment_url
     db.commit()
 
@@ -1955,14 +2033,13 @@ async def create_reservation(
 def get_public_reservation(
     res_id: int, company: str = "", db: Session = Depends(get_db)
 ):
-    query = db.query(ReservationModel).filter(ReservationModel.id == res_id)
-    # When the caller knows the company slug, scope to it so one tenant's
-    # reservation ids can't be probed through another tenant's booking page.
-    if company:
-        comp = get_company_by_slug(db, company)
-        if not comp:
-            raise HTTPException(status_code=404, detail="Reservation not found")
-        query = query.filter(ReservationModel.company_id == comp.id)
+    comp = get_company_by_slug(db, company)
+    if not comp:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    query = db.query(ReservationModel).filter(
+        ReservationModel.id == res_id,
+        ReservationModel.company_id == comp.id,
+    )
     r = query.first()
     if not r:
         raise HTTPException(status_code=404, detail="Reservation not found")
@@ -2164,7 +2241,11 @@ async def complete_reservation(
             _send_sms(
                 company,
                 driver.phone,
-                build_completion_message(reservation, company_name),
+                build_completion_message(
+                    reservation,
+                    company_name,
+                    company.slug if company else "",
+                ),
             )
         except Exception:
             pass
@@ -2411,7 +2492,13 @@ async def assign_driver(
     # Twilio logic
     try:
         sid = notify_driver_of_reservation(
-            company, reservation, {"name": driver.name, "phone": driver.phone}
+            company,
+            reservation,
+            {
+                "name": driver.name,
+                "phone": driver.phone,
+                "location_token": driver.location_token,
+            },
         )
         if sid == "TWILIO_NOT_CONFIGURED":
             raise HTTPException(status_code=503, detail="Twilio not configured")
@@ -2594,6 +2681,12 @@ async def _handle_twilio_reply(
 def list_drivers(
     db: Session = Depends(get_db), current_user: dict = Depends(require_admin)
 ):
+    company = (
+        db.query(CompanyModel)
+        .filter(CompanyModel.id == current_user["company_id"])
+        .first()
+    )
+    company_slug = company.slug if company else ""
     drivers = (
         db.query(DriverModel)
         .filter(DriverModel.company_id == current_user["company_id"])
@@ -2611,6 +2704,8 @@ def list_drivers(
                 "status": d.status,
                 "lat": d.lat,
                 "lon": d.lon,
+                "location_token": d.location_token,
+                "location_url": _driver_page_url(company_slug, d.location_token or ""),
             }
             for d in drivers
         ],
@@ -2636,7 +2731,11 @@ async def create_driver(
         raise HTTPException(
             status_code=409, detail="A driver with that name already exists"
         )
-    driver = DriverModel(company_id=company_id, **data.model_dump())
+    driver = DriverModel(
+        company_id=company_id,
+        location_token=secrets.token_urlsafe(24),
+        **data.model_dump(),
+    )
     db.add(driver)
     db.commit()
     db.refresh(driver)
@@ -2798,18 +2897,24 @@ async def delete_driver(
 
 @app.put("/api/drivers/{driver_id}/location")
 async def update_driver_location(
-    driver_id: int, payload: dict, company: str = "", db: Session = Depends(get_db)
+    driver_id: int,
+    payload: dict,
+    company: str = "",
+    token: str = "",
+    db: Session = Depends(get_db),
 ):
-    driver = db.query(DriverModel).filter(DriverModel.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
-
-    # The public driver page must present its company slug; reject GPS writes that
-    # don't match the driver's company (minimum bar — a per-driver token is a
-    # future hardening).
     comp = require_company_by_slug(db, company)
-    if driver.company_id != comp.id:
-        raise HTTPException(status_code=403, detail="Driver does not belong to company")
+    driver = (
+        db.query(DriverModel)
+        .filter(
+            DriverModel.id == driver_id,
+            DriverModel.company_id == comp.id,
+            DriverModel.location_token == token,
+        )
+        .first()
+    )
+    if not driver:
+        raise HTTPException(status_code=403, detail="Invalid driver location link")
 
     lat = payload.get("lat")
     lon = payload.get("lon")
@@ -2878,10 +2983,22 @@ def _send_sms(
     return msg.sid
 
 
-def build_dispatch_alert(reservation: ReservationModel) -> str:
+def _driver_page_url(company_slug: str = "", token: str = "") -> str:
+    if company_slug and token:
+        path = f"/driver/{company_slug}/{token}"
+    elif company_slug:
+        path = f"/driver/{company_slug}"
+    else:
+        path = "/driver"
+    base_url = os.getenv("APP_BASE_URL", "").rstrip("/")
+    return f"{base_url}{path}" if base_url else path
+
+
+def build_dispatch_alert(
+    reservation: ReservationModel, company_slug: str = "", token: str = ""
+) -> str:
     pickup_time = format_pickup_time(reservation.date, reservation.time)
-    base_url = os.getenv("APP_BASE_URL", "")
-    details_line = f"\nDetails: {base_url}/driver" if base_url else ""
+    details_line = f"\nDetails: {_driver_page_url(company_slug, token)}"
     return (
         f"NEW TRIP ASSIGNED\n"
         f"Date: {pickup_time}\n"
@@ -2936,10 +3053,11 @@ def build_customer_arrived_message(
 
 
 def build_completion_message(
-    reservation: ReservationModel, company_name: str = "Limo"
+    reservation: ReservationModel,
+    company_name: str = "Limo",
+    company_slug: str = "",
 ) -> str:
-    base_url = os.getenv("APP_BASE_URL", "")
-    dashboard_line = f"\nView trip details: {base_url}/driver" if base_url else ""
+    dashboard_line = f"\nView trip details: {_driver_page_url(company_slug)}"
     return (
         f"TRIP COMPLETE: Great job! Trip #{reservation.id} has been closed.\n"
         f"Thank you for driving with {company_name}.{dashboard_line}"
@@ -3013,7 +3131,11 @@ def notify_driver_of_reservation(
     client = Client(account_sid, auth_token)
     to_number = _to_e164(driver.get("phone", ""))
     message = client.messages.create(
-        body=build_dispatch_alert(reservation),
+        body=build_dispatch_alert(
+            reservation,
+            company.slug if company else "",
+            driver.get("location_token", ""),
+        ),
         from_=from_number,
         to=to_number,
     )

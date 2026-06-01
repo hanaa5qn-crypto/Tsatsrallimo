@@ -206,19 +206,26 @@
     let lastSent = null;
     let sharing = false;
 
-    // Which company this driver page belongs to, read from /driver/{slug}.
-    const COMPANY_SLUG = (function () {
-      const m = window.location.pathname.match(/^\/driver\/([^/]+)/);
-      return m ? decodeURIComponent(m[1]) : '';
+    // Driver links are /driver/{company-slug}/{driver-token}.
+    const DRIVER_LINK = (function () {
+      const m = window.location.pathname.match(/^\/driver\/([^/]+)\/([^/]+)/);
+      return m
+        ? { company: decodeURIComponent(m[1]), token: decodeURIComponent(m[2]) }
+        : { company: '', token: '' };
     })();
 
     async function loadDrivers() {
-      if (!COMPANY_SLUG) {
-        showError('This driver link is missing a company. Use the link your dispatcher gave you.');
+      if (!DRIVER_LINK.company || !DRIVER_LINK.token) {
+        showError('This driver link is incomplete. Use the driver-specific link your dispatcher gave you.');
         return;
       }
       try {
-        const r = await fetch('/api/drivers/public?company=' + encodeURIComponent(COMPANY_SLUG));
+        const r = await fetch(
+          '/api/drivers/public?company=' +
+            encodeURIComponent(DRIVER_LINK.company) +
+            '&token=' +
+            encodeURIComponent(DRIVER_LINK.token)
+        );
         const data = await r.json();
         const sel = document.getElementById('driverSelect');
         const fragment = document.createDocumentFragment();
@@ -234,6 +241,11 @@
         });
         sel.innerHTML = '';
         sel.appendChild(fragment);
+        if (data.drivers.length === 1) {
+          sel.value = String(data.drivers[0].id);
+        } else {
+          showError('This driver link is invalid or expired.');
+        }
       } catch (e) {
         showError('Could not load drivers. Is the server running?');
       }
@@ -253,7 +265,7 @@
       const id = document.getElementById('driverSelect').value;
       if (!id) return;
       try {
-        await fetch(`/api/drivers/${id}/location?company=${encodeURIComponent(COMPANY_SLUG)}`, {
+        await fetch(`/api/drivers/${id}/location?company=${encodeURIComponent(DRIVER_LINK.company)}&token=${encodeURIComponent(DRIVER_LINK.token)}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ lat, lon })

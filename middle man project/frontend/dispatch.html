@@ -1594,10 +1594,9 @@
           <a id="bookingPageLink" href="/" target="_blank">Customer booking page →</a>
           <a
             id="driverPageLink"
-            href="/driver"
-            target="_blank"
+            href="#drivers"
             style="margin-top: 8px; color: #e4f9a8"
-            >📍 Share my location →</a
+            >Driver location links →</a
           >
           <a
             href="/logout"
@@ -1646,8 +1645,7 @@
               History
             </button>
             <a
-              href="/driver"
-              target="_blank"
+              href="#drivers"
               class="btn"
               style="text-decoration: none"
             >
@@ -1655,7 +1653,7 @@
                 <path d="M12 21s7-4.4 7-11a7 7 0 1 0-14 0c0 6.6 7 11 7 11Z" />
                 <circle cx="12" cy="10" r="2" />
               </svg>
-              Share Location
+              Driver Links
             </a>
             <button class="btn" onclick="openNewTrip()">
               <svg viewBox="0 0 24 24">
@@ -3215,6 +3213,14 @@
                 ? "On Trip"
                 : "Offline";
           const isBusy = d.status === "Busy";
+          const locationUrl =
+            d.location_url ||
+            (CURRENT_COMPANY.slug && d.location_token
+              ? "/driver/" +
+                encodeURIComponent(CURRENT_COMPANY.slug) +
+                "/" +
+                encodeURIComponent(d.location_token)
+              : "");
 
           card.innerHTML = `
         <div class="driver-row">
@@ -3252,6 +3258,11 @@
             </svg>
             Edit
           </button>
+          ${
+            locationUrl
+              ? `<a class="driver-edit" href="${locationUrl}" target="_blank" rel="noopener" style="text-decoration:none">Location link</a>`
+              : ""
+          }
           <button class="driver-delete" onclick="confirmDeleteDriver(${d.id}, '${safeName}')">
             <svg viewBox="0 0 24 24" width="13" height="13">
               <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -4195,8 +4206,6 @@
           if (u.company_slug) {
             document.getElementById("bookingPageLink").href =
               "/book/" + encodeURIComponent(u.company_slug);
-            document.getElementById("driverPageLink").href =
-              "/driver/" + encodeURIComponent(u.company_slug);
           }
           // Settings is admin-only.
           const navSettings = document.getElementById("navSettings");

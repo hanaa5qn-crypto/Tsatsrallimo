@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tsatsral Limo — Secure Payment</title>
+<title>Secure Payment</title>
 <style>
   :root{
     --bg:#f6f7f4;
@@ -30,7 +30,7 @@
     <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
   </div>
   <h1>Complete Payment</h1>
-  <p>Reservation #<span id="resId"></span> for Tsatsral Limo LLC.</p>
+  <p>Reservation #<span id="resId"></span> for <span id="companyName">your limo company</span>.</p>
   <button class="btn" onclick="pay()">Pay $148.00</button>
 </div>
 
@@ -39,13 +39,20 @@
     <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
   </div>
   <h1>Payment Successful</h1>
-  <p>Thank you! Your chauffeur, Jack Dorj, will be notified shortly.</p>
+  <p>Thank you! Your chauffeur will be notified shortly.</p>
   <button class="btn" onclick="window.close()" style="background:#111917">Close Window</button>
 </div>
 
 <script>
-  const urlParams = new URLSearchParams(window.location.search);
-  const id = window.location.pathname.split('/').pop() || '0';
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  const companySlug =
+    pathParts[0] === 'payment' && pathParts.length >= 3
+      ? decodeURIComponent(pathParts[1])
+      : '';
+  const id =
+    pathParts[0] === 'payment'
+      ? pathParts[pathParts.length - 1] || '0'
+      : '0';
   document.getElementById('resId').textContent = id;
 
   const btn = document.querySelector('.btn');
@@ -54,9 +61,40 @@
 
   let tripPrice = 148.00;
 
-  async function loadTripDetails() {
+  async function loadCompanyBranding() {
+    if (!companySlug) return;
     try {
-      const response = await fetch(`/api/reservations/public/${id}`);
+      const response = await fetch('/api/company/' + encodeURIComponent(companySlug));
+      if (!response.ok) return;
+      const company = await response.json();
+      if (company.name) {
+        document.title = company.name + ' — Secure Payment';
+        document.getElementById('companyName').textContent = company.name;
+      }
+    } catch (e) {}
+  }
+
+  function appendDetailRow(parent, label, value) {
+    const row = document.createElement('div');
+    row.style.marginBottom = '6px';
+    const strong = document.createElement('b');
+    strong.textContent = label + ': ';
+    row.appendChild(strong);
+    row.appendChild(document.createTextNode(value || '—'));
+    parent.appendChild(row);
+  }
+
+  async function loadTripDetails() {
+    await loadCompanyBranding();
+    if (!companySlug) {
+      btn.textContent = 'Invalid payment link';
+      btn.disabled = true;
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/reservations/public/${encodeURIComponent(id)}?company=${encodeURIComponent(companySlug)}`
+      );
       if (!response.ok) throw new Error('Failed to load trip');
       const data = await response.json();
       
@@ -74,18 +112,16 @@
       tripDesc.style.padding = '14px';
       tripDesc.style.borderRadius = '8px';
       tripDesc.style.border = '1px solid #dfe4de';
-      tripDesc.innerHTML = `
-        <div style="margin-bottom:6px"><b>Guest:</b> ${data.customer}</div>
-        <div style="margin-bottom:6px"><b>Pickup:</b> ${data.pickup}</div>
-        <div style="margin-bottom:6px"><b>Drop-off:</b> ${data.dropoff}</div>
-        <div><b>Schedule:</b> ${data.date} at ${data.time}</div>
-      `;
+      appendDetailRow(tripDesc, 'Guest', data.customer);
+      appendDetailRow(tripDesc, 'Pickup', data.pickup);
+      appendDetailRow(tripDesc, 'Drop-off', data.dropoff);
+      appendDetailRow(tripDesc, 'Schedule', `${data.date || '—'} at ${data.time || '—'}`);
       const p = document.querySelector('.card p');
       p.parentNode.insertBefore(tripDesc, p.nextSibling);
     } catch (e) {
       console.error(e);
-      btn.textContent = `Pay $${tripPrice.toFixed(2)}`;
-      btn.disabled = false;
+      btn.textContent = 'Trip not found';
+      btn.disabled = true;
     }
   }
 
