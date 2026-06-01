@@ -48,6 +48,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     create_engine,
     or_,
 )
@@ -153,6 +154,26 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+class CompanyModel(Base):
+    __tablename__ = "companies"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    slug = Column(String, unique=True, index=True)
+    phone = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Per-tenant Twilio credentials (empty = fall back to env for default company)
+    twilio_account_sid = Column(String, nullable=True)
+    twilio_auth_token = Column(String, nullable=True)
+    twilio_from_number = Column(String, nullable=True)
+
+    # Per-tenant Stripe credentials
+    stripe_secret_key = Column(String, nullable=True)
+    stripe_publishable_key = Column(String, nullable=True)
+    stripe_webhook_secret = Column(String, nullable=True)
+    stripe_payment_link = Column(String, nullable=True)
+
+
 class UserModel(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -160,18 +181,23 @@ class UserModel(Base):
     hashed_password = Column(String)
     name = Column(String)
     role = Column(String, default="operator")  # "admin" or "operator"
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
 
 
 class DriverModel(Base):
     __tablename__ = "drivers"
+    __table_args__ = (
+        UniqueConstraint("company_id", "name", name="uq_drivers_company_name"),
+    )
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
+    name = Column(String, index=False)
     email = Column(String, nullable=True)
     phone = Column(String)
     vehicle = Column(String)
     status = Column(String, default="Online")  # Online, Offline, Busy
     lat = Column(String, nullable=True)
     lon = Column(String, nullable=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
 
 
 class ReservationModel(Base):
@@ -203,6 +229,7 @@ class ReservationModel(Base):
     archived = Column(Integer, default=0)  # 0 = visible, 1 = archived
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     stripe_session_id = Column(String, nullable=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
 
     # Trip-type-specific fields
     airline = Column(String, nullable=True)  # for Airport Arrival/Departure
@@ -313,6 +340,8 @@ class ReservationCreate(BaseModel):
     dropoff_lon: Optional[str] = None
     distance_miles: Optional[float] = None
     created_by: Optional[int] = None
+    # Which company this public booking belongs to (resolved server-side)
+    company_slug: Optional[str] = None
     # Trip-type-specific
     airline: Optional[str] = None
     flight_number: Optional[str] = None
@@ -383,19 +412,33 @@ class ReservationUpdate(BaseModel):
 
 # --- WEBSOCKET MANAGER ---
 class ConnectionManager:
+    """Connections are partitioned by company_id so a dispatch board only ever
+    receives events for its own tenant."""
+
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        self.active_connections: dict[int, List[WebSocket]] = {}
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, company_id: int):
         await websocket.accept()
-        self.active_connections.append(websocket)
+        self.active_connections.setdefault(company_id, []).append(websocket)
 
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+    def disconnect(self, websocket: WebSocket, company_id: int):
+        conns = self.active_connections.get(company_id, [])
+        if websocket in conns:
+            conns.remove(websocket)
+        if not conns:
+            self.active_connections.pop(company_id, None)
 
-    async def broadcast(self, message: dict):
-        for connection in self.active_connections:
-            await connection.send_json(message)
+    async def broadcast(self, company_id: int, message: dict):
+        for connection in list(self.active_connections.get(company_id, [])):
+            try:
+                await connection.send_json(message)
+            except Exception:
+                self.disconnect(connection, company_id)
+
+    async def broadcast_all(self, message: dict):
+        for cid in list(self.active_connections):
+            await self.broadcast(cid, message)
 
 
 manager = ConnectionManager()
@@ -462,6 +505,66 @@ def check_login_rate(request: Request) -> None:
         )
     recent.append(now)
     _login_rate[ip] = recent
+
+
+# --- TENANT HELPERS ---
+def _slugify(value: str) -> str:
+    """Turn a company name into a URL-safe slug (lowercase, hyphenated)."""
+    slug = re.sub(r"[^a-z0-9]+", "-", (value or "").lower()).strip("-")
+    return slug or "company"
+
+
+def _unique_slug(db: Session, base: str) -> str:
+    """Return a slug derived from base that is not yet taken."""
+    base = _slugify(base)
+    candidate = base
+    n = 2
+    while db.query(CompanyModel).filter(CompanyModel.slug == candidate).first():
+        candidate = f"{base}-{n}"
+        n += 1
+    return candidate
+
+
+def get_company_by_slug(db: Session, slug: str) -> Optional["CompanyModel"]:
+    if not slug:
+        return None
+    return db.query(CompanyModel).filter(CompanyModel.slug == slug).first()
+
+
+def require_company_by_slug(db: Session, slug: str) -> "CompanyModel":
+    company = get_company_by_slug(db, slug)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return company
+
+
+def _company_twilio(company: Optional["CompanyModel"]) -> tuple:
+    """(account_sid, auth_token, from_number) preferring per-company creds,
+    falling back to env (keeps the default company working unchanged)."""
+    sid = (company.twilio_account_sid if company else None) or os.getenv(
+        "TWILIO_ACCOUNT_SID"
+    )
+    token = (company.twilio_auth_token if company else None) or os.getenv(
+        "TWILIO_AUTH_TOKEN"
+    )
+    from_number = (company.twilio_from_number if company else None) or os.getenv(
+        "TWILIO_FROM_NUMBER"
+    )
+    return sid, token, from_number
+
+
+def _company_stripe(company: Optional["CompanyModel"]) -> dict:
+    """Resolve Stripe config preferring per-company creds, falling back to env."""
+    return {
+        "secret_key": (company.stripe_secret_key if company else None)
+        or _STRIPE_SECRET_KEY,
+        "publishable_key": (company.stripe_publishable_key if company else None)
+        or _STRIPE_PUBLISHABLE_KEY,
+        "webhook_secret": (company.stripe_webhook_secret if company else None)
+        or _STRIPE_WEBHOOK_SECRET,
+        "payment_link": (company.stripe_payment_link if company else None)
+        or _STRIPE_PAYMENT_LINK,
+    }
 
 
 # --- APP SETUP ---
@@ -540,8 +643,8 @@ def _calc_total_cents(vehicle: str, distance_miles: float = 0, hour: int = 12) -
 
 
 # --- INITIAL DATA ---
-def init_drivers(db: Session):
-    if db.query(DriverModel).first():
+def init_drivers(db: Session, company_id: int):
+    if db.query(DriverModel).filter(DriverModel.company_id == company_id).first():
         return
 
     drivers_to_add = [
@@ -553,7 +656,7 @@ def init_drivers(db: Session):
     ]
 
     for d_data in drivers_to_add:
-        db.add(DriverModel(**d_data))
+        db.add(DriverModel(company_id=company_id, **d_data))
 
     db.commit()
 
@@ -566,12 +669,13 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.close(code=4001)
         return
     sess = _active_sessions[token]
-    await manager.connect(websocket)
+    company_id = sess.get("company_id")
+    await manager.connect(websocket, company_id)
     try:
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        manager.disconnect(websocket, company_id)
 
 
 async def _midnight_archive_loop():
@@ -594,17 +698,18 @@ async def _midnight_archive_loop():
             )
             db.commit()
             if count:
-                await manager.broadcast(
+                # Archives span every tenant in one UPDATE; nudge all boards.
+                await manager.broadcast_all(
                     {
                         "type": "UPDATE",
-                        "message": f"{count} resolved trips archived at midnight",
+                        "message": "Resolved trips archived at midnight",
                     }
                 )
         finally:
             db.close()
 
 
-def seed_admin_user(db: Session):
+def seed_admin_user(db: Session, company_id: int):
     import sqlalchemy.exc
 
     admin_email = os.getenv("ADMIN_EMAIL", "admin@gobilimo.live")
@@ -612,7 +717,13 @@ def seed_admin_user(db: Session):
     if not admin_password:
         return
     hashed = _hash_password(admin_password)
-    existing = db.query(UserModel).filter(UserModel.role == "admin").first()
+    # Scope the admin lookup to the default company so a tenant admin elsewhere
+    # cannot be mistaken for (and overwritten as) this company's admin.
+    existing = (
+        db.query(UserModel)
+        .filter(UserModel.role == "admin", UserModel.company_id == company_id)
+        .first()
+    )
     if existing:
         existing.email = admin_email
         existing.hashed_password = hashed
@@ -628,6 +739,7 @@ def seed_admin_user(db: Session):
                     hashed_password=hashed,
                     name="Admin",
                     role="admin",
+                    company_id=company_id,
                 )
             )
             db.commit()
@@ -700,10 +812,84 @@ async def startup_event():
                 text("ALTER TABLE reservations ADD COLUMN custom_service_fee FLOAT")
             )
             conn.commit()
+
+        # --- Multi-tenant migration (order matters) ---
+        # 1. Ensure a default company row exists, capture its id.
+        default_slug = os.getenv("DEFAULT_COMPANY_SLUG", "tsatsral")
+        default_name = os.getenv("DEFAULT_COMPANY_NAME", "Tsatsral Limo")
+        row = conn.execute(
+            text("SELECT id FROM companies WHERE slug = :slug"),
+            {"slug": default_slug},
+        ).fetchone()
+        if row:
+            default_company_id = row[0]
+        else:
+            conn.execute(
+                text(
+                    "INSERT INTO companies (name, slug, created_at) "
+                    "VALUES (:n, :s, :t)"
+                ),
+                {"n": default_name, "s": default_slug, "t": datetime.utcnow()},
+            )
+            conn.commit()
+            default_company_id = conn.execute(
+                text("SELECT id FROM companies WHERE slug = :slug"),
+                {"slug": default_slug},
+            ).fetchone()[0]
+
+        # 2. Add company_id to legacy tables (guarded, nullable via ALTER).
+        for table in ("users", "drivers", "reservations"):
+            cols = [
+                r[1]
+                for r in conn.execute(
+                    text(f"PRAGMA table_info({table})")
+                ).fetchall()
+            ]
+            if "company_id" not in cols:
+                conn.execute(
+                    text(f"ALTER TABLE {table} ADD COLUMN company_id INTEGER")
+                )
+                conn.commit()
+
+        # 3. Backfill existing rows to the default company.
+        for table in ("users", "drivers", "reservations"):
+            conn.execute(
+                text(
+                    f"UPDATE {table} SET company_id = :cid "
+                    "WHERE company_id IS NULL"
+                ),
+                {"cid": default_company_id},
+            )
+        conn.commit()
+
+        # 4. Swap the globally-unique driver-name index for a composite one.
+        #    (Must run after backfill so company_id is populated.)
+        idx_names = [
+            r[1]
+            for r in conn.execute(text("PRAGMA index_list(drivers)")).fetchall()
+        ]
+        if "ix_drivers_name" in idx_names:
+            conn.execute(text("DROP INDEX ix_drivers_name"))
+            conn.commit()
+        if "uq_drivers_company_name" not in idx_names:
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_drivers_company_name "
+                    "ON drivers (company_id, name)"
+                )
+            )
+            conn.commit()
+
     db = SessionLocal()
     try:
-        init_drivers(db)
-        seed_admin_user(db)
+        company = (
+            db.query(CompanyModel)
+            .filter(CompanyModel.slug == default_slug)
+            .first()
+        )
+        if company:
+            init_drivers(db, company.id)
+            seed_admin_user(db, company.id)
     finally:
         db.close()
     asyncio.create_task(_midnight_archive_loop())
@@ -734,6 +920,7 @@ async def login(
         "role": user.role,
         "name": user.name,
         "email": user.email,
+        "company_id": user.company_id,
         "expires": datetime.utcnow() + duration,
     }
     response = RedirectResponse(url="/dispatch", status_code=303)
@@ -749,12 +936,23 @@ async def login(
 
 
 @app.get("/api/me")
-def get_me(current_user: dict = Depends(get_current_user)):
+def get_me(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    company = (
+        db.query(CompanyModel)
+        .filter(CompanyModel.id == current_user["company_id"])
+        .first()
+    )
     return {
         "user_id": current_user["user_id"],
         "name": current_user["name"],
         "email": current_user["email"],
         "role": current_user["role"],
+        "company_id": current_user["company_id"],
+        "company_name": company.name if company else None,
+        "company_slug": company.slug if company else None,
     }
 
 
@@ -788,7 +986,13 @@ async def create_user(
     if db.query(UserModel).filter(UserModel.email == email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
     hashed = _hash_password(password)
-    user = UserModel(email=email, hashed_password=hashed, name=name, role=role)
+    user = UserModel(
+        email=email,
+        hashed_password=hashed,
+        name=name,
+        role=role,
+        company_id=current_user["company_id"],
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -801,6 +1005,147 @@ async def create_user(
             "role": user.role,
         },
     }
+
+
+@app.post("/api/signup")
+async def signup(
+    request: Request,
+    payload: dict,
+    _: None = Depends(check_login_rate),
+    db: Session = Depends(get_db),
+):
+    company_name = (payload.get("company_name") or "").strip()
+    name = (payload.get("name") or "").strip()
+    email = (payload.get("email") or "").lower().strip()
+    password = payload.get("password") or ""
+    if not company_name or not name or not email or not password:
+        raise HTTPException(
+            status_code=422,
+            detail="company_name, name, email, and password are required",
+        )
+    if len(password) < 8:
+        raise HTTPException(
+            status_code=422, detail="Password must be at least 8 characters"
+        )
+    if db.query(UserModel).filter(UserModel.email == email).first():
+        raise HTTPException(status_code=409, detail="Email already registered")
+
+    company = CompanyModel(
+        name=company_name,
+        slug=_unique_slug(db, company_name),
+        phone=payload.get("phone") or None,
+    )
+    db.add(company)
+    db.commit()
+    db.refresh(company)
+
+    user = UserModel(
+        email=email,
+        hashed_password=_hash_password(password),
+        name=name,
+        role="admin",
+        company_id=company.id,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    # Log the new admin straight in (mirror the /login session/cookie logic).
+    token = secrets.token_urlsafe(32)
+    _active_sessions[token] = {
+        "user_id": user.id,
+        "role": user.role,
+        "name": user.name,
+        "email": user.email,
+        "company_id": company.id,
+        "expires": datetime.utcnow() + _SESSION_DURATION,
+    }
+    response = JSONResponse(
+        {
+            "status": "Success",
+            "company": {"name": company.name, "slug": company.slug},
+            "redirect": "/dispatch",
+        }
+    )
+    response.set_cookie(
+        "session_token",
+        token,
+        httponly=True,
+        samesite="strict",
+        max_age=int(_SESSION_DURATION.total_seconds()),
+        secure=_IS_PRODUCTION,
+    )
+    return response
+
+
+@app.get("/api/company/settings")
+def get_company_settings(
+    current_user: dict = Depends(require_admin), db: Session = Depends(get_db)
+):
+    company = (
+        db.query(CompanyModel)
+        .filter(CompanyModel.id == current_user["company_id"])
+        .first()
+    )
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    base = os.getenv("APP_BASE_URL", "").rstrip("/")
+    return {
+        "name": company.name,
+        "slug": company.slug,
+        "phone": company.phone,
+        "twilio_account_sid": company.twilio_account_sid,
+        "twilio_auth_token": company.twilio_auth_token,
+        "twilio_from_number": company.twilio_from_number,
+        "stripe_secret_key": company.stripe_secret_key,
+        "stripe_publishable_key": company.stripe_publishable_key,
+        "stripe_webhook_secret": company.stripe_webhook_secret,
+        "stripe_payment_link": company.stripe_payment_link,
+        "booking_url": f"{base}/book/{company.slug}" if base else f"/book/{company.slug}",
+        "twilio_webhook_url": (
+            f"{base}/twilio/reply/{company.slug}"
+            if base
+            else f"/twilio/reply/{company.slug}"
+        ),
+        "stripe_webhook_url": (
+            f"{base}/stripe/webhook/{company.slug}"
+            if base
+            else f"/stripe/webhook/{company.slug}"
+        ),
+    }
+
+
+@app.put("/api/company/settings")
+async def update_company_settings(
+    payload: dict,
+    current_user: dict = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    company = (
+        db.query(CompanyModel)
+        .filter(CompanyModel.id == current_user["company_id"])
+        .first()
+    )
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    if "name" in payload and (payload.get("name") or "").strip():
+        company.name = payload["name"].strip()
+    if "phone" in payload:
+        company.phone = (payload.get("phone") or "").strip() or None
+    for field in (
+        "twilio_account_sid",
+        "twilio_auth_token",
+        "twilio_from_number",
+        "stripe_secret_key",
+        "stripe_publishable_key",
+        "stripe_webhook_secret",
+        "stripe_payment_link",
+    ):
+        if field in payload:
+            value = payload.get(field)
+            setattr(company, field, (value or "").strip() or None)
+    db.commit()
+    return {"status": "Success"}
 
 
 @app.get("/logout")
@@ -817,14 +1162,48 @@ def home():
     return FileResponse(FRONTEND_DIR / "index.html")
 
 
+@app.get("/book/{slug}")
+def company_booking_page(slug: str):
+    # The page reads the slug from its own path and fetches branding client-side.
+    return FileResponse(FRONTEND_DIR / "index.html")
+
+
+@app.get("/signup")
+def signup_page():
+    return FileResponse(FRONTEND_DIR / "signup.html")
+
+
 @app.get("/driver")
 def driver_location_page():
     return FileResponse(FRONTEND_DIR / "driver.html")
 
 
+@app.get("/driver/{slug}")
+def company_driver_page(slug: str):
+    return FileResponse(FRONTEND_DIR / "driver.html")
+
+
+@app.get("/api/company/{slug}")
+def get_company_public(slug: str, db: Session = Depends(get_db)):
+    company = require_company_by_slug(db, slug)
+    return {"name": company.name, "phone": company.phone, "slug": company.slug}
+
+
 @app.get("/api/drivers/public")
-def list_drivers_public(db: Session = Depends(get_db)):
-    drivers = db.query(DriverModel).filter(DriverModel.status != "Offline").all()
+def list_drivers_public(company: str = "", db: Session = Depends(get_db)):
+    # A driver page must identify its company, otherwise every tenant's roster
+    # would leak. Unknown/missing slug → empty roster.
+    comp = get_company_by_slug(db, company)
+    if not comp:
+        return {"status": "Success", "drivers": []}
+    drivers = (
+        db.query(DriverModel)
+        .filter(
+            DriverModel.status != "Offline",
+            DriverModel.company_id == comp.id,
+        )
+        .all()
+    )
     return {
         "status": "Success",
         "drivers": [
@@ -887,13 +1266,29 @@ def payment_page(res_id: int):
 
 @app.get("/invoice/{res_id}")
 def invoice_page(
-    res_id: int, db: Session = Depends(get_db), _: dict = Depends(require_admin)
+    res_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
 ):
     from fastapi.responses import HTMLResponse
 
-    r = db.query(ReservationModel).filter(ReservationModel.id == res_id).first()
+    r = (
+        db.query(ReservationModel)
+        .filter(
+            ReservationModel.id == res_id,
+            ReservationModel.company_id == current_user["company_id"],
+        )
+        .first()
+    )
     if not r:
         raise HTTPException(status_code=404, detail="Trip not found")
+    company = (
+        db.query(CompanyModel)
+        .filter(CompanyModel.id == current_user["company_id"])
+        .first()
+    )
+    company_name = company.name if company else "Limo"
+    company_phone = (company.phone if company and company.phone else "") or ""
 
     try:
         hour = int((r.time or "12:00").split(":")[0])
@@ -957,7 +1352,7 @@ def invoice_page(
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Invoice {order_no} — Tsatsral Limo LLC</title>
+<title>Invoice {order_no} — {html.escape(company_name)}</title>
 <style>
   *{{box-sizing:border-box;margin:0;padding:0}}
   body{{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#222;background:#fff;padding:48px}}
@@ -1009,7 +1404,7 @@ def invoice_page(
 
   <div class="header">
     <div>
-      <div class="logo-name">Tsatsral Limo LLC</div>
+      <div class="logo-name">{html.escape(company_name)}</div>
       <div class="logo-sub">Professional Chauffeur Service</div>
     </div>
     <div class="header-meta">
@@ -1029,8 +1424,8 @@ def invoice_page(
     </div>
     <div>
       <div class="label">Contact Us</div>
-      <div class="cname">Tsatsral Limo LLC</div>
-      <div class="detail">contact@gobilimo.com<br>(415) 699-4052</div>
+      <div class="cname">{html.escape(company_name)}</div>
+      <div class="detail">{html.escape(company_phone)}</div>
     </div>
   </div>
 
@@ -1076,7 +1471,7 @@ def invoice_page(
     </tbody>
   </table>
 
-  <div class="footer">Tsatsral Limo LLC &nbsp;·&nbsp; {html.escape(r.date)} &nbsp;·&nbsp; contact@gobilimo.com</div>
+  <div class="footer">{html.escape(company_name)} &nbsp;·&nbsp; {html.escape(r.date)} &nbsp;·&nbsp; {html.escape(company_phone)}</div>
 </div>
 </body>
 </html>"""
@@ -1084,15 +1479,35 @@ def invoice_page(
 
 
 @app.post("/stripe/webhook")
-async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
-    if not _stripe or not _STRIPE_SECRET_KEY:
+async def stripe_webhook_default(request: Request, db: Session = Depends(get_db)):
+    # Back-compat: env-credentialed webhook maps to the default company.
+    default_slug = os.getenv("DEFAULT_COMPANY_SLUG", "tsatsral")
+    company = get_company_by_slug(db, default_slug)
+    return await _handle_stripe_webhook(request, db, company)
+
+
+@app.post("/stripe/webhook/{slug}")
+async def stripe_webhook_tenant(
+    slug: str, request: Request, db: Session = Depends(get_db)
+):
+    company = require_company_by_slug(db, slug)
+    return await _handle_stripe_webhook(request, db, company)
+
+
+async def _handle_stripe_webhook(
+    request: Request, db: Session, company: Optional["CompanyModel"]
+):
+    stripe_cfg = _company_stripe(company)
+    if not _stripe or not stripe_cfg["secret_key"]:
         raise HTTPException(status_code=404)
     payload = await request.body()
     sig = request.headers.get("stripe-signature", "")
     try:
-        if not _STRIPE_WEBHOOK_SECRET:
+        if not stripe_cfg["webhook_secret"]:
             raise HTTPException(status_code=400, detail="Webhook secret not configured")
-        event = _stripe.Webhook.construct_event(payload, sig, _STRIPE_WEBHOOK_SECRET)
+        event = _stripe.Webhook.construct_event(
+            payload, sig, stripe_cfg["webhook_secret"]
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     if event["type"] == "checkout.session.completed":
@@ -1105,6 +1520,9 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                     .filter(ReservationModel.id == int(res_id_str))
                     .first()
                 )
+                # Make sure the trip actually belongs to the webhook's company.
+                if reservation and company and reservation.company_id != company.id:
+                    reservation = None
                 if reservation:
                     reservation.payment = "Paid"
                     db.commit()
@@ -1115,10 +1533,11 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                         "Stripe checkout completed.",
                     )
                     await manager.broadcast(
+                        reservation.company_id,
                         {
                             "type": "UPDATE",
                             "message": f"Payment confirmed for trip #{res_id_str}",
-                        }
+                        },
                     )
             except Exception as e:
                 print(f"Webhook processing error: {e}")
@@ -1263,7 +1682,10 @@ async def place_details(place_id: str, token: str = ""):
 def list_reservations(
     db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)
 ):
-    query = db.query(ReservationModel).filter(ReservationModel.archived == 0)
+    query = db.query(ReservationModel).filter(
+        ReservationModel.archived == 0,
+        ReservationModel.company_id == current_user["company_id"],
+    )
     if current_user["role"] != "admin":
         query = query.filter(
             or_(
@@ -1395,7 +1817,10 @@ def reservation_metrics(
     current_user: dict = Depends(get_current_user),
 ):
     target_day = day or date.today().isoformat()
-    query = db.query(ReservationModel).filter(ReservationModel.date == target_day)
+    query = db.query(ReservationModel).filter(
+        ReservationModel.date == target_day,
+        ReservationModel.company_id == current_user["company_id"],
+    )
     if current_user["role"] != "admin":
         query = query.filter(
             or_(
@@ -1417,7 +1842,10 @@ def reservation_history(
     current_user: dict = Depends(get_current_user),
 ):
     target_day = day or date.today().isoformat()
-    query = db.query(ReservationModel).filter(ReservationModel.date == target_day)
+    query = db.query(ReservationModel).filter(
+        ReservationModel.date == target_day,
+        ReservationModel.company_id == current_user["company_id"],
+    )
     if current_user["role"] != "admin":
         query = query.filter(
             or_(
@@ -1441,22 +1869,37 @@ async def create_reservation(
     _: None = Depends(check_booking_rate),
 ):
     res_data = data.model_dump()
-    # If an operator creates a reservation via API (authenticated), stamp created_by
+    company_slug = res_data.pop("company_slug", None)
+    # Resolve the owning company: authenticated operators use their own session
+    # company; public bookings must carry a valid company_slug.
     session_token = request.cookies.get("session_token")
     sess = _get_session(session_token)
     if sess:
         res_data["created_by"] = sess["user_id"]
+        company = (
+            db.query(CompanyModel)
+            .filter(CompanyModel.id == sess["company_id"])
+            .first()
+        )
     else:
         res_data["created_by"] = None
+        company = get_company_by_slug(db, company_slug)
+    if not company:
+        raise HTTPException(status_code=404, detail="Unknown company")
+    res_data["company_id"] = company.id
+
     db_res = ReservationModel(**res_data)
     db.add(db_res)
     db.commit()
     db.refresh(db_res)
 
+    stripe_cfg = _company_stripe(company)
     # Prefer static payment link (supports client_reference_id for tracking)
-    if _STRIPE_PAYMENT_LINK:
-        payment_url = f"{_STRIPE_PAYMENT_LINK}?client_reference_id={db_res.id}"
-    elif _stripe and _STRIPE_SECRET_KEY:
+    if stripe_cfg["payment_link"]:
+        payment_url = (
+            f"{stripe_cfg['payment_link']}?client_reference_id={db_res.id}"
+        )
+    elif _stripe and stripe_cfg["secret_key"]:
         try:
             origin = str(request.base_url).rstrip("/")
             stripe_sess = _stripe.checkout.Session.create(
@@ -1471,7 +1914,7 @@ async def create_reservation(
                                 int((db_res.time or "12:00").split(":")[0]),
                             ),
                             "product_data": {
-                                "name": f"Tsatsral Limo — {db_res.vehicle}",
+                                "name": f"{company.name} — {db_res.vehicle}",
                                 "description": f"{db_res.pickup} → {db_res.dropoff} on {db_res.date}",
                             },
                         },
@@ -1482,6 +1925,7 @@ async def create_reservation(
                 customer_email=db_res.email or None,
                 success_url=f"{origin}/?paid=1&res={db_res.id}",
                 cancel_url=f"{origin}/",
+                api_key=stripe_cfg["secret_key"],
             )
             payment_url = stripe_sess.url
             db_res.stripe_session_id = stripe_sess.id
@@ -1498,7 +1942,8 @@ async def create_reservation(
     )
 
     await manager.broadcast(
-        {"type": "UPDATE", "message": f"New reservation from {db_res.customer}"}
+        company.id,
+        {"type": "UPDATE", "message": f"New reservation from {db_res.customer}"},
     )
     return {
         "status": "Success",
@@ -1507,8 +1952,18 @@ async def create_reservation(
 
 
 @app.get("/api/reservations/public/{res_id}")
-def get_public_reservation(res_id: int, db: Session = Depends(get_db)):
-    r = db.query(ReservationModel).filter(ReservationModel.id == res_id).first()
+def get_public_reservation(
+    res_id: int, company: str = "", db: Session = Depends(get_db)
+):
+    query = db.query(ReservationModel).filter(ReservationModel.id == res_id)
+    # When the caller knows the company slug, scope to it so one tenant's
+    # reservation ids can't be probed through another tenant's booking page.
+    if company:
+        comp = get_company_by_slug(db, company)
+        if not comp:
+            raise HTTPException(status_code=404, detail="Reservation not found")
+        query = query.filter(ReservationModel.company_id == comp.id)
+    r = query.first()
     if not r:
         raise HTTPException(status_code=404, detail="Reservation not found")
     return {
@@ -1535,7 +1990,12 @@ async def update_reservation(
     current_user: dict = Depends(get_current_user),
 ):
     reservation = (
-        db.query(ReservationModel).filter(ReservationModel.id == reservation_id).first()
+        db.query(ReservationModel)
+        .filter(
+            ReservationModel.id == reservation_id,
+            ReservationModel.company_id == current_user["company_id"],
+        )
+        .first()
     )
     if reservation is None:
         raise HTTPException(status_code=404, detail="Reservation not found")
@@ -1567,7 +2027,8 @@ async def update_reservation(
             f"{current_user['name']} updated: {', '.join(changed)}.",
         )
         await manager.broadcast(
-            {"type": "UPDATE", "message": f"Trip #{reservation_id} updated"}
+            current_user["company_id"],
+            {"type": "UPDATE", "message": f"Trip #{reservation_id} updated"},
         )
 
     return {"status": "Success", "changed": changed}
@@ -1575,10 +2036,17 @@ async def update_reservation(
 
 @app.post("/api/reservations/{reservation_id}/archive")
 async def archive_reservation(
-    reservation_id: int, db: Session = Depends(get_db), _: None = Depends(require_admin)
+    reservation_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
 ):
     reservation = (
-        db.query(ReservationModel).filter(ReservationModel.id == reservation_id).first()
+        db.query(ReservationModel)
+        .filter(
+            ReservationModel.id == reservation_id,
+            ReservationModel.company_id == current_user["company_id"],
+        )
+        .first()
     )
     if reservation is None:
         raise HTTPException(status_code=404, detail="Reservation not found")
@@ -1589,14 +2057,17 @@ async def archive_reservation(
     reservation.archived = 1
     db.commit()
     await manager.broadcast(
-        {"type": "UPDATE", "message": f"Trip #{reservation_id} closed"}
+        current_user["company_id"],
+        {"type": "UPDATE", "message": f"Trip #{reservation_id} closed"},
     )
     return {"status": "Success"}
 
 
 @app.post("/api/reservations/archive-all")
 async def archive_all_resolved(
-    payload: dict, db: Session = Depends(get_db), _: None = Depends(require_admin)
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
 ):
     status = payload.get("status")
     if status not in ("Completed", "Cancelled"):
@@ -1606,10 +2077,12 @@ async def archive_all_resolved(
     db.query(ReservationModel).filter(
         ReservationModel.status == status,
         ReservationModel.archived == 0,
+        ReservationModel.company_id == current_user["company_id"],
     ).update({"archived": 1})
     db.commit()
     await manager.broadcast(
-        {"type": "UPDATE", "message": f"All {status} trips cleared"}
+        current_user["company_id"],
+        {"type": "UPDATE", "message": f"All {status} trips cleared"},
     )
     return {"status": "Success"}
 
@@ -1619,27 +2092,41 @@ async def add_note(
     reservation_id: int,
     note: dict,
     db: Session = Depends(get_db),
-    _: None = Depends(require_admin),
+    current_user: dict = Depends(require_admin),
 ):
     reservation = (
-        db.query(ReservationModel).filter(ReservationModel.id == reservation_id).first()
+        db.query(ReservationModel)
+        .filter(
+            ReservationModel.id == reservation_id,
+            ReservationModel.company_id == current_user["company_id"],
+        )
+        .first()
     )
     if reservation is None:
         raise HTTPException(status_code=404, detail="Reservation not found")
 
     add_db_event(db, reservation_id, "Internal Note", note.get("text", ""))
     await manager.broadcast(
-        {"type": "UPDATE", "message": f"Note added to trip #{reservation_id}"}
+        current_user["company_id"],
+        {"type": "UPDATE", "message": f"Note added to trip #{reservation_id}"},
     )
     return {"status": "Success"}
 
 
 @app.post("/api/reservations/{reservation_id}/complete")
 async def complete_reservation(
-    reservation_id: int, db: Session = Depends(get_db), _: None = Depends(require_admin)
+    reservation_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
 ):
+    company_id = current_user["company_id"]
     reservation = (
-        db.query(ReservationModel).filter(ReservationModel.id == reservation_id).first()
+        db.query(ReservationModel)
+        .filter(
+            ReservationModel.id == reservation_id,
+            ReservationModel.company_id == company_id,
+        )
+        .first()
     )
     if reservation is None:
         raise HTTPException(status_code=404, detail="Reservation not found")
@@ -1650,7 +2137,10 @@ async def complete_reservation(
     if reservation.assigned_driver:
         driver = (
             db.query(DriverModel)
-            .filter(DriverModel.name == reservation.assigned_driver)
+            .filter(
+                DriverModel.name == reservation.assigned_driver,
+                DriverModel.company_id == company_id,
+            )
             .first()
         )
         if driver:
@@ -1666,23 +2156,40 @@ async def complete_reservation(
 
     # Send completion SMS to driver
     if driver:
+        company = (
+            db.query(CompanyModel).filter(CompanyModel.id == company_id).first()
+        )
+        company_name = company.name if company else "Limo"
         try:
-            _send_sms(driver.phone, build_completion_message(reservation))
+            _send_sms(
+                company,
+                driver.phone,
+                build_completion_message(reservation, company_name),
+            )
         except Exception:
             pass
 
     await manager.broadcast(
-        {"type": "UPDATE", "message": f"Trip #{reservation_id} completed"}
+        company_id,
+        {"type": "UPDATE", "message": f"Trip #{reservation_id} completed"},
     )
     return {"status": "Success"}
 
 
 @app.post("/api/reservations/{reservation_id}/start")
 async def start_trip(
-    reservation_id: int, db: Session = Depends(get_db), _: None = Depends(require_admin)
+    reservation_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
 ):
+    company_id = current_user["company_id"]
     reservation = (
-        db.query(ReservationModel).filter(ReservationModel.id == reservation_id).first()
+        db.query(ReservationModel)
+        .filter(
+            ReservationModel.id == reservation_id,
+            ReservationModel.company_id == company_id,
+        )
+        .first()
     )
     if reservation is None:
         raise HTTPException(status_code=404, detail="Reservation not found")
@@ -1693,9 +2200,14 @@ async def start_trip(
     if not reservation.assigned_driver:
         raise HTTPException(status_code=409, detail="No driver assigned")
 
+    company = db.query(CompanyModel).filter(CompanyModel.id == company_id).first()
+    company_name = company.name if company else "Limo"
     driver = (
         db.query(DriverModel)
-        .filter(DriverModel.name == reservation.assigned_driver)
+        .filter(
+            DriverModel.name == reservation.assigned_driver,
+            DriverModel.company_id == company_id,
+        )
         .first()
     )
     reservation.status = "In Progress"
@@ -1706,7 +2218,7 @@ async def start_trip(
 
     if driver:
         try:
-            _send_sms(driver.phone, build_passenger_info_message(reservation))
+            _send_sms(company, driver.phone, build_passenger_info_message(reservation))
             add_db_event(
                 db,
                 reservation_id,
@@ -1720,8 +2232,9 @@ async def start_trip(
     if reservation.phone and driver:
         try:
             _send_sms(
+                company,
                 reservation.phone,
-                build_customer_en_route_message(reservation, driver),
+                build_customer_en_route_message(reservation, driver, company_name),
             )
             add_db_event(
                 db,
@@ -1734,17 +2247,26 @@ async def start_trip(
             pass
 
     await manager.broadcast(
-        {"type": "UPDATE", "message": f"Trip #{reservation_id} is now In Progress"}
+        company_id,
+        {"type": "UPDATE", "message": f"Trip #{reservation_id} is now In Progress"},
     )
     return {"status": "Success"}
 
 
 @app.post("/api/reservations/{reservation_id}/arrive")
 async def mark_driver_arrived(
-    reservation_id: int, db: Session = Depends(get_db), _: None = Depends(require_admin)
+    reservation_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
 ):
+    company_id = current_user["company_id"]
     reservation = (
-        db.query(ReservationModel).filter(ReservationModel.id == reservation_id).first()
+        db.query(ReservationModel)
+        .filter(
+            ReservationModel.id == reservation_id,
+            ReservationModel.company_id == company_id,
+        )
+        .first()
     )
     if reservation is None:
         raise HTTPException(status_code=404, detail="Reservation not found")
@@ -1755,9 +2277,14 @@ async def mark_driver_arrived(
     if not reservation.assigned_driver:
         raise HTTPException(status_code=409, detail="No driver assigned")
 
+    company = db.query(CompanyModel).filter(CompanyModel.id == company_id).first()
+    company_name = company.name if company else "Limo"
     driver = (
         db.query(DriverModel)
-        .filter(DriverModel.name == reservation.assigned_driver)
+        .filter(
+            DriverModel.name == reservation.assigned_driver,
+            DriverModel.company_id == company_id,
+        )
         .first()
     )
     reservation.status = "Arrived"
@@ -1767,8 +2294,9 @@ async def mark_driver_arrived(
     if reservation.phone and driver:
         try:
             _send_sms(
+                company,
                 reservation.phone,
-                build_customer_arrived_message(reservation, driver),
+                build_customer_arrived_message(reservation, driver, company_name),
             )
             add_db_event(
                 db,
@@ -1781,17 +2309,26 @@ async def mark_driver_arrived(
             pass
 
     await manager.broadcast(
-        {"type": "UPDATE", "message": f"Driver arrived for trip #{reservation_id}"}
+        company_id,
+        {"type": "UPDATE", "message": f"Driver arrived for trip #{reservation_id}"},
     )
     return {"status": "Success"}
 
 
 @app.post("/api/reservations/{reservation_id}/cancel")
 async def cancel_reservation(
-    reservation_id: int, db: Session = Depends(get_db), _: None = Depends(require_admin)
+    reservation_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
 ):
+    company_id = current_user["company_id"]
     reservation = (
-        db.query(ReservationModel).filter(ReservationModel.id == reservation_id).first()
+        db.query(ReservationModel)
+        .filter(
+            ReservationModel.id == reservation_id,
+            ReservationModel.company_id == company_id,
+        )
+        .first()
     )
     if reservation is None:
         raise HTTPException(status_code=404, detail="Reservation not found")
@@ -1801,7 +2338,10 @@ async def cancel_reservation(
     if reservation.assigned_driver:
         driver = (
             db.query(DriverModel)
-            .filter(DriverModel.name == reservation.assigned_driver)
+            .filter(
+                DriverModel.name == reservation.assigned_driver,
+                DriverModel.company_id == company_id,
+            )
             .first()
         )
         if driver:
@@ -1817,7 +2357,8 @@ async def cancel_reservation(
         reminder_task.cancel()
 
     await manager.broadcast(
-        {"type": "UPDATE", "message": f"Trip #{reservation_id} cancelled"}
+        company_id,
+        {"type": "UPDATE", "message": f"Trip #{reservation_id} cancelled"},
     )
     return {"status": "Success"}
 
@@ -1827,28 +2368,50 @@ async def assign_driver(
     reservation_id: int,
     payload: dict,
     db: Session = Depends(get_db),
-    _: None = Depends(require_admin),
+    current_user: dict = Depends(require_admin),
 ):
+    company_id = current_user["company_id"]
     reservation = (
-        db.query(ReservationModel).filter(ReservationModel.id == reservation_id).first()
+        db.query(ReservationModel)
+        .filter(
+            ReservationModel.id == reservation_id,
+            ReservationModel.company_id == company_id,
+        )
+        .first()
     )
     if reservation is None:
         raise HTTPException(status_code=404, detail="Reservation not found")
 
     driver_id = payload.get("driver_id")
     if not driver_id:
-        # Fallback to first online driver if ID not provided
-        driver = db.query(DriverModel).filter(DriverModel.status == "Online").first()
+        # Fallback to first online driver in this company if ID not provided
+        driver = (
+            db.query(DriverModel)
+            .filter(
+                DriverModel.status == "Online",
+                DriverModel.company_id == company_id,
+            )
+            .first()
+        )
     else:
-        driver = db.query(DriverModel).filter(DriverModel.id == driver_id).first()
+        driver = (
+            db.query(DriverModel)
+            .filter(
+                DriverModel.id == driver_id,
+                DriverModel.company_id == company_id,
+            )
+            .first()
+        )
 
     if not driver:
         raise HTTPException(status_code=503, detail="Requested driver not available")
 
+    company = db.query(CompanyModel).filter(CompanyModel.id == company_id).first()
+
     # Twilio logic
     try:
         sid = notify_driver_of_reservation(
-            reservation, {"name": driver.name, "phone": driver.phone}
+            company, reservation, {"name": driver.name, "phone": driver.phone}
         )
         if sid == "TWILIO_NOT_CONFIGURED":
             raise HTTPException(status_code=503, detail="Twilio not configured")
@@ -1872,10 +2435,11 @@ async def assign_driver(
     db.commit()
 
     await manager.broadcast(
+        company_id,
         {
             "type": "UPDATE",
             "message": f"{driver.name} assigned to trip #{reservation_id}",
-        }
+        },
     )
 
     return {
@@ -1887,13 +2451,38 @@ async def assign_driver(
 
 
 @app.post("/twilio/reply")
-async def twilio_reply(
+async def twilio_reply_default(
     request: Request,
     From: str = Form(...),
     Body: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN", "")
+    # Back-compat: the original env-credentialed webhook maps to the default company.
+    default_slug = os.getenv("DEFAULT_COMPANY_SLUG", "tsatsral")
+    company = get_company_by_slug(db, default_slug)
+    return await _handle_twilio_reply(request, From, Body, db, company)
+
+
+@app.post("/twilio/reply/{slug}")
+async def twilio_reply_tenant(
+    slug: str,
+    request: Request,
+    From: str = Form(...),
+    Body: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    company = require_company_by_slug(db, slug)
+    return await _handle_twilio_reply(request, From, Body, db, company)
+
+
+async def _handle_twilio_reply(
+    request: Request,
+    From: str,
+    Body: str,
+    db: Session,
+    company: Optional["CompanyModel"],
+):
+    _, auth_token, _ = _company_twilio(company)
     if not auth_token:
         raise HTTPException(status_code=503, detail="Twilio not configured")
     validator = RequestValidator(auth_token)
@@ -1930,22 +2519,24 @@ async def twilio_reply(
         digits = digits[1:]
     e164 = f"+1{digits}" if len(digits) == 10 else From
 
-    driver = (
-        db.query(DriverModel)
-        .filter((DriverModel.phone == digits) | (DriverModel.phone == e164))
-        .first()
+    driver_q = db.query(DriverModel).filter(
+        (DriverModel.phone == digits) | (DriverModel.phone == e164)
     )
+    if company:
+        driver_q = driver_q.filter(DriverModel.company_id == company.id)
+    driver = driver_q.first()
     if not driver:
         return PlainTextResponse(
             "<?xml version='1.0'?><Response></Response>", media_type="application/xml"
         )
 
-    # Find the most recent trip pending this driver's confirmation
+    # Find the most recent trip pending this driver's confirmation (same company)
     reservation = (
         db.query(ReservationModel)
         .filter(
             ReservationModel.assigned_driver == driver.name,
             ReservationModel.status == "Pending confirmation",
+            ReservationModel.company_id == driver.company_id,
         )
         .order_by(ReservationModel.id.desc())
         .first()
@@ -1986,10 +2577,11 @@ async def twilio_reply(
 
     db.commit()
     await manager.broadcast(
+        driver.company_id,
         {
             "type": "UPDATE",
             "message": f"{driver.name} {'accepted' if reply.startswith('YES') else 'declined'} trip #{reservation.id}",
-        }
+        },
     )
 
     return PlainTextResponse(
@@ -1999,8 +2591,14 @@ async def twilio_reply(
 
 
 @app.get("/api/drivers")
-def list_drivers(db: Session = Depends(get_db), _: None = Depends(require_admin)):
-    drivers = db.query(DriverModel).all()
+def list_drivers(
+    db: Session = Depends(get_db), current_user: dict = Depends(require_admin)
+):
+    drivers = (
+        db.query(DriverModel)
+        .filter(DriverModel.company_id == current_user["company_id"])
+        .all()
+    )
     return {
         "status": "Success",
         "drivers": [
@@ -2021,19 +2619,30 @@ def list_drivers(db: Session = Depends(get_db), _: None = Depends(require_admin)
 
 @app.post("/api/drivers")
 async def create_driver(
-    data: DriverCreate, db: Session = Depends(get_db), _: None = Depends(require_admin)
+    data: DriverCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
 ):
-    existing = db.query(DriverModel).filter(DriverModel.name == data.name).first()
+    company_id = current_user["company_id"]
+    existing = (
+        db.query(DriverModel)
+        .filter(
+            DriverModel.name == data.name,
+            DriverModel.company_id == company_id,
+        )
+        .first()
+    )
     if existing:
         raise HTTPException(
             status_code=409, detail="A driver with that name already exists"
         )
-    driver = DriverModel(**data.model_dump())
+    driver = DriverModel(company_id=company_id, **data.model_dump())
     db.add(driver)
     db.commit()
     db.refresh(driver)
     await manager.broadcast(
-        {"type": "UPDATE", "message": f"{driver.name} added to the roster"}
+        company_id,
+        {"type": "UPDATE", "message": f"{driver.name} added to the roster"},
     )
     return {"status": "Success", "driver": {"id": driver.id, "name": driver.name}}
 
@@ -2043,15 +2652,27 @@ async def update_driver(
     driver_id: int,
     data: DriverUpdate,
     db: Session = Depends(get_db),
-    _: None = Depends(require_admin),
+    current_user: dict = Depends(require_admin),
 ):
-    driver = db.query(DriverModel).filter(DriverModel.id == driver_id).first()
+    company_id = current_user["company_id"]
+    driver = (
+        db.query(DriverModel)
+        .filter(
+            DriverModel.id == driver_id,
+            DriverModel.company_id == company_id,
+        )
+        .first()
+    )
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
     if data.name is not None:
         conflict = (
             db.query(DriverModel)
-            .filter(DriverModel.name == data.name, DriverModel.id != driver_id)
+            .filter(
+                DriverModel.name == data.name,
+                DriverModel.id != driver_id,
+                DriverModel.company_id == company_id,
+            )
             .first()
         )
         if conflict:
@@ -2068,7 +2689,8 @@ async def update_driver(
     db.commit()
     db.refresh(driver)
     await manager.broadcast(
-        {"type": "UPDATE", "message": f"{driver.name} profile updated"}
+        company_id,
+        {"type": "UPDATE", "message": f"{driver.name} profile updated"},
     )
     return {
         "status": "Success",
@@ -2088,9 +2710,17 @@ async def update_driver_status(
     driver_id: int,
     payload: dict,
     db: Session = Depends(get_db),
-    _: None = Depends(require_admin),
+    current_user: dict = Depends(require_admin),
 ):
-    driver = db.query(DriverModel).filter(DriverModel.id == driver_id).first()
+    company_id = current_user["company_id"]
+    driver = (
+        db.query(DriverModel)
+        .filter(
+            DriverModel.id == driver_id,
+            DriverModel.company_id == company_id,
+        )
+        .first()
+    )
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
     new_status = payload.get("status")
@@ -2113,18 +2743,29 @@ async def update_driver_status(
         "lat": float(driver.lat) if driver.lat and new_status != "Offline" else None,
         "lon": float(driver.lon) if driver.lon and new_status != "Offline" else None,
     }
-    await manager.broadcast(loc_event)
+    await manager.broadcast(company_id, loc_event)
     await manager.broadcast(
-        {"type": "UPDATE", "message": f"{driver.name} is now {new_status}"}
+        company_id,
+        {"type": "UPDATE", "message": f"{driver.name} is now {new_status}"},
     )
     return {"status": "Success", "driver_status": new_status}
 
 
 @app.delete("/api/drivers/{driver_id}")
 async def delete_driver(
-    driver_id: int, db: Session = Depends(get_db), _: None = Depends(require_admin)
+    driver_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
 ):
-    driver = db.query(DriverModel).filter(DriverModel.id == driver_id).first()
+    company_id = current_user["company_id"]
+    driver = (
+        db.query(DriverModel)
+        .filter(
+            DriverModel.id == driver_id,
+            DriverModel.company_id == company_id,
+        )
+        .first()
+    )
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
     active_trips = (
@@ -2132,6 +2773,7 @@ async def delete_driver(
         .filter(
             ReservationModel.assigned_driver == driver.name,
             ReservationModel.status.in_(["Assigned", "Pending confirmation"]),
+            ReservationModel.company_id == company_id,
         )
         .all()
     )
@@ -2148,18 +2790,26 @@ async def delete_driver(
     db.delete(driver)
     db.commit()
     await manager.broadcast(
-        {"type": "UPDATE", "message": f"{name} removed from roster"}
+        company_id,
+        {"type": "UPDATE", "message": f"{name} removed from roster"},
     )
     return {"status": "Success"}
 
 
 @app.put("/api/drivers/{driver_id}/location")
 async def update_driver_location(
-    driver_id: int, payload: dict, db: Session = Depends(get_db)
+    driver_id: int, payload: dict, company: str = "", db: Session = Depends(get_db)
 ):
     driver = db.query(DriverModel).filter(DriverModel.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
+
+    # The public driver page must present its company slug; reject GPS writes that
+    # don't match the driver's company (minimum bar — a per-driver token is a
+    # future hardening).
+    comp = require_company_by_slug(db, company)
+    if driver.company_id != comp.id:
+        raise HTTPException(status_code=403, detail="Driver does not belong to company")
 
     lat = payload.get("lat")
     lon = payload.get("lon")
@@ -2177,6 +2827,7 @@ async def update_driver_location(
     db.commit()
 
     await manager.broadcast(
+        driver.company_id,
         {
             "type": "DRIVER_LOCATION",
             "driver_id": driver_id,
@@ -2184,7 +2835,7 @@ async def update_driver_location(
             "lat": lat,
             "lon": lon,
             "status": driver.status,
-        }
+        },
     )
     return {"status": "Success"}
 
@@ -2216,10 +2867,10 @@ def _maps_link(
     return f"https://maps.google.com/?q={urllib.parse.quote(address)}"
 
 
-def _send_sms(phone: str, body: str) -> Optional[str]:
-    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-    from_number = os.getenv("TWILIO_FROM_NUMBER")
+def _send_sms(
+    company: Optional["CompanyModel"], phone: str, body: str
+) -> Optional[str]:
+    account_sid, auth_token, from_number = _company_twilio(company)
     if not account_sid or not auth_token or not from_number:
         return None
     client = Client(account_sid, auth_token)
@@ -2266,30 +2917,32 @@ def build_passenger_info_message(reservation: ReservationModel) -> str:
 
 
 def build_customer_en_route_message(
-    reservation: ReservationModel, driver: DriverModel
+    reservation: ReservationModel, driver: DriverModel, company_name: str = "Limo"
 ) -> str:
     driver_phone = f" ({driver.phone})" if driver.phone else ""
     return (
-        f"Tsatsral Limo: Your driver {driver.name}{driver_phone} is on the way "
+        f"{company_name}: Your driver {driver.name}{driver_phone} is on the way "
         f"to {reservation.pickup} for your trip to {reservation.dropoff}."
     )
 
 
 def build_customer_arrived_message(
-    reservation: ReservationModel, driver: DriverModel
+    reservation: ReservationModel, driver: DriverModel, company_name: str = "Limo"
 ) -> str:
     return (
-        f"Tsatsral Limo: Your driver {driver.name} has arrived at "
+        f"{company_name}: Your driver {driver.name} has arrived at "
         f"{reservation.pickup}. Please meet your driver when ready."
     )
 
 
-def build_completion_message(reservation: ReservationModel) -> str:
+def build_completion_message(
+    reservation: ReservationModel, company_name: str = "Limo"
+) -> str:
     base_url = os.getenv("APP_BASE_URL", "")
     dashboard_line = f"\nView trip details: {base_url}/driver" if base_url else ""
     return (
         f"TRIP COMPLETE: Great job! Trip #{reservation.id} has been closed.\n"
-        f"Thank you for driving with Tsatsral Limo.{dashboard_line}"
+        f"Thank you for driving with {company_name}.{dashboard_line}"
     )
 
 
@@ -2312,12 +2965,20 @@ async def _send_reminder_at_time(reservation_id: int, remind_at: datetime):
             return
         driver = (
             db.query(DriverModel)
-            .filter(DriverModel.name == reservation.assigned_driver)
+            .filter(
+                DriverModel.name == reservation.assigned_driver,
+                DriverModel.company_id == reservation.company_id,
+            )
             .first()
         )
         if not driver:
             return
-        _send_sms(driver.phone, build_reminder_message(reservation))
+        company = (
+            db.query(CompanyModel)
+            .filter(CompanyModel.id == reservation.company_id)
+            .first()
+        )
+        _send_sms(company, driver.phone, build_reminder_message(reservation))
         add_db_event(
             db, reservation_id, "Reminder sent", "60-min pre-trip SMS sent to driver."
         )
@@ -2342,11 +3003,11 @@ def _schedule_trip_reminder(reservation: ReservationModel):
 
 
 def notify_driver_of_reservation(
-    reservation: ReservationModel, driver: dict[str, str]
+    company: Optional["CompanyModel"],
+    reservation: ReservationModel,
+    driver: dict[str, str],
 ) -> str:
-    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-    from_number = os.getenv("TWILIO_FROM_NUMBER")
+    account_sid, auth_token, from_number = _company_twilio(company)
     if not account_sid or not auth_token or not from_number:
         return "TWILIO_NOT_CONFIGURED"
     client = Client(account_sid, auth_token)

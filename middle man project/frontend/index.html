@@ -3,7 +3,44 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Reserve a Ride — Tsatsral Limo</title>
+    <title>Reserve a Ride</title>
+    <script>
+      // Identify which company this booking page belongs to from the URL path
+      // (/book/{slug}). Branding is fetched from the backend below.
+      var COMPANY_SLUG = (function () {
+        var m = window.location.pathname.match(/^\/book\/([^/]+)/);
+        return m ? decodeURIComponent(m[1]) : "";
+      })();
+      document.addEventListener("DOMContentLoaded", function () {
+        if (!COMPANY_SLUG) return;
+        fetch("/api/company/" + encodeURIComponent(COMPANY_SLUG))
+          .then(function (r) {
+            if (!r.ok) throw new Error("unknown company");
+            return r.json();
+          })
+          .then(function (c) {
+            document.title = "Reserve a Ride — " + c.name;
+            var phoneSpan = document.querySelector(".header-phone span");
+            var phoneLink = document.querySelector(".header-phone");
+            if (c.phone && phoneSpan) phoneSpan.textContent = c.phone;
+            if (c.phone && phoneLink)
+              phoneLink.setAttribute("href", "tel:" + c.phone);
+            else if (!c.phone && phoneLink) phoneLink.style.display = "none";
+            var footer = document.querySelector(".site-footer p");
+            if (footer) {
+              footer.textContent =
+                "© " +
+                new Date().getFullYear() +
+                " " +
+                c.name +
+                (c.phone ? " · " + c.phone : "");
+            }
+          })
+          .catch(function () {
+            document.title = "Reserve a Ride";
+          });
+      });
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -2686,8 +2723,16 @@
             hours_count: isHourly
               ? parseInt(get("s2-hours"), 10) || null
               : null,
+            company_slug: COMPANY_SLUG,
             hp_website: "",
           };
+
+          if (!COMPANY_SLUG) {
+            alert(
+              "This booking link is missing a company. Please use the link your limo company gave you.",
+            );
+            return;
+          }
 
           if (
             !payload.customer ||
@@ -2717,18 +2762,13 @@
             lastSubmit = Date.now();
             paymentUrl = data.reservation && data.reservation.payment_url;
             document.getElementById("confirmId").textContent =
-              "Reservation #" +
-              (data.reservation
-                ? data.reservation.id
-                : Math.floor(Math.random() * 9000 + 1000));
+              "Reservation #" + (data.reservation ? data.reservation.id : "");
             document.getElementById("modalOverlay").classList.add("show");
             startPaymentCountdown();
-          } catch {
-            lastSubmit = Date.now();
-            paymentUrl = null;
-            document.getElementById("confirmId").textContent =
-              "Reservation #" + Math.floor(Math.random() * 9000 + 1000);
-            document.getElementById("modalOverlay").classList.add("show");
+          } catch (err) {
+            alert(
+              "Sorry, we couldn't submit your reservation. Please check your details and try again, or contact the company directly.",
+            );
           } finally {
             btn.disabled = false;
             btn.innerHTML =

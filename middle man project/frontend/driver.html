@@ -206,9 +206,19 @@
     let lastSent = null;
     let sharing = false;
 
+    // Which company this driver page belongs to, read from /driver/{slug}.
+    const COMPANY_SLUG = (function () {
+      const m = window.location.pathname.match(/^\/driver\/([^/]+)/);
+      return m ? decodeURIComponent(m[1]) : '';
+    })();
+
     async function loadDrivers() {
+      if (!COMPANY_SLUG) {
+        showError('This driver link is missing a company. Use the link your dispatcher gave you.');
+        return;
+      }
       try {
-        const r = await fetch('/api/drivers/public');
+        const r = await fetch('/api/drivers/public?company=' + encodeURIComponent(COMPANY_SLUG));
         const data = await r.json();
         const sel = document.getElementById('driverSelect');
         const fragment = document.createDocumentFragment();
@@ -243,7 +253,7 @@
       const id = document.getElementById('driverSelect').value;
       if (!id) return;
       try {
-        await fetch(`/api/drivers/${id}/location`, {
+        await fetch(`/api/drivers/${id}/location?company=${encodeURIComponent(COMPANY_SLUG)}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ lat, lon })

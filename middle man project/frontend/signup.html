@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Create your company — DispatchLink</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              DEFAULT: '#38b478',
+              dark:    '#2ea066',
+              light:   '#e3f4ec',
+            },
+            surface: '#111917',
+            card:    '#1a2820',
+            ink:     '#eef5f0',
+            muted:   '#8a948e',
+            border:  'rgba(255,255,255,0.1)',
+            err:     '#9d2e2e',
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Arial', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    input:-webkit-autofill {
+      -webkit-box-shadow: 0 0 0 40px #111917 inset !important;
+      -webkit-text-fill-color: #eef5f0 !important;
+    }
+    .shake { animation: shake 0.4s ease; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-6px); }
+      40%      { transform: translateX(6px); }
+      60%      { transform: translateX(-4px); }
+      80%      { transform: translateX(4px); }
+    }
+  </style>
+</head>
+
+<body class="bg-surface min-h-screen flex items-center justify-center p-4 font-sans antialiased">
+
+  <div id="card" class="bg-card border border-border rounded-2xl p-10 w-full max-w-sm shadow-2xl">
+
+    <div class="flex justify-center mb-5">
+      <div class="rounded-xl bg-gradient-to-br from-brand to-emerald-200 flex items-center justify-center
+                  text-[#10201a] font-black text-2xl shadow-lg select-none" style="width:52px;height:52px">D</div>
+    </div>
+
+    <h1 class="text-ink text-[22px] font-bold tracking-tight text-center mb-1">Create your company</h1>
+    <p class="text-muted text-sm text-center mb-7">Start dispatching in minutes — no credit card needed</p>
+
+    <div id="errorBanner"
+         class="hidden bg-red-900/20 border border-red-700/40 rounded-lg text-red-400 text-[13px] px-4 py-3 mb-5">
+      <span id="errorText"></span>
+    </div>
+
+    <form id="signupForm" novalidate>
+      <div class="mb-4">
+        <label for="company_name" class="block text-[11px] font-extrabold uppercase tracking-widest text-muted mb-1.5">Company name</label>
+        <input id="company_name" name="company_name" type="text" placeholder="Acme Limo LLC" autocomplete="organization"
+          class="w-full bg-surface border border-white/10 rounded-lg px-3.5 py-3 text-ink text-[15px] outline-none transition-all duration-150 focus:border-brand focus:ring-2 focus:ring-brand/20 placeholder:text-muted/50" required>
+      </div>
+
+      <div class="mb-4">
+        <label for="name" class="block text-[11px] font-extrabold uppercase tracking-widest text-muted mb-1.5">Your name</label>
+        <input id="name" name="name" type="text" placeholder="Jane Operator" autocomplete="name"
+          class="w-full bg-surface border border-white/10 rounded-lg px-3.5 py-3 text-ink text-[15px] outline-none transition-all duration-150 focus:border-brand focus:ring-2 focus:ring-brand/20 placeholder:text-muted/50" required>
+      </div>
+
+      <div class="mb-4">
+        <label for="phone" class="block text-[11px] font-extrabold uppercase tracking-widest text-muted mb-1.5">Company phone <span class="text-muted/60 normal-case font-normal">(optional)</span></label>
+        <input id="phone" name="phone" type="tel" placeholder="(415) 555-0100" autocomplete="tel"
+          class="w-full bg-surface border border-white/10 rounded-lg px-3.5 py-3 text-ink text-[15px] outline-none transition-all duration-150 focus:border-brand focus:ring-2 focus:ring-brand/20 placeholder:text-muted/50">
+      </div>
+
+      <div class="mb-4">
+        <label for="email" class="block text-[11px] font-extrabold uppercase tracking-widest text-muted mb-1.5">Admin email</label>
+        <input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email"
+          class="w-full bg-surface border border-white/10 rounded-lg px-3.5 py-3 text-ink text-[15px] outline-none transition-all duration-150 focus:border-brand focus:ring-2 focus:ring-brand/20 placeholder:text-muted/50" required>
+      </div>
+
+      <div class="mb-6">
+        <label for="password" class="block text-[11px] font-extrabold uppercase tracking-widest text-muted mb-1.5">Password</label>
+        <input id="password" name="password" type="password" placeholder="At least 8 characters" autocomplete="new-password"
+          class="w-full bg-surface border border-white/10 rounded-lg px-3.5 py-3 text-ink text-[15px] outline-none transition-all duration-150 focus:border-brand focus:ring-2 focus:ring-brand/20 placeholder:text-muted/50" required>
+      </div>
+
+      <button id="submitBtn" type="submit"
+              class="w-full bg-brand hover:bg-brand-dark active:scale-[0.98] text-[#10201a] font-bold text-[15px] rounded-lg py-3 transition-all duration-150 flex items-center justify-center gap-2">
+        <span id="btnText">Create account</span>
+        <svg id="btnSpinner" class="hidden animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </form>
+
+    <p class="text-muted text-sm text-center mt-6">
+      Already have an account?
+      <a href="/login" class="text-brand font-semibold hover:text-brand-dark transition-colors">Sign in</a>
+    </p>
+  </div>
+
+  <script>
+    function showError(msg) {
+      const el = document.getElementById('errorBanner');
+      document.getElementById('errorText').textContent = msg;
+      el.classList.remove('hidden');
+      document.getElementById('card').classList.remove('shake');
+      void document.getElementById('card').offsetWidth;
+      document.getElementById('card').classList.add('shake');
+    }
+
+    document.getElementById('signupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      document.getElementById('errorBanner').classList.add('hidden');
+
+      const payload = {
+        company_name: document.getElementById('company_name').value.trim(),
+        name: document.getElementById('name').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        password: document.getElementById('password').value,
+      };
+
+      if (!payload.company_name || !payload.name || !payload.email || !payload.password) {
+        showError('Please fill in all required fields.');
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+        showError('Please enter a valid email address.');
+        return;
+      }
+      if (payload.password.length < 8) {
+        showError('Password must be at least 8 characters.');
+        return;
+      }
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      document.getElementById('btnText').textContent = 'Creating…';
+      document.getElementById('btnSpinner').classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showError(data.detail || 'Could not create your account. Please try again.');
+          return;
+        }
+        window.location.href = data.redirect || '/dispatch';
+      } catch {
+        showError('Something went wrong. Please try again.');
+      } finally {
+        btn.disabled = false;
+        document.getElementById('btnText').textContent = 'Create account';
+        document.getElementById('btnSpinner').classList.add('hidden');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1540,7 +1540,7 @@
       <div class="mob-scrim" id="mobScrim"></div>
       <aside class="sidebar" id="sidebar">
         <div style="display:flex;align-items:center;width:100%">
-          <div class="brand"><span class="mark">D</span> DispatchLink</div>
+          <div class="brand"><span class="mark">D</span> <span id="brandName">DispatchLink</span></div>
           <button class="drawer-close" id="drawerClose" type="button" aria-label="Close menu">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
@@ -1568,6 +1568,13 @@
             </svg>
             <span>Activity</span>
           </a>
+          <a href="#settings" id="navSettings" style="display:none" onclick="openSettings();return false;">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+            </svg>
+            <span>Settings</span>
+          </a>
         </nav>
         <div class="sidebar-footer">
           <b id="sidebarUserName">Loading…</b>
@@ -1584,8 +1591,9 @@
             id="sidebarUserEmail"
             style="margin-top: 2px; word-break: break-all"
           ></span>
-          <a href="/" target="_blank">Customer booking page →</a>
+          <a id="bookingPageLink" href="/" target="_blank">Customer booking page →</a>
           <a
+            id="driverPageLink"
             href="/driver"
             target="_blank"
             style="margin-top: 8px; color: #e4f9a8"
@@ -2101,6 +2109,102 @@
               <path d="M20 6 9 17l-5-5" />
             </svg>
             Add to roster
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Company Settings Modal (admin only) -->
+    <div
+      class="modal-overlay"
+      id="settingsOverlay"
+      onclick="handleSettingsClick(event)"
+    >
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settingsTitle"
+        style="max-width: 560px"
+      >
+        <div class="modal-head">
+          <h2 id="settingsTitle">Company settings</h2>
+          <button class="modal-close" onclick="closeSettings()" aria-label="Close">✕</button>
+        </div>
+        <form class="modal-form" id="settingsForm">
+          <div class="two">
+            <div class="field">
+              <label for="setCompanyName">Company name</label>
+              <input id="setCompanyName" name="name" placeholder="Acme Limo LLC" />
+            </div>
+            <div class="field">
+              <label for="setCompanyPhone">Company phone</label>
+              <input id="setCompanyPhone" name="phone" placeholder="(415) 555-0100" />
+            </div>
+          </div>
+
+          <h3 style="margin:18px 0 4px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--soft)">Twilio (SMS)</h3>
+          <div class="field">
+            <label for="setTwilioSid">Account SID</label>
+            <input id="setTwilioSid" name="twilio_account_sid" placeholder="ACxxxxxxxx" autocomplete="off" />
+          </div>
+          <div class="two">
+            <div class="field">
+              <label for="setTwilioToken">Auth token</label>
+              <input id="setTwilioToken" name="twilio_auth_token" placeholder="••••••••" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="setTwilioFrom">From number</label>
+              <input id="setTwilioFrom" name="twilio_from_number" placeholder="+14155550100" autocomplete="off" />
+            </div>
+          </div>
+
+          <h3 style="margin:18px 0 4px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--soft)">Stripe (payments)</h3>
+          <div class="two">
+            <div class="field">
+              <label for="setStripeSecret">Secret key</label>
+              <input id="setStripeSecret" name="stripe_secret_key" placeholder="sk_live_…" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="setStripePublishable">Publishable key</label>
+              <input id="setStripePublishable" name="stripe_publishable_key" placeholder="pk_live_…" autocomplete="off" />
+            </div>
+          </div>
+          <div class="two">
+            <div class="field">
+              <label for="setStripeWebhookSecret">Webhook signing secret</label>
+              <input id="setStripeWebhookSecret" name="stripe_webhook_secret" placeholder="whsec_…" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="setStripePaymentLink">Payment link (optional)</label>
+              <input id="setStripePaymentLink" name="stripe_payment_link" placeholder="https://buy.stripe.com/…" autocomplete="off" />
+            </div>
+          </div>
+
+          <h3 style="margin:18px 0 4px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--soft)">Your webhook & booking URLs</h3>
+          <p style="margin:0 0 8px;font-size:12px;color:var(--soft)">Paste these into your Twilio and Stripe dashboards.</p>
+          <div class="field">
+            <label>Customer booking link</label>
+            <input id="setBookingUrl" readonly onclick="this.select()" style="background:#f7f7f7" />
+          </div>
+          <div class="field">
+            <label>Twilio reply webhook</label>
+            <input id="setTwilioWebhookUrl" readonly onclick="this.select()" style="background:#f7f7f7" />
+          </div>
+          <div class="field">
+            <label>Stripe webhook</label>
+            <input id="setStripeWebhookUrl" readonly onclick="this.select()" style="background:#f7f7f7" />
+          </div>
+        </form>
+        <div class="modal-footer">
+          <button
+            class="btn primary"
+            type="submit"
+            form="settingsForm"
+            style="width: 100%; padding: 12px; justify-content: center"
+          >
+            <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg>
+            Save settings
           </button>
         </div>
       </div>
@@ -4063,6 +4167,8 @@
           }
         });
 
+      let CURRENT_COMPANY = { slug: "", name: "", isAdmin: false };
+
       async function loadCurrentUser() {
         try {
           const r = await fetch("/api/me");
@@ -4076,10 +4182,100 @@
           document.getElementById("sidebarUserRole").textContent =
             u.role === "admin" ? "Admin" : "Operator";
           document.getElementById("sidebarUserEmail").textContent = u.email;
+
+          CURRENT_COMPANY = {
+            slug: u.company_slug || "",
+            name: u.company_name || "",
+            isAdmin: u.role === "admin",
+          };
+          if (u.company_name) {
+            document.getElementById("brandName").textContent = u.company_name;
+            document.title = u.company_name + " — Dispatch";
+          }
+          if (u.company_slug) {
+            document.getElementById("bookingPageLink").href =
+              "/book/" + encodeURIComponent(u.company_slug);
+            document.getElementById("driverPageLink").href =
+              "/driver/" + encodeURIComponent(u.company_slug);
+          }
+          // Settings is admin-only.
+          const navSettings = document.getElementById("navSettings");
+          if (navSettings)
+            navSettings.style.display = u.role === "admin" ? "" : "none";
         } catch (e) {
           document.getElementById("sidebarUserName").textContent = "Operator";
         }
       }
+
+      // ── Company settings (admin only) ──
+      async function openSettings() {
+        if (!CURRENT_COMPANY.isAdmin) return;
+        try {
+          const r = await fetch("/api/company/settings");
+          if (!r.ok) throw new Error("Could not load settings");
+          const s = await r.json();
+          const set = (id, v) =>
+            (document.getElementById(id).value = v || "");
+          set("setCompanyName", s.name);
+          set("setCompanyPhone", s.phone);
+          set("setTwilioSid", s.twilio_account_sid);
+          set("setTwilioToken", s.twilio_auth_token);
+          set("setTwilioFrom", s.twilio_from_number);
+          set("setStripeSecret", s.stripe_secret_key);
+          set("setStripePublishable", s.stripe_publishable_key);
+          set("setStripeWebhookSecret", s.stripe_webhook_secret);
+          set("setStripePaymentLink", s.stripe_payment_link);
+          set("setBookingUrl", s.booking_url);
+          set("setTwilioWebhookUrl", s.twilio_webhook_url);
+          set("setStripeWebhookUrl", s.stripe_webhook_url);
+          document.getElementById("settingsOverlay").classList.add("show");
+        } catch (e) {
+          showToast("Error", e.message || "Could not load settings");
+        }
+      }
+
+      function closeSettings() {
+        document.getElementById("settingsOverlay").classList.remove("show");
+      }
+
+      function handleSettingsClick(event) {
+        if (event.target === document.getElementById("settingsOverlay"))
+          closeSettings();
+      }
+
+      document
+        .getElementById("settingsForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const val = (id) => document.getElementById(id).value.trim();
+          const payload = {
+            name: val("setCompanyName"),
+            phone: val("setCompanyPhone"),
+            twilio_account_sid: val("setTwilioSid"),
+            twilio_auth_token: val("setTwilioToken"),
+            twilio_from_number: val("setTwilioFrom"),
+            stripe_secret_key: val("setStripeSecret"),
+            stripe_publishable_key: val("setStripePublishable"),
+            stripe_webhook_secret: val("setStripeWebhookSecret"),
+            stripe_payment_link: val("setStripePaymentLink"),
+          };
+          try {
+            const r = await fetch("/api/company/settings", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!r.ok) throw new Error("Save failed");
+            if (payload.name) {
+              document.getElementById("brandName").textContent = payload.name;
+              CURRENT_COMPANY.name = payload.name;
+            }
+            showToast("Saved", "Company settings updated.");
+            closeSettings();
+          } catch (err) {
+            showToast("Error", err.message || "Could not save settings");
+          }
+        });
 
       function _init() {
         loadCurrentUser();
