@@ -3801,6 +3801,10 @@
               dropoff: r.dropoff,
               distance_miles: r.distance_miles || null,
               time: r.time,
+              pickup_lat: r.pickup_lat !== undefined && r.pickup_lat !== null ? parseFloat(r.pickup_lat) : null,
+              pickup_lon: r.pickup_lon !== undefined && r.pickup_lon !== null ? parseFloat(r.pickup_lon) : null,
+              dropoff_lat: r.dropoff_lat !== undefined && r.dropoff_lat !== null ? parseFloat(r.dropoff_lat) : null,
+              dropoff_lon: r.dropoff_lon !== undefined && r.dropoff_lon !== null ? parseFloat(r.dropoff_lon) : null,
             }),
           });
           if (res.ok) {

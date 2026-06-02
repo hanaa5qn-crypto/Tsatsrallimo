@@ -1614,7 +1614,7 @@
                           stroke-width="1"
                         />
                       </svg>
-                      <div class="vchip-price">from $99</div>
+                      <div class="vchip-price" id="vchip-price-Sedan">from $99</div>
                     </div>
                     <div class="vchip-name">Sedan</div>
                     <div class="vchip-desc">Sedan · 1–3 pax</div>
@@ -1673,12 +1673,23 @@
                           stroke-width="1"
                         />
                       </svg>
-                      <div class="vchip-price">from $126</div>
+                      <div class="vchip-price" id="vchip-price-SUV">from $126</div>
                     </div>
                     <div class="vchip-name">SUV</div>
                     <div class="vchip-desc">SUV · 1–5 pax</div>
                   </div>
 
+                </div>
+              </div>
+
+              <!-- Hero screen price summary -->
+              <div id="hero-price-summary" style="display: none; margin-bottom: 20px; padding: 16px; border-radius: 12px; background: rgba(200, 164, 90, 0.05); border: 1px solid rgba(200, 164, 90, 0.2); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+                  <span style="font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 500;">Estimated Total</span>
+                  <span id="hero-total-price" style="font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 700; color: var(--gold);">—</span>
+                </div>
+                <div id="hero-price-details" style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 6px;">
+                  <!-- details here -->
                 </div>
               </div>
 
@@ -2162,6 +2173,11 @@
 
         let f = null;
         try {
+          const pLat = parseFloat(document.getElementById("pickup_lat").value) || null;
+          const pLon = parseFloat(document.getElementById("pickup_lon").value) || null;
+          const dLat = parseFloat(document.getElementById("dropoff_lat").value) || null;
+          const dLon = parseFloat(document.getElementById("dropoff_lon").value) || null;
+
           const res = await fetch("/api/quote", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -2171,6 +2187,10 @@
               dropoff,
               distance_miles: miles || null,
               time: timeStr,
+              pickup_lat: pLat,
+              pickup_lon: pLon,
+              dropoff_lat: dLat,
+              dropoff_lon: dLon,
             }),
           });
           if (res.ok) {
@@ -2251,6 +2271,171 @@
         document.getElementById("fare-total").textContent = money(f.total);
       }
 
+      /* LIVE QUOTE SYSTEM */
+      let _liveQuoteSeq = 0;
+      async function updateLivePrices() {
+        const miles = parseFloat(document.getElementById("distance_miles").value) || 0;
+        const timeStr = document.getElementById("s2-time").value;
+        const pickup = document.getElementById("s2-pickup").value.trim();
+        const dropoff = document.getElementById("s2-dropoff").value.trim();
+        const isHourly = document.getElementById("s2-type").value === "Hourly";
+        
+        if (!pickup || (!isHourly && !dropoff)) {
+          document.getElementById("vchip-price-Sedan").textContent = "from $99";
+          document.getElementById("vchip-price-SUV").textContent = "from $126";
+          document.getElementById("hero-price-summary").style.display = "none";
+          return;
+        }
+
+        const seq = ++_liveQuoteSeq;
+
+        let sedanQuote = null;
+        let suvQuote = null;
+
+        const pLat = parseFloat(document.getElementById("pickup_lat").value) || null;
+        const pLon = parseFloat(document.getElementById("pickup_lon").value) || null;
+        const dLat = parseFloat(document.getElementById("dropoff_lat").value) || null;
+        const dLon = parseFloat(document.getElementById("dropoff_lon").value) || null;
+
+        try {
+          const [sedanRes, suvRes] = await Promise.all([
+            fetch("/api/quote", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                vehicle: "Sedan",
+                pickup,
+                dropoff,
+                distance_miles: miles || null,
+                time: timeStr,
+                pickup_lat: pLat,
+                pickup_lon: pLon,
+                dropoff_lat: dLat,
+                dropoff_lon: dLon,
+              }),
+            }),
+            fetch("/api/quote", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                vehicle: "SUV",
+                pickup,
+                dropoff,
+                distance_miles: miles || null,
+                time: timeStr,
+                pickup_lat: pLat,
+                pickup_lon: pLon,
+                dropoff_lat: dLat,
+                dropoff_lon: dLon,
+              }),
+            })
+          ]);
+
+          if (sedanRes.ok) sedanQuote = await sedanRes.json();
+          if (suvRes.ok) suvQuote = await suvRes.json();
+        } catch (e) {
+          /* fallback to local calculations */
+        }
+
+        if (seq !== _liveQuoteSeq) return;
+
+        // Fallbacks
+        if (!sedanQuote) {
+          const local = calcFare("Sedan", miles, timeStr);
+          sedanQuote = {
+            mode: "formula",
+            base: local.base - local.surchargeAmt,
+            surcharge: local.surchargeAmt,
+            surcharge_pct: Math.round(local.surchargeRate * 100),
+            gratuity: local.gratuity,
+            gratuity_pct: 18,
+            fees: 22,
+            total: local.total,
+            minimum_fare: local.mileageCost <= local.minimum,
+          };
+        }
+        if (!suvQuote) {
+          const local = calcFare("SUV", miles, timeStr);
+          suvQuote = {
+            mode: "formula",
+            base: local.base - local.surchargeAmt,
+            surcharge: local.surchargeAmt,
+            surcharge_pct: Math.round(local.surchargeRate * 100),
+            gratuity: local.gratuity,
+            gratuity_pct: 18,
+            fees: 22,
+            total: local.total,
+            minimum_fare: local.mileageCost <= local.minimum,
+          };
+        }
+
+        // Update chip prices
+        document.getElementById("vchip-price-Sedan").textContent = "$" + Math.round(sedanQuote.total);
+        document.getElementById("vchip-price-SUV").textContent = "$" + Math.round(suvQuote.total);
+
+        // Update details for selected vehicle
+        const activeQuote = selectedVehicle.name === "Sedan" ? sedanQuote : suvQuote;
+        
+        // Show price summary on hero screen
+        const summaryDiv = document.getElementById("hero-price-summary");
+        const totalSpan = document.getElementById("hero-total-price");
+        const detailsDiv = document.getElementById("hero-price-details");
+
+        totalSpan.textContent = "$" + Math.round(activeQuote.total);
+        
+        let detailsHtml = "";
+        if (activeQuote.mode === "fixed") {
+          detailsHtml = `
+            <div style="display:flex; justify-content:space-between;"><span>Flat Rate (${selectedVehicle.name})</span><span>$${Math.round(activeQuote.base)}</span></div>
+            <div style="display:flex; justify-content:space-between;"><span>Gratuity (${activeQuote.gratuity_pct}%)</span><span>+$${Math.round(activeQuote.gratuity)}</span></div>
+          `;
+        } else {
+          const baseLabel = activeQuote.minimum_fare ? `Base fare (minimum)` : `${miles.toFixed(1)} miles`;
+          detailsHtml = `
+            <div style="display:flex; justify-content:space-between;"><span>${baseLabel} (${selectedVehicle.name})</span><span>$${Math.round(activeQuote.base)}</span></div>
+          `;
+          if (activeQuote.surcharge > 0) {
+            const surchargeLabel = activeQuote.surcharge_pct >= 20 ? `Late-night (${activeQuote.surcharge_pct}%)` : `Peak surcharge (${activeQuote.surcharge_pct}%)`;
+            detailsHtml += `<div style="display:flex; justify-content:space-between;"><span>${surchargeLabel}</span><span>+$${Math.round(activeQuote.surcharge)}</span></div>`;
+          }
+          detailsHtml += `
+            <div style="display:flex; justify-content:space-between;"><span>Gratuity (${activeQuote.gratuity_pct}%)</span><span>+$${Math.round(activeQuote.gratuity)}</span></div>
+            <div style="display:flex; justify-content:space-between;"><span>Airport & platform fees</span><span>+$${Math.round(activeQuote.fees)}</span></div>
+          `;
+        }
+        detailsDiv.innerHTML = detailsHtml;
+        summaryDiv.style.display = "block";
+      }
+
+      async function onLocationChanged() {
+        const pLat = parseFloat(document.getElementById("pickup_lat").value);
+        const pLon = parseFloat(document.getElementById("pickup_lon").value);
+        const dLat = parseFloat(document.getElementById("dropoff_lat").value);
+        const dLon = parseFloat(document.getElementById("dropoff_lon").value);
+        const isHourly = document.getElementById("s2-type").value === "Hourly";
+
+        if (pLat && pLon && (isHourly || (dLat && dLon))) {
+          if (!isHourly && dLat && dLon) {
+            try {
+              const res = await fetch(
+                `https://router.project-osrm.org/route/v1/driving/${pLon},${pLat};${dLon},${dLat}?overview=false`
+              );
+              const data = await res.json();
+              if (data.routes && data.routes[0]) {
+                const route = data.routes[0];
+                const miles = route.distance / 1609.34;
+                document.getElementById("distance_miles").value = miles.toFixed(3);
+              }
+            } catch (e) {
+              console.error("OSRM error:", e);
+            }
+          } else {
+            document.getElementById("distance_miles").value = "";
+          }
+          await updateLivePrices();
+        }
+      }
+
       /* VEHICLE SELECT */
       function selectVehicle(card) {
         document
@@ -2262,6 +2447,7 @@
           base: Number(card.dataset.base),
         };
         updateFareDisplay();
+        updateLivePrices();
       }
 
       /* SWAP */
@@ -2275,6 +2461,7 @@
         [p.value, d.value] = [d.value, p.value];
         [pLat.value, dLat.value] = [dLat.value, pLat.value];
         [pLon.value, dLon.value] = [dLon.value, pLon.value];
+        onLocationChanged();
       }
 
       function useCurrentLocation() {
@@ -2290,6 +2477,7 @@
             document.getElementById("pickup_lon").value = pos.coords.longitude;
             inp.value = `Current location (${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)})`;
             inp.placeholder = "Pickup address, airport, or hotel…";
+            onLocationChanged();
           },
           () => {
             inp.placeholder = "Pickup address, airport, or hotel…";
@@ -2623,6 +2811,7 @@
             }
           } catch {}
           this.token = this._newToken();
+          onLocationChanged();
         }
         key(e) {
           if (!this.data.length) return;
@@ -2805,6 +2994,12 @@
         document.getElementById("paySuccessBanner").style.display = "block";
       }
       updateFareDisplay();
+
+      // Watch for changes in other fields to update live pricing
+      document.getElementById("s2-time").addEventListener("change", onLocationChanged);
+      document.getElementById("s2-date").addEventListener("change", onLocationChanged);
+      document.getElementById("s2-type").addEventListener("change", onLocationChanged);
+      document.getElementById("s2-hours").addEventListener("change", onLocationChanged);
     </script>
   </body>
 </html>

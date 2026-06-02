@@ -74,6 +74,7 @@ RATE_TABLE = {
         '95060': {"Sedan": 300, "SUV": 360},
         '95070': {"Sedan": 240, "SUV": 240},
         '95076': {"Sedan": 350, "SUV": 420},
+        '95110': {"Sedan": 240, "SUV": 270},
         '95112': {"Sedan": 210, "SUV": 240},
         '95204': {"Sedan": 480, "SUV": 600},
         '95351': {"Sedan": 500, "SUV": 700},
@@ -151,6 +152,7 @@ RATE_TABLE = {
         '95060': {"Sedan": 280, "SUV": 330},
         '95070': {"Sedan": 260, "SUV": 310},
         '95076': {"Sedan": 310, "SUV": 360},
+        '95110': {"Sedan": 250, "SUV": 300},
         '95112': {"Sedan": 230, "SUV": 290},
         '95204': {"Sedan": 570, "SUV": 600},
         '95351': {"Sedan": 450, "SUV": 500},
@@ -227,6 +229,7 @@ RATE_TABLE = {
         '95060': {"Sedan": 300, "SUV": 350},
         '95070': {"Sedan": 240, "SUV": 280},
         '95076': {"Sedan": 350, "SUV": 410},
+        '95110': {"Sedan": 250, "SUV": 290},
         '95112': {"Sedan": 240, "SUV": 280},
         '95204': {"Sedan": 400, "SUV": 550},
         '95351': {"Sedan": 400, "SUV": 550},
@@ -259,12 +262,40 @@ def extract_zip(address):
     return matches[-1] if matches else None
 
 
-def classify_origin(address):
-    """Classify a free-form address as one of our fixed pricing origins.
+def is_in_sfo(lat, lon):
+    return (37.58 <= lat <= 37.65) and (-122.42 <= lon <= -122.35)
 
-    Returns "SFO", "OAK", "San Francisco", or None. Airport checks run first so a
-    generic Oakland/SF city address is never mistaken for an airport pickup.
+
+def is_in_oak(lat, lon):
+    return (37.68 <= lat <= 37.74) and (-122.25 <= lon <= -122.18)
+
+
+def is_in_sjc(lat, lon):
+    return (37.34 <= lat <= 37.39) and (-121.95 <= lon <= -121.90)
+
+
+def is_in_sf_city(lat, lon):
+    return (37.70 <= lat <= 37.82) and (-122.53 <= lon <= -122.35)
+
+
+def classify_origin(address, lat=None, lon=None):
+    """Classify a free-form address (or coordinates) as one of our fixed pricing origins.
+
+    Returns "SFO", "OAK", "San Francisco", or None. Airport checks run first.
     """
+    if lat is not None and lon is not None:
+        try:
+            flat = float(lat)
+            flon = float(lon)
+            if is_in_sfo(flat, flon):
+                return "SFO"
+            if is_in_oak(flat, flon):
+                return "OAK"
+            if is_in_sf_city(flat, flon):
+                return "San Francisco"
+        except (ValueError, TypeError):
+            pass
+
     if not address:
         return None
     a = str(address).lower()
@@ -272,7 +303,7 @@ def classify_origin(address):
     # SFO airport
     if "sfo" in a or "san francisco international" in a or z == "94128":
         return "SFO"
-    # OAK airport (require an airport signal; Oakland *city* is a destination)
+    # OAK airport (require an airport signal; Oakland city is a destination)
     if (
         re.search(r"\boak\b", a)
         or ("oakland" in a and "airport" in a)
@@ -288,23 +319,36 @@ def classify_origin(address):
     return None
 
 
-def fixed_quote(pickup, dropoff, vehicle):
+def fixed_quote(pickup, dropoff, vehicle, p_lat=None, p_lon=None, d_lat=None, d_lon=None):
     """Return the all-inclusive total for a known route, or None to use the formula.
 
     Bidirectional: a price listed origin->destination also applies destination->origin.
     """
     if vehicle not in ("Sedan", "SUV"):
         return None
+        
+    def check_sjc(addr, lat=None, lon=None):
+        if lat is not None and lon is not None:
+            try:
+                if is_in_sjc(float(lat), float(lon)):
+                    return True
+            except (ValueError, TypeError):
+                pass
+        return addr and any(x in str(addr).lower() for x in ("sjc", "san jose international", "san jose airport", "mineta san jose"))
+
     # Forward: pickup is an origin, dropoff is the destination.
-    origin = classify_origin(pickup)
+    origin = classify_origin(pickup, p_lat, p_lon)
     if origin:
-        rec = RATE_TABLE.get(origin, {}).get(extract_zip(dropoff) or "")
+        dest_zip = "95110" if check_sjc(dropoff, d_lat, d_lon) else (extract_zip(dropoff) or "")
+        rec = RATE_TABLE.get(origin, {}).get(dest_zip)
         if rec and rec.get(vehicle) is not None:
             return rec[vehicle]
     # Reverse: dropoff is an origin, pickup is the destination.
-    origin = classify_origin(dropoff)
+    origin = classify_origin(dropoff, d_lat, d_lon)
     if origin:
-        rec = RATE_TABLE.get(origin, {}).get(extract_zip(pickup) or "")
+        dest_zip = "95110" if check_sjc(pickup, p_lat, p_lon) else (extract_zip(pickup) or "")
+        rec = RATE_TABLE.get(origin, {}).get(dest_zip)
         if rec and rec.get(vehicle) is not None:
             return rec[vehicle]
     return None
+

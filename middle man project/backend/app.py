@@ -543,6 +543,10 @@ def _fare_breakdown(
     hour: int = 12,
     pickup: str = None,
     dropoff: str = None,
+    pickup_lat: float = None,
+    pickup_lon: float = None,
+    dropoff_lat: float = None,
+    dropoff_lon: float = None,
 ) -> dict:
     """Single source of truth for trip price.
 
@@ -556,7 +560,15 @@ def _fare_breakdown(
     invoice, and the dispatch list) derives from this function so the displayed
     price always equals the charged price.
     """
-    fixed = fixed_quote(pickup, dropoff, vehicle) if (pickup and dropoff) else None
+    fixed = fixed_quote(
+        pickup,
+        dropoff,
+        vehicle,
+        pickup_lat,
+        pickup_lon,
+        dropoff_lat,
+        dropoff_lon,
+    ) if (pickup and dropoff) else None
     if fixed is not None:
         total = round(float(fixed), 2)
         base = round(total / 1.20, 2)  # sheet total = base + 20% gratuity
@@ -608,9 +620,24 @@ def _calc_total_cents(
     hour: int = 12,
     pickup: str = None,
     dropoff: str = None,
+    pickup_lat: float = None,
+    pickup_lon: float = None,
+    dropoff_lat: float = None,
+    dropoff_lon: float = None,
 ) -> int:
-    total = _fare_breakdown(vehicle, distance_miles, hour, pickup, dropoff)["total"]
+    total = _fare_breakdown(
+        vehicle,
+        distance_miles,
+        hour,
+        pickup,
+        dropoff,
+        pickup_lat,
+        pickup_lon,
+        dropoff_lat,
+        dropoff_lon,
+    )["total"]
     return round(total * 100)
+
 
 
 # --- INITIAL DATA ---
@@ -996,7 +1023,15 @@ def invoice_page(
                 gratuity = round(total - base - service_fee, 2) if total >= 25.00 else 0.0
         else:
             bd = _fare_breakdown(
-                r.vehicle, r.distance_miles or 0, hour, r.pickup, r.dropoff
+                r.vehicle,
+                r.distance_miles or 0,
+                hour,
+                r.pickup,
+                r.dropoff,
+                r.pickup_lat,
+                r.pickup_lon,
+                r.dropoff_lat,
+                r.dropoff_lon,
             )
             total = bd["total"]
             base = round(bd["base"] + bd["surcharge"], 2)
@@ -1345,6 +1380,10 @@ class QuoteRequest(BaseModel):
     dropoff: Optional[str] = None
     distance_miles: Optional[float] = None
     time: Optional[str] = None
+    pickup_lat: Optional[float] = None
+    pickup_lon: Optional[float] = None
+    dropoff_lat: Optional[float] = None
+    dropoff_lon: Optional[float] = None
 
 
 @app.post("/api/quote")
@@ -1360,7 +1399,15 @@ def quote(data: QuoteRequest):
         hour = 12
     vehicle = data.vehicle if data.vehicle in _ALLOWED_VEHICLES else "SUV"
     return _fare_breakdown(
-        vehicle, data.distance_miles or 0, hour, data.pickup, data.dropoff
+        vehicle,
+        data.distance_miles or 0,
+        hour,
+        data.pickup,
+        data.dropoff,
+        data.pickup_lat,
+        data.pickup_lon,
+        data.dropoff_lat,
+        data.dropoff_lon,
     )
 
 
@@ -1425,7 +1472,15 @@ def _get_reservation_price(r: ReservationModel) -> float:
     try:
         hour = int((r.time or "12:00").split(":")[0])
         total_cents = _calc_total_cents(
-            r.vehicle, r.distance_miles or 0, hour, r.pickup, r.dropoff
+            r.vehicle,
+            r.distance_miles or 0,
+            hour,
+            r.pickup,
+            r.dropoff,
+            r.pickup_lat,
+            r.pickup_lon,
+            r.dropoff_lat,
+            r.dropoff_lon,
         )
         return total_cents / 100
     except Exception:
@@ -1578,6 +1633,10 @@ async def create_reservation(
                                 int((db_res.time or "12:00").split(":")[0]),
                                 db_res.pickup,
                                 db_res.dropoff,
+                                db_res.pickup_lat,
+                                db_res.pickup_lon,
+                                db_res.dropoff_lat,
+                                db_res.dropoff_lon,
                             ),
                             "product_data": {
                                 "name": f"Tsatsral Limo — {db_res.vehicle}",
