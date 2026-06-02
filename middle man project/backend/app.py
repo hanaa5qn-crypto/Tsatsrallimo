@@ -60,6 +60,16 @@ FRONTEND_DIR = PROJECT_DIR / "frontend"
 IMAGES_DIR = PROJECT_DIR / "images"
 SITE_DIR = PROJECT_DIR.parent / "tsatsral-limo-llc" / "tsatsral-limo-site"
 
+# Fixed point-to-point rate tables (SF city / SFO / OAK origins). Loaded by
+# absolute path so it resolves no matter how the app is launched (app:app,
+# backend.app:app, or the importlib shim in the repo-root app.py).
+import importlib.util as _ilu
+
+_rt_spec = _ilu.spec_from_file_location("rate_tables", str(BASE_DIR / "rate_tables.py"))
+rate_tables = _ilu.module_from_spec(_rt_spec)
+_rt_spec.loader.exec_module(rate_tables)
+fixed_quote = rate_tables.fixed_quote
+
 load_dotenv(PROJECT_DIR / ".env", override=True)
 load_dotenv(BASE_DIR / ".env", override=True)
 
@@ -241,7 +251,7 @@ def get_db():
         db.close()
 
 
-_ALLOWED_VEHICLES = {"Black car", "Executive SUV", "Sprinter van"}
+_ALLOWED_VEHICLES = {"Sedan", "SUV"}
 _ALLOWED_TRIP_TYPES = {
     "Airport Arrival",
     "Airport Departure",
@@ -519,24 +529,88 @@ def add_db_event(db: Session, reservation_id: int, title: str, body: str):
     db.commit()
 
 
+# Per-mile formula rates — used only as a FALLBACK for trips that are not on the
+# fixed SF/SFO/OAK rate tables (see rate_tables.py).
 _VEHICLE_RATES = {
-    "Black car": (3.50, 65),  # ($/mile, minimum $)
-    "Executive SUV": (4.50, 88),
-    "Sprinter van": (6.00, 150),
+    "Sedan": (3.50, 65),  # ($/mile, minimum $)
+    "SUV": (4.50, 88),
 }
 
 
-def _calc_total_cents(vehicle: str, distance_miles: float = 0, hour: int = 12) -> int:
+def _fare_breakdown(
+    vehicle: str,
+    distance_miles: float = 0,
+    hour: int = 12,
+    pickup: str = None,
+    dropoff: str = None,
+) -> dict:
+    """Single source of truth for trip price.
+
+    Returns a breakdown dict with a ``mode``:
+      * ``"fixed"``   — a known SF/SFO/OAK ↔ destination route. The price is the
+        all-inclusive sheet total (vehicle base + 20% gratuity, no extra fees).
+      * ``"formula"`` — anything else: per-mile rate + time-of-day surcharge +
+        18% gratuity + $22 service fee (the original pricing model).
+
+    Every other pricing path (the Stripe charge, the live quote endpoint, the
+    invoice, and the dispatch list) derives from this function so the displayed
+    price always equals the charged price.
+    """
+    fixed = fixed_quote(pickup, dropoff, vehicle) if (pickup and dropoff) else None
+    if fixed is not None:
+        total = round(float(fixed), 2)
+        base = round(total / 1.20, 2)  # sheet total = base + 20% gratuity
+        gratuity = round(total - base, 2)
+        return {
+            "mode": "fixed",
+            "base": base,
+            "surcharge": 0.0,
+            "surcharge_pct": 0,
+            "gratuity": gratuity,
+            "gratuity_pct": 20,
+            "fees": 0.0,
+            "total": total,
+            "minimum_fare": False,
+        }
+
     rate, minimum = _VEHICLE_RATES.get(vehicle, (4.50, 88))
-    base = max(rate * distance_miles, float(minimum))
-    # Time-of-day multiplier
+    miles = distance_miles or 0
+    pre = max(rate * miles, float(minimum))
     if hour >= 22 or hour < 5:  # 10 pm – 5 am
-        base *= 1.25
+        mult, spct = 1.25, 25
     elif (6 <= hour < 9) or (16 <= hour < 19):  # rush hours
-        base *= 1.15
-    base = round(base)
-    gratuity = round(base * 0.18)
-    return (base + gratuity + 22) * 100
+        mult, spct = 1.15, 15
+    else:
+        mult, spct = 1.0, 0
+    base_incl = round(pre * mult)  # base including surcharge (matches legacy math)
+    gratuity = round(base_incl * 0.18)
+    fees = 22
+    base_display = round(pre)
+    return {
+        "mode": "formula",
+        "base": float(base_display),
+        "surcharge": float(base_incl - base_display),
+        "surcharge_pct": spct,
+        "gratuity": float(gratuity),
+        "gratuity_pct": 18,
+        "fees": float(fees),
+        "total": float(base_incl + gratuity + fees),
+        "minimum_fare": (rate * miles) <= float(minimum),
+        "rate": rate,
+        "minimum": float(minimum),
+        "miles": miles,
+    }
+
+
+def _calc_total_cents(
+    vehicle: str,
+    distance_miles: float = 0,
+    hour: int = 12,
+    pickup: str = None,
+    dropoff: str = None,
+) -> int:
+    total = _fare_breakdown(vehicle, distance_miles, hour, pickup, dropoff)["total"]
+    return round(total * 100)
 
 
 # --- INITIAL DATA ---
@@ -545,11 +619,11 @@ def init_drivers(db: Session):
         return
 
     drivers_to_add = [
-        {"name": "Jack Dorj", "phone": "4156994052", "vehicle": "Executive SUV"},
-        {"name": "Bataa", "phone": "4155550101", "vehicle": "Black car"},
-        {"name": "Boldoo", "phone": "4155550102", "vehicle": "Sprinter van"},
-        {"name": "Hanaa", "phone": "4155550103", "vehicle": "Executive SUV"},
-        {"name": "Irmoon", "phone": "4155550104", "vehicle": "Black car"},
+        {"name": "Jack Dorj", "phone": "4156994052", "vehicle": "SUV"},
+        {"name": "Bataa", "phone": "4155550101", "vehicle": "Sedan"},
+        {"name": "Boldoo", "phone": "4155550102", "vehicle": "SUV"},
+        {"name": "Hanaa", "phone": "4155550103", "vehicle": "SUV"},
+        {"name": "Irmoon", "phone": "4155550104", "vehicle": "Sedan"},
     ]
 
     for d_data in drivers_to_add:
@@ -897,7 +971,13 @@ def invoice_page(
 
     try:
         hour = int((r.time or "12:00").split(":")[0])
+    except Exception:
+        hour = 12
+    gratuity_pct = 18
+    price_mode = "formula"
+    try:
         if r.custom_price is not None:
+            price_mode = "custom"
             total = float(r.custom_price)
             if r.custom_service_fee is not None:
                 service_fee = float(r.custom_service_fee)
@@ -915,16 +995,15 @@ def invoice_page(
             else:
                 gratuity = round(total - base - service_fee, 2) if total >= 25.00 else 0.0
         else:
-            total_cents = _calc_total_cents(r.vehicle, r.distance_miles or 0, hour)
-            total = total_cents / 100
-            rate, minimum = _VEHICLE_RATES.get(r.vehicle, (4.50, 88))
-            base = round(max(rate * (r.distance_miles or 0), float(minimum)), 2)
-            if hour >= 22 or hour < 5:
-                base = round(base * 1.25, 2)
-            elif (6 <= hour < 9) or (16 <= hour < 19):
-                base = round(base * 1.15, 2)
-            gratuity = round(base * 0.18, 2)
-            service_fee = 22.00
+            bd = _fare_breakdown(
+                r.vehicle, r.distance_miles or 0, hour, r.pickup, r.dropoff
+            )
+            total = bd["total"]
+            base = round(bd["base"] + bd["surcharge"], 2)
+            gratuity = bd["gratuity"]
+            service_fee = bd["fees"]
+            gratuity_pct = bd["gratuity_pct"]
+            price_mode = bd["mode"]
         payout = round(total * 0.70, 2)
         commission = round(total * 0.30, 2)
     except Exception:
@@ -942,10 +1021,11 @@ def invoice_page(
     order_no = f"TSL-{r.id:03d}"
 
     surcharge_rows = ""
-    if hour >= 22 or hour < 5:
-        surcharge_rows = "<tr><td>Late night surcharge (25%)</td><td>included</td></tr>"
-    elif (6 <= hour < 9) or (16 <= hour < 19):
-        surcharge_rows = "<tr><td>Rush hour surcharge (15%)</td><td>included</td></tr>"
+    if price_mode == "formula":
+        if hour >= 22 or hour < 5:
+            surcharge_rows = "<tr><td>Late night surcharge (25%)</td><td>included</td></tr>"
+        elif (6 <= hour < 9) or (16 <= hour < 19):
+            surcharge_rows = "<tr><td>Rush hour surcharge (15%)</td><td>included</td></tr>"
 
     notes_row = (
         f"<div class='itin-row'><span class='itin-label'>Notes:</span> {html.escape(r.notes)}</div>"
@@ -1054,7 +1134,7 @@ def invoice_page(
       <tr class="hr"><td>Item</td><td>Amount</td></tr>
       <tr><td>Base Rate ({html.escape(r.vehicle)})</td><td>${base:.2f}</td></tr>
       {surcharge_rows}
-      <tr><td>Gratuity (18%)</td><td>${gratuity:.2f}</td></tr>
+      <tr><td>Gratuity ({gratuity_pct}%)</td><td>${gratuity:.2f}</td></tr>
       <tr><td>Service Fee</td><td>${service_fee:.2f}</td></tr>
       <tr class="sub"><td>Subtotal</td><td>${total:.2f}</td></tr>
     </table>
@@ -1259,6 +1339,31 @@ async def place_details(place_id: str, token: str = ""):
     return detail
 
 
+class QuoteRequest(BaseModel):
+    vehicle: str
+    pickup: Optional[str] = None
+    dropoff: Optional[str] = None
+    distance_miles: Optional[float] = None
+    time: Optional[str] = None
+
+
+@app.post("/api/quote")
+def quote(data: QuoteRequest):
+    """Live price quote for the public booking form.
+
+    Uses the same ``_fare_breakdown`` as the Stripe charge, so the price shown to
+    the customer is exactly the price they will be charged.
+    """
+    try:
+        hour = int((data.time or "12:00").split(":")[0])
+    except Exception:
+        hour = 12
+    vehicle = data.vehicle if data.vehicle in _ALLOWED_VEHICLES else "SUV"
+    return _fare_breakdown(
+        vehicle, data.distance_miles or 0, hour, data.pickup, data.dropoff
+    )
+
+
 @app.get("/api/reservations")
 def list_reservations(
     db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)
@@ -1319,7 +1424,9 @@ def _get_reservation_price(r: ReservationModel) -> float:
         return float(r.custom_price)
     try:
         hour = int((r.time or "12:00").split(":")[0])
-        total_cents = _calc_total_cents(r.vehicle, r.distance_miles or 0, hour)
+        total_cents = _calc_total_cents(
+            r.vehicle, r.distance_miles or 0, hour, r.pickup, r.dropoff
+        )
         return total_cents / 100
     except Exception:
         return 0.0
@@ -1469,6 +1576,8 @@ async def create_reservation(
                                 db_res.vehicle,
                                 db_res.distance_miles or 0,
                                 int((db_res.time or "12:00").split(":")[0]),
+                                db_res.pickup,
+                                db_res.dropoff,
                             ),
                             "product_data": {
                                 "name": f"Tsatsral Limo — {db_res.vehicle}",

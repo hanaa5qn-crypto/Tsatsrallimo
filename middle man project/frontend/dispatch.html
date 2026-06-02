@@ -1960,13 +1960,8 @@
             <div class="field">
               <label for="vehicle">Vehicle class</label>
               <select id="vehicle" name="vehicle">
-                <option value="Black car" data-base="88">Black car</option>
-                <option value="Executive SUV" data-base="126" selected>
-                  Executive SUV
-                </option>
-                <option value="Sprinter van" data-base="210">
-                  Sprinter van
-                </option>
+                <option value="Sedan" data-base="99">Sedan</option>
+                <option value="SUV" data-base="126" selected>SUV</option>
               </select>
             </div>
             <div class="field">
@@ -2076,9 +2071,8 @@
             <div class="field">
               <label for="driverVehicle">Vehicle class</label>
               <select id="driverVehicle" name="vehicle" required>
-                <option value="Black car">Black car</option>
-                <option value="Executive SUV" selected>Executive SUV</option>
-                <option value="Sprinter van">Sprinter van</option>
+                <option value="Sedan">Sedan</option>
+                <option value="SUV" selected>SUV</option>
               </select>
             </div>
             <div class="field">
@@ -2242,9 +2236,8 @@
           <div class="field">
             <label for="editDriverVehicle">Vehicle class</label>
             <select id="editDriverVehicle" name="vehicle" required>
-              <option value="Black car">Black car</option>
-              <option value="Executive SUV">Executive SUV</option>
-              <option value="Sprinter van">Sprinter van</option>
+              <option value="Sedan">Sedan</option>
+              <option value="SUV">SUV</option>
             </select>
           </div>
         </form>
@@ -2928,7 +2921,7 @@
           <div><b>${ed("customer", r.customer)}</b>
             <div class="meta">
               <span title="Date & time">📅 ${ed("date", r.date, { type: "date" })} ${ed("time", r.time, { type: "time" })}</span>
-              <span>${ed("vehicle", r.vehicle, { type: "select", options: "Black car|Executive SUV|Sprinter van" })}</span>
+              <span>${ed("vehicle", r.vehicle, { type: "select", options: "Sedan|SUV" })}</span>
               <span style="font-size:9px;background:var(--bg);border:1px solid var(--line);color:var(--soft);padding:1px 4px;border-radius:3px">${ed("trip_type", r.trip_type, { type: "select", options: "Point-to-Point|Airport Arrival|Airport Departure|Hourly|One Way" })}</span>
               <span>👥 ${ed("passengers", r.passengers, { type: "select", options: "1|2|3|4|5|6" })}</span>
             </div>
@@ -3788,14 +3781,46 @@
       };
 
       // ── Trip Price Breakdown Modal ──
+      // Per-mile fallback rates (used if /api/quote is unavailable).
       const VEHICLE_PRICING_RATES = {
-        "Black car": [3.5, 65],
-        "Executive SUV": [4.5, 88],
-        "Sprinter van": [6.0, 150],
+        Sedan: [3.5, 65],
+        SUV: [4.5, 88],
       };
 
+      // Authoritative breakdown from the backend — matches the customer charge,
+      // including fixed SF/SFO/OAK rate-table prices. Falls back to the local
+      // formula if the request fails.
+      async function fetchAutoPricing(r) {
+        try {
+          const res = await fetch("/api/quote", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              vehicle: r.vehicle || "SUV",
+              pickup: r.pickup,
+              dropoff: r.dropoff,
+              distance_miles: r.distance_miles || null,
+              time: r.time,
+            }),
+          });
+          if (res.ok) {
+            const bd = await res.json();
+            return {
+              base: bd.base,
+              surcharge: bd.surcharge,
+              gratuity: bd.gratuity,
+              serviceFee: bd.fees,
+              total: bd.total,
+            };
+          }
+        } catch (e) {
+          /* fall through to local formula */
+        }
+        return calculateAutoPricing(r);
+      }
+
       function calculateAutoPricing(r) {
-        const vehicle = r.vehicle || "Executive SUV";
+        const vehicle = r.vehicle || "SUV";
         const dist = parseFloat(r.distance_miles || 0);
         const hour = parseInt((r.time || "12:00").split(":")[0], 10);
         
@@ -3821,13 +3846,13 @@
         };
       }
 
-      window.openPriceModal = function (tripId) {
+      window.openPriceModal = async function (tripId) {
         const r = reservationsData.find((res) => res.id === tripId);
         if (!r) return;
-        
+
         document.getElementById("editPriceTripId").value = r.id;
-        
-        const auto = calculateAutoPricing(r);
+
+        const auto = await fetchAutoPricing(r);
         
         // Base rate input in the modal represents base rate excluding surcharge for clarity
         const baseVal = r.custom_base_rate !== null && r.custom_base_rate !== undefined 
