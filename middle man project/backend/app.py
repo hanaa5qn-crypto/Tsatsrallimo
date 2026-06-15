@@ -2429,7 +2429,7 @@ LINQ_BASE_URL = os.getenv(
 
 
 def _linq_post(path: str, payload: dict) -> dict:
-    """POST to the Linq Partner API (Blue v3). Raises httpx.HTTPStatusError on failure."""
+    """POST to the Linq Partner API (Blue v3). On error, surface Linq's response body."""
     resp = httpx.post(
         f"{LINQ_BASE_URL}{path}",
         json=payload,
@@ -2439,7 +2439,10 @@ def _linq_post(path: str, payload: dict) -> dict:
         },
         timeout=15.0,
     )
-    resp.raise_for_status()
+    if resp.status_code >= 400:
+        body = resp.text[:600]
+        print(f"[linq] {resp.status_code} POST {path} payload={json.dumps(payload)} -> {body}")
+        raise RuntimeError(f"Linq {resp.status_code}: {body}")
     return resp.json()
 
 
