@@ -1291,8 +1291,13 @@ async def geocode_proxy(q: str, token: str = ""):
                     "X-Goog-Api-Key": _GOOGLE_MAPS_API_KEY,
                 },
             )
-            data = r.json() if r.status_code == 200 else {}
-    except Exception:
+            if r.status_code == 200:
+                data = r.json()
+            else:
+                print(f"[gmaps] autocomplete {r.status_code} -> {r.text[:400]}")
+                data = {}
+    except Exception as e:
+        print(f"[gmaps] autocomplete exception: {e}")
         data = {}
 
     suggestions = data.get("suggestions", []) if isinstance(data, dict) else []
