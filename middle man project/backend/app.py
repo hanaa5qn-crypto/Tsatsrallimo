@@ -2188,6 +2188,23 @@ async def linq_webhook(request: Request, db: Session = Depends(get_db)):
     return {"status": "ok"}
 
 
+@app.get("/api/integrations/status")
+def integrations_status():
+    """Booleans only — reports which integrations are configured. No secrets."""
+    return {
+        "linq_outbound": bool(
+            os.getenv("LINQ_API_TOKEN") and os.getenv("LINQ_FROM_NUMBER")
+        ),
+        "linq_webhook_signed": bool(os.getenv("LINQ_WEBHOOK_SECRET")),
+        "stripe": bool(
+            os.getenv("STRIPE_SECRET_KEY") or os.getenv("STRIPE_PAYMENT_LINK")
+        ),
+        "stripe_webhook": bool(os.getenv("STRIPE_WEBHOOK_SECRET")),
+        "google_maps": bool(os.getenv("GOOGLE_MAPS_API_KEY")),
+        "app_base_url": bool(os.getenv("APP_BASE_URL")),
+    }
+
+
 @app.get("/api/drivers")
 def list_drivers(db: Session = Depends(get_db), _: None = Depends(require_admin)):
     drivers = db.query(DriverModel).all()
