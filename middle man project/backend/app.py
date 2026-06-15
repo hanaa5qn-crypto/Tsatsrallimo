@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import hashlib
 import html
 import hmac
@@ -32,8 +33,6 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
-from twilio.request_validator import RequestValidator
-from twilio.rest import Client
 
 try:
     import stripe as _stripe
@@ -1229,6 +1228,9 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                         "Payment received",
                         "Stripe checkout completed.",
                     )
+                    _notify_customer(
+                        reservation, build_customer_receipt_message(reservation)
+                    )
                     await manager.broadcast(
                         {
                             "type": "UPDATE",
@@ -1665,6 +1667,8 @@ async def create_reservation(
         db, db_res.id, "Reservation created", f"{db_res.vehicle} booked via dashboard."
     )
 
+    _notify_customer(db_res, build_customer_booking_message(db_res))
+
     await manager.broadcast(
         {"type": "UPDATE", "message": f"New reservation from {db_res.customer}"}
     )
@@ -2013,17 +2017,17 @@ async def assign_driver(
     if not driver:
         raise HTTPException(status_code=503, detail="Requested driver not available")
 
-    # Twilio logic
+    # Linq dispatch
     try:
         sid = notify_driver_of_reservation(
             reservation, {"name": driver.name, "phone": driver.phone}
         )
-        if sid == "TWILIO_NOT_CONFIGURED":
-            raise HTTPException(status_code=503, detail="Twilio not configured")
+        if sid == "LINQ_NOT_CONFIGURED":
+            raise HTTPException(status_code=503, detail="Linq not configured")
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Twilio error: {e}")
+        raise HTTPException(status_code=502, detail=f"Linq error: {e}")
 
     reservation.status = "Pending confirmation"
     reservation.assigned_driver = driver.name
@@ -2050,53 +2054,78 @@ async def assign_driver(
         "status": "Success",
         "reservation_id": reservation_id,
         "driver": {"name": driver.name, "vehicle": driver.vehicle},
-        "message_sid": sid,
+        "message_id": sid,
     }
 
 
-@app.post("/twilio/reply")
-async def twilio_reply(
-    request: Request,
-    From: str = Form(...),
-    Body: str = Form(...),
-    db: Session = Depends(get_db),
-):
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN", "")
-    if not auth_token:
-        raise HTTPException(status_code=503, detail="Twilio not configured")
-    validator = RequestValidator(auth_token)
-    form_data = dict(await request.form())
-    signature = request.headers.get("X-Twilio-Signature", "")
+def _verify_linq_signature(
+    webhook_id: str, timestamp: str, body: bytes, signature_header: str, secret: str
+) -> bool:
+    """Verify a Standard Webhooks (Linq) signature.
 
-    # Behind Render's proxy, request.url often shows the internal http://host:PORT
-    # URL, but Twilio signs the public https URL. Rebuild the URL Twilio actually
-    # signed using X-Forwarded-Proto / X-Forwarded-Host (or APP_BASE_URL override).
-    fwd_proto = request.headers.get("x-forwarded-proto", request.url.scheme)
-    fwd_host = request.headers.get(
-        "x-forwarded-host", request.headers.get("host", request.url.netloc)
-    )
-    path = request.url.path
-    query = f"?{request.url.query}" if request.url.query else ""
-    candidate_urls = [
-        f"{fwd_proto}://{fwd_host}{path}{query}",
-        str(request.url),
-    ]
-    app_base = os.getenv("APP_BASE_URL", "").rstrip("/")
-    if app_base:
-        candidate_urls.insert(0, f"{app_base}{path}{query}")
+    HMAC-SHA256 over "{webhook-id}.{webhook-timestamp}.{raw-body}". The signing
+    secret is `whsec_` + base64 key. The webhook-signature header carries one or
+    more space-separated "v1,<base64sig>" tokens.
+    """
+    if not secret or not signature_header:
+        return False
+    try:
+        key_part = secret.split("_", 1)[1] if secret.startswith("whsec_") else secret
+        key = base64.b64decode(key_part)
+    except Exception:
+        return False
+    signed = webhook_id.encode() + b"." + timestamp.encode() + b"." + body
+    expected = base64.b64encode(hmac.new(key, signed, hashlib.sha256).digest()).decode()
+    for token in signature_header.split():
+        _, _, sig = token.partition(",")
+        if sig and hmac.compare_digest(sig, expected):
+            return True
+    return False
 
-    if not any(validator.validate(u, form_data, signature) for u in candidate_urls):
-        print(
-            f"[twilio] signature mismatch. tried={candidate_urls} "
-            f"sig={signature!r} headers={dict(request.headers)}"
-        )
-        raise HTTPException(status_code=403, detail="Invalid request signature")
-    reply = Body.strip().upper()
+
+@app.post("/linq/webhook")
+async def linq_webhook(request: Request, db: Session = Depends(get_db)):
+    raw = await request.body()
+
+    # Verify the Standard Webhooks signature when a secret is configured. This
+    # endpoint mutates trip state, so signing is strongly recommended; if no
+    # secret is set we process anyway (and warn) to match Linq's example setup.
+    secret = os.getenv("LINQ_WEBHOOK_SECRET", "")
+    if secret:
+        webhook_id = request.headers.get("webhook-id", "")
+        timestamp = request.headers.get("webhook-timestamp", "")
+        signature = request.headers.get("webhook-signature", "")
+        try:
+            if abs(datetime.now().timestamp() - int(timestamp)) > 300:
+                raise HTTPException(status_code=403, detail="Stale webhook timestamp")
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=403, detail="Invalid webhook timestamp")
+        if not _verify_linq_signature(webhook_id, timestamp, raw, signature, secret):
+            print(f"[linq] signature mismatch id={webhook_id!r}")
+            raise HTTPException(status_code=403, detail="Invalid webhook signature")
+    else:
+        print("[linq] WARNING: LINQ_WEBHOOK_SECRET unset — signature NOT verified")
+
+    event = json.loads(raw)
+    # Only driver replies matter; ack everything else.
+    if event.get("event_type") != "message.received":
+        return {"status": "ignored"}
+
+    data = event.get("data", {})
+    if data.get("is_from_me"):
+        return {"status": "ignored"}
+
+    from_handle = data.get("from", "")
+    chat_id = data.get("chat_id", "")
+    parts = (data.get("message") or {}).get("parts", [])
+    text = " ".join(p.get("value", "") for p in parts if p.get("type") == "text")
+    reply = text.strip().upper()
+
     # Normalize to 10-digit and also try E.164 to match however the number is stored in DB
-    digits = re.sub(r"\D", "", From)
+    digits = re.sub(r"\D", "", from_handle)
     if len(digits) == 11 and digits.startswith("1"):
         digits = digits[1:]
-    e164 = f"+1{digits}" if len(digits) == 10 else From
+    e164 = f"+1{digits}" if len(digits) == 10 else from_handle
 
     driver = (
         db.query(DriverModel)
@@ -2104,9 +2133,7 @@ async def twilio_reply(
         .first()
     )
     if not driver:
-        return PlainTextResponse(
-            "<?xml version='1.0'?><Response></Response>", media_type="application/xml"
-        )
+        return {"status": "ignored"}
 
     # Find the most recent trip pending this driver's confirmation
     reservation = (
@@ -2118,11 +2145,8 @@ async def twilio_reply(
         .order_by(ReservationModel.id.desc())
         .first()
     )
-
     if not reservation:
-        return PlainTextResponse(
-            "<?xml version='1.0'?><Response></Response>", media_type="application/xml"
-        )
+        return {"status": "ignored"}
 
     if reply.startswith("YES"):
         reservation.status = "Assigned"
@@ -2146,13 +2170,12 @@ async def twilio_reply(
             f"{driver.name} declined. Trip returned to queue.",
         )
         sms_back = "No problem. The trip has been returned to the dispatch queue."
+        db.commit()
     else:
-        return PlainTextResponse(
-            "<?xml version='1.0'?><Response><Message>Reply YES to accept or NO to decline.</Message></Response>",
-            media_type="application/xml",
-        )
+        # Unrecognized reply — reply in the same chat thread via the API.
+        _linq_reply(chat_id, "Reply YES to accept or NO to decline.")
+        return {"status": "ok"}
 
-    db.commit()
     await manager.broadcast(
         {
             "type": "UPDATE",
@@ -2160,10 +2183,9 @@ async def twilio_reply(
         }
     )
 
-    return PlainTextResponse(
-        f"<?xml version='1.0'?><Response><Message>{sms_back}</Message></Response>",
-        media_type="application/xml",
-    )
+    # Replies are out-of-band on Linq: send the confirmation into the same chat.
+    _linq_reply(chat_id, sms_back)
+    return {"status": "ok"}
 
 
 @app.get("/api/drivers")
@@ -2384,15 +2406,70 @@ def _maps_link(
     return f"https://maps.google.com/?q={urllib.parse.quote(address)}"
 
 
+LINQ_BASE_URL = os.getenv(
+    "LINQ_API_BASE_URL", "https://api.linqapp.com/api/partner/v3"
+)
+
+
+def _linq_post(path: str, payload: dict) -> dict:
+    """POST to the Linq Partner API (Blue v3). Raises httpx.HTTPStatusError on failure."""
+    resp = httpx.post(
+        f"{LINQ_BASE_URL}{path}",
+        json=payload,
+        headers={
+            "Authorization": f"Bearer {os.getenv('LINQ_API_TOKEN', '')}",
+            "Content-Type": "application/json",
+        },
+        timeout=15.0,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _linq_msg_id(data: dict) -> Optional[str]:
+    # POST /chats           -> {"id": <chat_id>, "last_message": {"id": ...}}
+    # POST /chats/{id}/messages -> {"chat_id": ..., "message": {"id": ...}}
+    inner = data.get("message") or data.get("last_message") or {}
+    return inner.get("id") or data.get("id")
+
+
 def _send_sms(phone: str, body: str) -> Optional[str]:
-    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-    from_number = os.getenv("TWILIO_FROM_NUMBER")
-    if not account_sid or not auth_token or not from_number:
+    """Start (or reuse) a chat to a phone number and send a text via Linq.
+
+    Returns the Linq message id, or None if Linq isn't configured.
+    """
+    if not os.getenv("LINQ_API_TOKEN") or not os.getenv("LINQ_FROM_NUMBER"):
         return None
-    client = Client(account_sid, auth_token)
-    msg = client.messages.create(body=body, from_=from_number, to=_to_e164(phone))
-    return msg.sid
+    data = _linq_post(
+        "/chats",
+        {
+            "from": os.getenv("LINQ_FROM_NUMBER"),
+            "to": [_to_e164(phone)],
+            "message": {"parts": [{"type": "text", "value": body}]},
+        },
+    )
+    return _linq_msg_id(data)
+
+
+def _linq_reply(chat_id: str, body: str) -> Optional[str]:
+    """Reply within an existing Linq chat (used from the inbound webhook)."""
+    if not os.getenv("LINQ_API_TOKEN") or not chat_id:
+        return None
+    data = _linq_post(
+        f"/chats/{chat_id}/messages",
+        {"message": {"parts": [{"type": "text", "value": body}]}},
+    )
+    return _linq_msg_id(data)
+
+
+def _notify_customer(reservation: "ReservationModel", body: str) -> None:
+    """Best-effort customer SMS. Never raises into the request/webhook flow."""
+    if not getattr(reservation, "phone", None):
+        return
+    try:
+        _send_sms(reservation.phone, body)
+    except Exception as e:
+        print(f"[linq] customer notify failed for trip #{reservation.id}: {e}")
 
 
 def build_dispatch_alert(reservation: ReservationModel) -> str:
@@ -2461,6 +2538,33 @@ def build_completion_message(reservation: ReservationModel) -> str:
     )
 
 
+def build_customer_booking_message(reservation: ReservationModel) -> str:
+    pickup_time = format_pickup_time(reservation.date, reservation.time)
+    return (
+        f"Tsatsral Limo: Booking confirmed! {reservation.vehicle} on {pickup_time}.\n"
+        f"From: {reservation.pickup}\n"
+        f"To: {reservation.dropoff}\n"
+        f"We'll text you when your driver is on the way."
+    )
+
+
+def build_customer_reminder_message(reservation: ReservationModel) -> str:
+    pickup_time = format_pickup_time(reservation.date, reservation.time)
+    return (
+        f"Tsatsral Limo reminder: your trip is in about 1 hour ({pickup_time}).\n"
+        f"Pickup: {reservation.pickup}"
+    )
+
+
+def build_customer_receipt_message(reservation: ReservationModel) -> str:
+    amount = f"${_get_reservation_price(reservation):,.2f}"
+    return (
+        f"Tsatsral Limo: Payment received — thank you! "
+        f"Receipt for trip #{reservation.id}: {amount}.\n"
+        f"{reservation.pickup} → {reservation.dropoff}"
+    )
+
+
 async def _send_reminder_at_time(reservation_id: int, remind_at: datetime):
     delay = (remind_at - datetime.now()).total_seconds()
     if delay > 0:
@@ -2486,8 +2590,12 @@ async def _send_reminder_at_time(reservation_id: int, remind_at: datetime):
         if not driver:
             return
         _send_sms(driver.phone, build_reminder_message(reservation))
+        _notify_customer(reservation, build_customer_reminder_message(reservation))
         add_db_event(
-            db, reservation_id, "Reminder sent", "60-min pre-trip SMS sent to driver."
+            db,
+            reservation_id,
+            "Reminder sent",
+            "60-min pre-trip SMS sent to driver and customer.",
         )
         db.commit()
     finally:
@@ -2512,16 +2620,18 @@ def _schedule_trip_reminder(reservation: ReservationModel):
 def notify_driver_of_reservation(
     reservation: ReservationModel, driver: dict[str, str]
 ) -> str:
-    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-    from_number = os.getenv("TWILIO_FROM_NUMBER")
-    if not account_sid or not auth_token or not from_number:
-        return "TWILIO_NOT_CONFIGURED"
-    client = Client(account_sid, auth_token)
-    to_number = _to_e164(driver.get("phone", ""))
-    message = client.messages.create(
-        body=build_dispatch_alert(reservation),
-        from_=from_number,
-        to=to_number,
+    if not os.getenv("LINQ_API_TOKEN") or not os.getenv("LINQ_FROM_NUMBER"):
+        return "LINQ_NOT_CONFIGURED"
+    data = _linq_post(
+        "/chats",
+        {
+            "from": os.getenv("LINQ_FROM_NUMBER"),
+            "to": [_to_e164(driver.get("phone", ""))],
+            "message": {
+                "parts": [
+                    {"type": "text", "value": build_dispatch_alert(reservation)}
+                ]
+            },
+        },
     )
-    return message.sid
+    return _linq_msg_id(data) or ""

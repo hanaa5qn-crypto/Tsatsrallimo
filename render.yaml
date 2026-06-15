@@ -21,11 +21,11 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
-      - key: TWILIO_ACCOUNT_SID
+      - key: LINQ_API_TOKEN
         sync: false
-      - key: TWILIO_AUTH_TOKEN
+      - key: LINQ_FROM_NUMBER
         sync: false
-      - key: TWILIO_FROM_NUMBER
+      - key: LINQ_WEBHOOK_SECRET
         sync: false
       - key: STRIPE_SECRET_KEY
         sync: false

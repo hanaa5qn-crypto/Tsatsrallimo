@@ -3361,8 +3361,8 @@
             throw new Error(detail);
           }
           const data = await r.json();
-          if (data.message_sid === "TWILIO_NOT_CONFIGURED")
-            throw new Error("Twilio not configured");
+          if (data.message_id === "LINQ_NOT_CONFIGURED")
+            throw new Error("Linq not configured");
           showToast("Driver notified", "Assigning chauffeur…");
         } catch (e) {
           showToast("Error", e.message);
