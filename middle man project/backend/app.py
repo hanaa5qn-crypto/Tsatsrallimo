@@ -2136,14 +2136,16 @@ async def linq_webhook(request: Request, db: Session = Depends(get_db)):
         return {"status": "ignored"}
 
     try:
-        fetched = _linq_get(f"/chats/{chat_id}/messages", {"limit": 1})
+        fetched = _linq_get(f"/chats/{chat_id}/messages", {"limit": 10})
         msgs = fetched.get("messages") or []
     except Exception as e:
         print(f"[linq:wh] IGNORE: message fetch failed: {e}")
         return {"status": "ignored"}
-    msg = msgs[0] if msgs else (data.get("message") or {})
-
-    if msg.get("is_from_me"):
+    # Messages are newest-first; take the most recent inbound (driver) one,
+    # so our own outbound texts in the thread don't shadow the reply.
+    msg = next((m for m in msgs if not m.get("is_from_me")), None)
+    if not msg:
+        print("[linq:wh] IGNORE: no inbound message in chat")
         return {"status": "ignored"}
 
     from_handle = (
