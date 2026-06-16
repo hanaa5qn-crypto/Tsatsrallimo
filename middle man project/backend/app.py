@@ -2121,24 +2121,34 @@ async def linq_webhook(request: Request, db: Session = Depends(get_db)):
     if event.get("event_type") != "message.received":
         return {"status": "ignored"}
 
-    # Linq v3 webhook nests the message object under data.message, with the
-    # chat under data.chat. The sender's phone is message.from (and
-    # message.from_handle.handle); the text is in message.parts[].value.
+    # The webhook envelope only reliably carries the chat id (data.chat.id);
+    # the inbound message itself is fetched from the API, whose schema is
+    # known/stable (from, from_handle.handle, is_from_me, parts[].value).
     data = event.get("data", {}) or {}
-    msg = data.get("message") or data
-    if msg.get("is_from_me") or data.get("is_from_me"):
+    chat_id = (
+        (data.get("chat") or {}).get("id")
+        or data.get("chat_id")
+        or (data.get("message") or {}).get("chat_id")
+        or ""
+    )
+    if not chat_id:
+        print(f"[linq:wh] IGNORE: no chat_id; data_keys={list(data.keys())}")
+        return {"status": "ignored"}
+
+    try:
+        fetched = _linq_get(f"/chats/{chat_id}/messages", {"limit": 1})
+        msgs = fetched.get("messages") or []
+    except Exception as e:
+        print(f"[linq:wh] IGNORE: message fetch failed: {e}")
+        return {"status": "ignored"}
+    msg = msgs[0] if msgs else (data.get("message") or {})
+
+    if msg.get("is_from_me"):
         return {"status": "ignored"}
 
     from_handle = (
         msg.get("from")
         or (msg.get("from_handle") or {}).get("handle")
-        or data.get("from")
-        or ""
-    )
-    chat_id = (
-        (data.get("chat") or {}).get("id")
-        or msg.get("chat_id")
-        or data.get("chat_id")
         or ""
     )
     parts = msg.get("parts") or []
@@ -2468,6 +2478,21 @@ def _linq_post(path: str, payload: dict) -> dict:
     if resp.status_code >= 400:
         body = resp.text[:600]
         print(f"[linq] {resp.status_code} POST {path} payload={json.dumps(payload)} -> {body}")
+        raise RuntimeError(f"Linq {resp.status_code}: {body}")
+    return resp.json()
+
+
+def _linq_get(path: str, params: Optional[dict] = None) -> dict:
+    """GET from the Linq Partner API (Blue v3). On error, surface the body."""
+    resp = httpx.get(
+        f"{LINQ_BASE_URL}{path}",
+        params=params or {},
+        headers={"Authorization": f"Bearer {os.getenv('LINQ_API_TOKEN', '')}"},
+        timeout=15.0,
+    )
+    if resp.status_code >= 400:
+        body = resp.text[:600]
+        print(f"[linq] {resp.status_code} GET {path} -> {body}")
         raise RuntimeError(f"Linq {resp.status_code}: {body}")
     return resp.json()
 
