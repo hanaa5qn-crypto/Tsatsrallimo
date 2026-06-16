@@ -2116,12 +2116,15 @@ async def linq_webhook(request: Request, db: Session = Depends(get_db)):
         print("[linq] WARNING: LINQ_WEBHOOK_SECRET unset — signature NOT verified")
 
     event = json.loads(raw)
+    print(f"[linq:wh] keys={list(event.keys())} event_type={event.get('event_type')!r} raw={json.dumps(event)[:600]}")
     # Only driver replies matter; ack everything else.
     if event.get("event_type") != "message.received":
+        print(f"[linq:wh] IGNORE: event_type {event.get('event_type')!r} != message.received")
         return {"status": "ignored"}
 
     data = event.get("data", {})
     if data.get("is_from_me"):
+        print("[linq:wh] IGNORE: is_from_me")
         return {"status": "ignored"}
 
     from_handle = data.get("from", "")
@@ -2142,6 +2145,7 @@ async def linq_webhook(request: Request, db: Session = Depends(get_db)):
         .first()
     )
     if not driver:
+        print(f"[linq:wh] IGNORE: no driver match from={from_handle!r} digits={digits!r} e164={e164!r}")
         return {"status": "ignored"}
 
     # Find the most recent trip pending this driver's confirmation
@@ -2155,8 +2159,10 @@ async def linq_webhook(request: Request, db: Session = Depends(get_db)):
         .first()
     )
     if not reservation:
+        print(f"[linq:wh] IGNORE: driver={driver.name!r} has no 'Pending confirmation' trip; reply={reply!r}")
         return {"status": "ignored"}
 
+    print(f"[linq:wh] MATCH driver={driver.name!r} trip=#{reservation.id} reply={reply!r}")
     if reply.startswith("YES"):
         reservation.status = "Assigned"
         add_db_event(
