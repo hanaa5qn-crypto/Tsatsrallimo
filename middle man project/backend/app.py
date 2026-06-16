@@ -2116,37 +2116,48 @@ async def linq_webhook(request: Request, db: Session = Depends(get_db)):
         print("[linq] WARNING: LINQ_WEBHOOK_SECRET unset — signature NOT verified")
 
     event = json.loads(raw)
-    print(f"[linq:wh] keys={list(event.keys())} event_type={event.get('event_type')!r} raw={json.dumps(event)[:600]}")
-    # Only driver replies matter; ack everything else.
+    # Only inbound driver replies matter. Linq also fires message.sent/
+    # delivered/read for our own outbound texts — ack and ignore those.
     if event.get("event_type") != "message.received":
-        print(f"[linq:wh] IGNORE: event_type {event.get('event_type')!r} != message.received")
         return {"status": "ignored"}
 
-    data = event.get("data", {})
-    if data.get("is_from_me"):
-        print("[linq:wh] IGNORE: is_from_me")
+    # Linq v3 webhook nests the message object under data.message, with the
+    # chat under data.chat. The sender's phone is message.from (and
+    # message.from_handle.handle); the text is in message.parts[].value.
+    data = event.get("data", {}) or {}
+    msg = data.get("message") or data
+    if msg.get("is_from_me") or data.get("is_from_me"):
         return {"status": "ignored"}
 
-    from_handle = data.get("from", "")
-    chat_id = data.get("chat_id", "")
-    parts = (data.get("message") or {}).get("parts", [])
+    from_handle = (
+        msg.get("from")
+        or (msg.get("from_handle") or {}).get("handle")
+        or data.get("from")
+        or ""
+    )
+    chat_id = (
+        (data.get("chat") or {}).get("id")
+        or msg.get("chat_id")
+        or data.get("chat_id")
+        or ""
+    )
+    parts = msg.get("parts") or []
     text = " ".join(p.get("value", "") for p in parts if p.get("type") == "text")
     reply = text.strip().upper()
 
-    # Normalize to 10-digit and also try E.164 to match however the number is stored in DB
-    digits = re.sub(r"\D", "", from_handle)
-    if len(digits) == 11 and digits.startswith("1"):
-        digits = digits[1:]
-    e164 = f"+1{digits}" if len(digits) == 10 else from_handle
-
-    driver = (
-        db.query(DriverModel)
-        .filter((DriverModel.phone == digits) | (DriverModel.phone == e164))
-        .first()
-    )
+    # Match the driver by the last 10 digits, so it works regardless of how
+    # the phone is formatted in the DB ("(415) 860-2088", "+14158602088", …).
+    target10 = re.sub(r"\D", "", from_handle or "")[-10:]
+    driver = None
+    if target10:
+        for d in db.query(DriverModel).all():
+            if re.sub(r"\D", "", d.phone or "")[-10:] == target10:
+                driver = d
+                break
     if not driver:
-        print(f"[linq:wh] IGNORE: no driver match from={from_handle!r} digits={digits!r} e164={e164!r}")
+        print(f"[linq:wh] IGNORE: no driver match from={from_handle!r} target10={target10!r}")
         return {"status": "ignored"}
+    print(f"[linq:wh] from={from_handle!r} chat={chat_id!r} reply={reply!r} driver={driver.name!r}")
 
     # Find the most recent trip pending this driver's confirmation
     reservation = (
