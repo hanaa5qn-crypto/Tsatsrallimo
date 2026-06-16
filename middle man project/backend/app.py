@@ -2472,7 +2472,7 @@ def _send_sms(phone: str, body: str) -> Optional[str]:
     data = _linq_post(
         "/chats",
         {
-            "from": os.getenv("LINQ_FROM_NUMBER"),
+            "from": _to_e164(os.getenv("LINQ_FROM_NUMBER", "")),
             "to": [_to_e164(phone)],
             "message": {"parts": [{"type": "text", "value": body}]},
         },
@@ -2654,7 +2654,7 @@ def notify_driver_of_reservation(
     data = _linq_post(
         "/chats",
         {
-            "from": os.getenv("LINQ_FROM_NUMBER"),
+            "from": _to_e164(os.getenv("LINQ_FROM_NUMBER", "")),
             "to": [_to_e164(driver.get("phone", ""))],
             "message": {
                 "parts": [
